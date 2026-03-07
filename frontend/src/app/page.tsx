@@ -1,0 +1,99 @@
+"use client";
+
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import IntakeFlow from "../components/IntakeFlow";
+import SankofaBird from "../components/SankofaBird";
+
+export default function Home() {
+  const [showIntake, setShowIntake] = useState(false);
+
+  return (
+    <div className="relative min-h-screen overflow-hidden">
+      <div className="fixed inset-0 bg-[var(--night)] animate-gradient-drift bg-gradient-to-br from-[var(--night)] via-[var(--indigo)] to-[#1a0f0a]" />
+      <div className="fixed inset-0 noise-texture pointer-events-none" />
+
+      <AnimatePresence mode="wait">
+        {!showIntake ? (
+          <motion.main
+            key="landing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.2, ease: "easeOut" }}
+              className="mb-12"
+            >
+              <SankofaBird className="w-28 h-28 text-[var(--gold)]" />
+            </motion.div>
+
+            <motion.h1
+              className="font-[family-name:var(--font-display)] text-5xl md:text-7xl tracking-[0.15em] text-[var(--gold)] uppercase text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1, delay: 0.5 }}
+            >
+              Sankofa
+            </motion.h1>
+
+            <motion.p
+              className="mt-6 font-[family-name:var(--font-display)] text-xl md:text-2xl italic text-[var(--ivory)] opacity-80 text-center"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 0.8, y: 0 }}
+              transition={{ duration: 0.8, delay: 1 }}
+            >
+              Go back and get it.
+            </motion.p>
+
+            <motion.p
+              className="mt-3 font-[family-name:var(--font-body)] text-sm text-[var(--muted)] text-center max-w-md"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.8, delay: 1.3 }}
+            >
+              An AI narrator that weaves your ancestral heritage into an
+              immersive, living story — from a few seeds of memory.
+            </motion.p>
+
+            <motion.button
+              onClick={() => setShowIntake(true)}
+              className="mt-14 px-10 py-4 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-lg tracking-[0.1em] uppercase transition-all duration-500 hover:bg-[var(--gold)] hover:text-[var(--night)] hover:shadow-[0_0_30px_rgba(212,168,67,0.25)] cursor-pointer"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 1.6 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Begin Your Journey
+            </motion.button>
+
+            <motion.p
+              className="absolute bottom-8 font-[family-name:var(--font-body)] text-xs text-[var(--muted)] italic text-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              transition={{ delay: 2.5, duration: 1 }}
+            >
+              &ldquo;Se wo were fi na wosankofa a yenkyi&rdquo; — It is not
+              wrong to go back for that which you have forgotten.
+            </motion.p>
+          </motion.main>
+        ) : (
+          <motion.div
+            key="intake"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            className="relative z-10"
+          >
+            <IntakeFlow />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
