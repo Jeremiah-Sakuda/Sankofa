@@ -4,17 +4,62 @@ Assembles grounding context from the cultural knowledge base.
 """
 
 from app.knowledge.west_africa import (
-    REGIONS,
+    REGIONS as WA_REGIONS,
     GENERAL_WEST_AFRICA,
-    get_region_data,
+    get_region_data as wa_get_region,
     get_decade_data,
 )
+from app.knowledge.caribbean import REGIONS as CARIB_REGIONS
+from app.knowledge.south_asia import REGIONS as SA_REGIONS
 from app.models.schemas import UserInput
+
+CARIBBEAN_KEYWORDS = {
+    "jamaica": "jamaica",
+    "jamaican": "jamaica",
+    "haiti": "haiti",
+    "haitian": "haiti",
+    "trinidad": "trinidad",
+    "tobago": "trinidad",
+    "caribbean": "jamaica",
+}
+
+SOUTH_ASIA_KEYWORDS = {
+    "punjab": "india_punjab",
+    "punjabi": "india_punjab",
+    "sikh": "india_punjab",
+    "bengal": "india_bengal",
+    "bengali": "india_bengal",
+    "bangladesh": "india_bengal",
+    "calcutta": "india_bengal",
+    "kolkata": "india_bengal",
+}
+
+
+def _find_region(query: str) -> dict | None:
+    """Search all knowledge bases for matching region."""
+    q = query.lower()
+
+    # Try West Africa first
+    wa = wa_get_region(q)
+    if wa:
+        return wa
+
+    # Try Caribbean
+    for keyword, key in CARIBBEAN_KEYWORDS.items():
+        if keyword in q:
+            return CARIB_REGIONS.get(key)
+
+    # Try South Asia
+    for keyword, key in SOUTH_ASIA_KEYWORDS.items():
+        if keyword in q:
+            return SA_REGIONS.get(key)
+
+    return None
 
 
 def build_grounding_context(user_input: UserInput) -> str:
     """Build a rich grounding context block from user input + knowledge base."""
-    region_data = get_region_data(user_input.region_of_origin)
+    region_data = _find_region(user_input.region_of_origin)
 
     if not region_data:
         return _build_generic_context(user_input)
@@ -39,10 +84,8 @@ def build_grounding_context(user_input: UserInput) -> str:
         context_parts.append(f"Daily life: {decade_data.get('daily_life', '')}")
         context_parts.append(f"Cultural practices: {decade_data.get('cultural_practices', '')}")
 
-    context_parts.append(f"\n=== BROADER WEST AFRICAN CONTEXT ===")
-    context_parts.append(f"Colonial context: {GENERAL_WEST_AFRICA['colonial_context']}")
+    context_parts.append(f"\n=== BROADER CONTEXT ===")
     context_parts.append(f"Shared cultural elements: {'; '.join(GENERAL_WEST_AFRICA['shared_cultural_elements'])}")
-    context_parts.append(f"Transatlantic slavery: {GENERAL_WEST_AFRICA['transatlantic_slavery']}")
 
     if user_input.known_fragments:
         context_parts.append(f"\n=== USER-PROVIDED FRAGMENTS ===")
@@ -64,9 +107,9 @@ def _build_generic_context(user_input: UserInput) -> str:
     parts = [
         f"Region: {user_input.region_of_origin}",
         f"Time period: {user_input.time_period}",
-        f"\n=== BROADER WEST AFRICAN CONTEXT ===",
-        f"Colonial context: {GENERAL_WEST_AFRICA['colonial_context']}",
-        f"Shared cultural elements: {'; '.join(GENERAL_WEST_AFRICA['shared_cultural_elements'])}",
+        f"\nNote: This region is not in our detailed knowledge base. "
+        f"Use your knowledge of the history, culture, geography, and people of "
+        f"{user_input.region_of_origin} during {user_input.time_period} to ground the narrative.",
     ]
 
     if user_input.known_fragments:
