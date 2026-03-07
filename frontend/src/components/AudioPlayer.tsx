@@ -26,17 +26,17 @@ export default function AudioPlayer({
     const audio = new Audio(`data:${mediaType};base64,${audioData}`);
     audioRef.current = audio;
 
-    audio.addEventListener("timeupdate", () => {
-      if (audio.duration) {
-        setProgress(audio.currentTime / audio.duration);
-      }
-    });
-
-    audio.addEventListener("ended", () => {
+    const onTimeUpdate = () => {
+      if (audio.duration) setProgress(audio.currentTime / audio.duration);
+    };
+    const onEnded = () => {
       setIsPlaying(false);
       setProgress(0);
       onPlayStateChange?.(false);
-    });
+    };
+
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
 
     if (autoPlay) {
       audio.play().catch(() => {});
@@ -46,8 +46,9 @@ export default function AudioPlayer({
 
     return () => {
       audio.pause();
-      audio.removeEventListener("timeupdate", () => {});
-      audio.removeEventListener("ended", () => {});
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("ended", onEnded);
+      audioRef.current = null;
     };
   }, [audioData, mediaType, autoPlay, onPlayStateChange]);
 
