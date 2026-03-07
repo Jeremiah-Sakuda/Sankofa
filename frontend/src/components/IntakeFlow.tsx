@@ -93,6 +93,14 @@ export default function IntakeFlow() {
     }
   };
 
+  const handleBack = () => {
+    if (currentStep <= 0) return;
+    const prevStep = currentStep - 1;
+    setCurrentStep(prevStep);
+    setInputValue(answers[STEPS[prevStep].key] ?? "");
+    setError("");
+  };
+
   if (isSubmitting) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6">
@@ -157,16 +165,27 @@ export default function IntakeFlow() {
             </motion.p>
           )}
 
-          <motion.button
-            onClick={handleNext}
-            className="mt-10 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-base tracking-[0.08em] uppercase transition-all duration-400 hover:bg-[var(--gold)] hover:text-[var(--night)] cursor-pointer"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {currentStep < STEPS.length - 1
-              ? "Continue"
-              : "Weave My Narrative"}
-          </motion.button>
+          <div className="flex items-center justify-center gap-4 mt-10">
+            {currentStep > 0 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="px-6 py-3 text-[var(--muted)] font-[family-name:var(--font-body)] text-sm hover:text-[var(--ivory)] transition-colors cursor-pointer"
+              >
+                Back
+              </button>
+            )}
+            <motion.button
+              onClick={handleNext}
+              className="px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-base tracking-[0.08em] uppercase transition-all duration-300 hover:bg-[var(--gold)] hover:text-[var(--night)] cursor-pointer"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {currentStep < STEPS.length - 1
+                ? "Continue"
+                : "Weave My Narrative"}
+            </motion.button>
+          </div>
 
           {!step.required && (
             <button
