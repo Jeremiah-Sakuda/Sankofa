@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import NarrativeSegment from "./NarrativeSegment";
@@ -15,6 +16,7 @@ interface Props {
   region?: string;
   era?: string;
   onFollowUp?: (question: string) => void;
+  onRetry?: () => void;
 }
 
 function ActDivider() {
@@ -36,8 +38,16 @@ export default function NarrativeStream({
   region,
   era,
   onFollowUp,
+  onRetry,
 }: Props) {
   const [followUpInput, setFollowUpInput] = useState("");
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (segments.length > 0) {
+      endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [segments.length]);
 
   let lastAct = 0;
 
@@ -72,6 +82,14 @@ export default function NarrativeStream({
     >
       {/* Header */}
       <header className="text-center mb-16">
+        <div className="flex items-center justify-between mb-4">
+          <Link
+            href="/"
+            className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
+          >
+            Begin new narrative
+          </Link>
+        </div>
         <h1 className="font-[family-name:var(--font-display)] text-2xl md:text-3xl tracking-[0.3em] text-[var(--gold)] uppercase">
           Sankofa
         </h1>
@@ -87,7 +105,10 @@ export default function NarrativeStream({
             const isFirstInAct = isNewAct && segment.type === "text";
 
             return (
-              <div key={`seg-${segment.sequence}-${i}`}>
+              <div
+                key={`seg-${segment.sequence}-${i}`}
+                ref={i === segments.length - 1 ? endRef : undefined}
+              >
                 {isNewAct && i > 0 && <ActDivider />}
                 <NarrativeSegment
                   segment={segment}
@@ -100,7 +121,7 @@ export default function NarrativeStream({
         </AnimatePresence>
 
         {isStreaming && (
-          <div className="flex items-center gap-3 mt-8 mb-4">
+          <div className="flex items-center gap-3 mt-8 mb-4" ref={endRef}>
             <div className="w-2 h-2 rounded-full bg-[var(--gold)] animate-gentle-pulse" />
             <span className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] italic">
               The story continues…
@@ -118,7 +139,9 @@ export default function NarrativeStream({
           className="mt-16 pt-8 border-t border-[var(--ochre)]/20"
         >
           <p className="text-center font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
-            A narrative woven from: {familyName}, {region}, {era}
+            {familyName != null && region != null && era != null
+              ? `A narrative woven from: ${familyName}, ${region}, ${era}`
+              : "A narrative woven from your heritage."}
           </p>
           <p className="mt-2 text-center font-[family-name:var(--font-body)] text-xs text-[var(--muted)] opacity-60">
             Sankofa distinguishes historical record from narrative imagination.
@@ -158,8 +181,17 @@ export default function NarrativeStream({
       )}
 
       {error && (
-        <div className="mt-8 p-4 text-center text-[var(--terracotta)] font-[family-name:var(--font-body)] text-sm">
-          {error}
+        <div className="mt-8 p-4 text-center font-[family-name:var(--font-body)] text-sm">
+          <p className="text-[var(--terracotta)]">{error}</p>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-3 px-4 py-2 border border-[var(--terracotta)] text-[var(--terracotta)] hover:bg-[var(--terracotta)] hover:text-[var(--ivory)] transition-all cursor-pointer"
+            >
+              Try again
+            </button>
+          )}
         </div>
       )}
     </motion.div>

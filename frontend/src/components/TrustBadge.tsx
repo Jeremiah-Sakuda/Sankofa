@@ -1,5 +1,7 @@
+type TrustLevel = "historical" | "cultural" | "reconstructed";
+
 interface TrustBadgeProps {
-  level: "historical" | "cultural" | "reconstructed";
+  level?: TrustLevel | null;
 }
 
 const BADGE_CONFIG = {
@@ -21,7 +23,7 @@ const BADGE_CONFIG = {
 };
 
 export default function TrustBadge({ level }: TrustBadgeProps) {
-  const config = BADGE_CONFIG[level];
+  const config = (level && BADGE_CONFIG[level]) ?? BADGE_CONFIG.reconstructed;
 
   return (
     <div className="absolute -left-4 md:-left-28 top-1 group/badge">
