@@ -1,0 +1,21 @@
+[project]
+name = "sankofa-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+exclude = [".venv", "__pycache__", ".git"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = [
+    "E501",   # line too long
+    "E402",   # module level import not at top
+    "N803",   # invalid first arg for class method
+    "I001",   # isort: unsorted imports
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
