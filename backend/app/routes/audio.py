@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, HTTPException
+from app.models.schemas import AudioGenerateRequest
 from app.services.tts_service import generate_narration
 
 logger = logging.getLogger(__name__)
@@ -7,15 +8,9 @@ router = APIRouter(prefix="/api", tags=["audio"])
 
 
 @router.post("/audio/generate")
-async def generate_audio(request: dict):
+async def generate_audio(request: AudioGenerateRequest):
     """Generate TTS audio for a text segment."""
-    text = request.get("text", "")
-    voice = request.get("voice", "Kore")
-
-    if not text:
-        raise HTTPException(status_code=400, detail="Text is required")
-
-    audio_data = await generate_narration(text, voice)
+    audio_data = await generate_narration(request.text, request.voice)
 
     if not audio_data:
         raise HTTPException(status_code=500, detail="Audio generation failed")

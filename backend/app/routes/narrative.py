@@ -3,7 +3,7 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
-from app.models.schemas import NarrativeSegment
+from app.models.schemas import NarrativeSegment, FollowUpRequest
 from app.models.session import session_store
 from app.services.narrative_planner import plan_and_generate
 from app.services.gemini_service import generate_interleaved
@@ -85,14 +85,12 @@ async def stream_narrative(
 
 
 @router.post("/narrative/{session_id}/followup")
-async def followup_query(session_id: str, request: dict):
+async def followup_query(session_id: str, request: FollowUpRequest):
     session = session_store.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    question = request.get("question", "")
-    if not question:
-        raise HTTPException(status_code=400, detail="Question is required")
+    question = request.question
 
     existing_context = "\n".join(
         seg.content for seg in session.segments if seg.type == "text" and seg.content
