@@ -20,7 +20,7 @@ gcloud run deploy sankofa-api \
   --region "$REGION" \
   --project "$PROJECT_ID" \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,GOOGLE_GENAI_USE_VERTEXAI=True,FRONTEND_URL=https://sankofa-frontend-*-uc.a.run.app" \
+  --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=$REGION,GOOGLE_GENAI_USE_VERTEXAI=True,FRONTEND_URL=https://sankofa-frontend-placeholder.a.run.app" \
   --min-instances 1 \
   --max-instances 5 \
   --memory 1Gi \

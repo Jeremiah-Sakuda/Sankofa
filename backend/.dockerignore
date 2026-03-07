@@ -1,33 +1,7 @@
-# Dependencies and env
-__pycache__
-*.py[cod]
-*$py.class
 .venv
-venv
-env
-.env
-.env.*
-!.env.example
-
-# Git and IDE
-.git
-.gitignore
-.idea
-.vscode
-*.md
-
-# Tests and tooling (not needed in image)
-tests
+__pycache__
+*.pyc
 .pytest_cache
-.coverage
-htmlcov
-*.egg-info
-dist
-build
-ruff.toml
-pyproject.toml
-
-# Docker
-Dockerfile
-docker-compose*.yml
-.dockerignore
+.git
+.env
+*.md
