@@ -1,0 +1,8 @@
+# Ruff lint config for Sankofa backend
+target-version = "py312"
+line-length = 100
+exclude = ["__pycache__", ".venv"]
+
+[lint]
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
