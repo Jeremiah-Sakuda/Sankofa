@@ -19,11 +19,12 @@ interface SessionInfo {
 export default function NarrativePage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
-  const { segments, isStreaming, isComplete, error, startStream } = useSSEStream();
+  const { segments, isStreaming, isComplete, error, startStream, abort, reset } = useSSEStream();
   const [followUpSegments, setFollowUpSegments] = useState<NarrativeSegment[]>([]);
   const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
+  const [enableAudio, setEnableAudio] = useState(false);
 
   useEffect(() => {
     if (sessionId) {
@@ -34,12 +35,15 @@ export default function NarrativePage() {
     }
   }, [sessionId]);
 
+  const handleBeginStream = useCallback(() => {
+    if (!sessionId || hasStarted) return;
+    setHasStarted(true);
+    startStream(sessionId, enableAudio);
+  }, [sessionId, hasStarted, startStream, enableAudio]);
+
   useEffect(() => {
-    if (sessionId && !hasStarted) {
-      setHasStarted(true);
-      startStream(sessionId);
-    }
-  }, [sessionId, hasStarted, startStream]);
+    return () => abort();
+  }, [abort]);
 
   const allSegments = [...segments, ...followUpSegments];
 
@@ -70,7 +74,7 @@ export default function NarrativePage() {
         />
       </div>
 
-      {/* Loading overlay with golden particles */}
+      {/* Pre-start: audio option + Begin. Or loading overlay. */}
       <AnimatePresence>
         {allSegments.length === 0 && (
           <motion.div
@@ -78,32 +82,57 @@ export default function NarrativePage() {
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8 }}
-            className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--night)] overflow-hidden"
+            className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--night)] overflow-hidden px-6"
           >
-            {/* Particle effect */}
-            <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 pointer-events-none" aria-hidden>
               {Array.from({ length: 20 }).map((_, i) => (
                 <div
                   key={i}
                   className="absolute w-1 h-1 rounded-full bg-[var(--gold)]"
                   style={{
-                    left: `${10 + Math.random() * 80}%`,
-                    top: `${10 + Math.random() * 80}%`,
-                    opacity: 0.1 + Math.random() * 0.3,
-                    animation: `gentle-pulse ${3 + Math.random() * 4}s ease-in-out infinite`,
-                    animationDelay: `${Math.random() * 3}s`,
+                    left: `${10 + (i * 4) % 80}%`,
+                    top: `${10 + (i * 7) % 80}%`,
+                    opacity: 0.2 + (i % 3) * 0.15,
+                    animation: "gentle-pulse 2.5s ease-in-out infinite",
+                    animationDelay: `${i * 0.2}s`,
                   }}
                 />
               ))}
             </div>
 
             <SankofaBird className="w-24 h-24 text-[var(--gold)] animate-slow-rotate" />
-            <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)] animate-fade-pulse">
-              Sankofa is reaching back…
-            </p>
-            <p className="mt-3 font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
-              Weaving your ancestral narrative
-            </p>
+            {!hasStarted ? (
+              <>
+                <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]">
+                  Ready to weave your narrative.
+                </p>
+                <label className="mt-6 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={enableAudio}
+                    onChange={(e) => setEnableAudio(e.target.checked)}
+                    className="w-4 h-4 accent-[var(--gold)]"
+                  />
+                  Include audio narration
+                </label>
+                <button
+                  type="button"
+                  onClick={handleBeginStream}
+                  className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
+                >
+                  Begin
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)] animate-fade-pulse">
+                  Sankofa is reaching back…
+                </p>
+                <p className="mt-3 font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
+                  Weaving your ancestral narrative
+                </p>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -128,6 +157,11 @@ export default function NarrativePage() {
             region={sessionInfo?.region_of_origin}
             era={sessionInfo?.time_period}
             onFollowUp={handleFollowUp}
+            onRetry={() => {
+              reset();
+              setHasStarted(false);
+              setFollowUpSegments([]);
+            }}
           />
         </div>
       </motion.div>

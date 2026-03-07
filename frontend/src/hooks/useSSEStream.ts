@@ -7,8 +7,9 @@ interface UseSSEStreamReturn {
   isStreaming: boolean;
   isComplete: boolean;
   error: string | null;
-  startStream: (sessionId: string) => void;
+  startStream: (sessionId: string, enableAudio?: boolean) => void;
   reset: () => void;
+  abort: () => void;
 }
 
 export function useSSEStream(): UseSSEStreamReturn {
@@ -26,7 +27,13 @@ export function useSSEStream(): UseSSEStreamReturn {
     setError(null);
   }, []);
 
+  const abort = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+  }, []);
+
   const startStream = useCallback((sessionId: string, enableAudio: boolean = false) => {
+    abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setIsStreaming(true);
@@ -67,5 +74,5 @@ export function useSSEStream(): UseSSEStreamReturn {
     });
   }, []);
 
-  return { segments, isStreaming, isComplete, error, startStream, reset };
+  return { segments, isStreaming, isComplete, error, startStream, reset, abort };
 }
