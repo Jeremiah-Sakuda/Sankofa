@@ -1,4 +1,5 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_TIMEOUT_MS = 60000; // 1 minute for long-running narrative
 
 export interface UserInput {
   family_name: string;
@@ -25,13 +26,31 @@ export interface IntakeResponse {
   message: string;
 }
 
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs: number = API_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export async function createSession(input: UserInput): Promise<IntakeResponse> {
-  const res = await fetch(`${API_BASE}/api/intake`, {
+  const res = await fetchWithTimeout(`${API_BASE}/api/intake`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  if (!res.ok) throw new Error(`Intake failed: ${res.statusText}`);
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Intake failed: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
@@ -39,12 +58,18 @@ export async function submitFollowUp(
   sessionId: string,
   question: string
 ): Promise<{ segments: NarrativeSegment[] }> {
-  const res = await fetch(`${API_BASE}/api/narrative/${sessionId}/followup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
-  });
-  if (!res.ok) throw new Error(`Follow-up failed: ${res.statusText}`);
+  const res = await fetchWithTimeout(
+    `${API_BASE}/api/narrative/${sessionId}/followup`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    }
+  );
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Follow-up failed: ${res.status} ${res.statusText}`);
+  }
   return res.json();
 }
 
