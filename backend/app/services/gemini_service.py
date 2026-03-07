@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import logging
 from google import genai
@@ -28,10 +29,9 @@ def get_client() -> genai.Client:
     return _client
 
 
-async def generate_interleaved(prompt: str) -> list[NarrativeSegment]:
-    """Generate interleaved text + image content from Gemini."""
+def _generate_interleaved_sync(prompt: str) -> list[NarrativeSegment]:
+    """Synchronous Gemini call (run in thread pool)."""
     client = get_client()
-
     response = client.models.generate_content(
         model=settings.GEMINI_IMAGE_MODEL,
         contents=prompt,
@@ -40,14 +40,11 @@ async def generate_interleaved(prompt: str) -> list[NarrativeSegment]:
             temperature=0.9,
         ),
     )
-
     segments: list[NarrativeSegment] = []
     sequence = 0
-
     if not response.candidates or not response.candidates[0].content:
         logger.warning("Gemini returned no candidates")
         return segments
-
     for part in response.candidates[0].content.parts:
         if part.text:
             segments.append(
@@ -59,7 +56,7 @@ async def generate_interleaved(prompt: str) -> list[NarrativeSegment]:
                 )
             )
             sequence += 1
-        elif part.inline_data:
+        elif part.inline_data and part.inline_data.data:
             image_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
             segments.append(
                 NarrativeSegment(
@@ -71,24 +68,31 @@ async def generate_interleaved(prompt: str) -> list[NarrativeSegment]:
                 )
             )
             sequence += 1
-
     return segments
 
 
-async def generate_text(prompt: str, model: str | None = None) -> str:
-    """Generate text-only content from Gemini."""
+async def generate_interleaved(prompt: str) -> list[NarrativeSegment]:
+    """Generate interleaved text + image content from Gemini (non-blocking)."""
+    return await asyncio.to_thread(_generate_interleaved_sync, prompt)
+
+
+def _generate_text_sync(prompt: str, model: str) -> str:
+    """Synchronous Gemini text call (run in thread pool)."""
     client = get_client()
-    target_model = model or settings.GEMINI_PLANNING_MODEL
-
     response = client.models.generate_content(
-        model=target_model,
+        model=model,
         contents=prompt,
-        config=GenerateContentConfig(
-            temperature=0.7,
-        ),
+        config=GenerateContentConfig(temperature=0.7),
     )
-
     if not response.candidates or not response.candidates[0].content:
         return ""
+    parts = response.candidates[0].content.parts
+    if not parts:
+        return ""
+    return parts[0].text or ""
 
-    return response.candidates[0].content.parts[0].text or ""
+
+async def generate_text(prompt: str, model: str | None = None) -> str:
+    """Generate text-only content from Gemini (non-blocking)."""
+    target_model = model or settings.GEMINI_PLANNING_MODEL
+    return await asyncio.to_thread(_generate_text_sync, prompt, target_model)
