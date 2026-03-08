@@ -54,6 +54,15 @@ async def lifespan(app: FastAPI):
         if settings.is_production:
             raise
         logger.warning("Config validation skipped in non-production: %s", e)
+    # Log Gemini API key status at startup (no key value printed)
+    if settings.GOOGLE_GENAI_USE_VERTEXAI:
+        logger.info("Gemini: using Vertex AI (project=%s)", settings.GOOGLE_CLOUD_PROJECT or "?")
+    else:
+        key = settings.GOOGLE_API_KEY
+        if key:
+            logger.info("Gemini: API key present (length=%d). Source: aistudio.google.com/apikey", len(key))
+        else:
+            logger.warning("Gemini: GOOGLE_API_KEY is empty. Set it in backend/.env for narrative generation.")
     yield
 
 

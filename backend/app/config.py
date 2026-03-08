@@ -18,15 +18,17 @@ class Settings:
     GOOGLE_CLOUD_PROJECT: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
     GOOGLE_CLOUD_LOCATION: str = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
     GOOGLE_GENAI_USE_VERTEXAI: bool = os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "false").lower() == "true"
-    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "").strip()  # Strip spaces/newlines
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # CORS: use CORS_ORIGINS for multiple origins, or FRONTEND_URL for single
     CORS_ORIGINS: list[str] = _parse_cors_origins()
 
-    GEMINI_IMAGE_MODEL: str = "gemini-2.0-flash-exp"
-    GEMINI_PLANNING_MODEL: str = "gemini-2.0-flash"
-    GEMINI_TTS_MODEL: str = "gemini-2.5-flash-preview-tts"
+    # Model IDs for Gemini API (aistudio.google.com). Match https://ai.google.dev/gemini-api/docs/models
+    # Planning: text-only. Narrative: must support image+text output (e.g. Nano Banana). TTS: audio output.
+    GEMINI_PLANNING_MODEL: str = os.getenv("GEMINI_PLANNING_MODEL", "gemini-2.5-flash")
+    GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")  # Nano Banana: image+text
+    GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-pro-preview-tts")
 
     @property
     def is_production(self) -> bool:

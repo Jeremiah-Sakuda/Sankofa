@@ -18,7 +18,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _generate_narration_sync(text: str, voice_name: str) -> str | None:
+def _generate_narration_sync(text: str, voice_name: str) -> tuple[str, str] | None:
     """Synchronous TTS call (run in thread pool)."""
     client = get_client()
     response = client.models.generate_content(
@@ -44,18 +44,20 @@ Let the words breathe. This is oral storytelling, not news reading.
     ):
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
-                return base64.b64encode(part.inline_data.data).decode("utf-8")
+                b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
+                mime = getattr(part.inline_data, "mime_type", None) or "audio/wav"
+                return (b64, mime)
     return None
 
 
-async def generate_narration(text: str, voice_name: str = "Kore") -> str | None:
-    """Generate audio narration for a text segment (non-blocking)."""
+async def generate_narration(text: str, voice_name: str = "Kore") -> tuple[str, str] | None:
+    """Generate audio narration for a text segment (non-blocking). Returns (base64_data, mime_type) or None."""
     if not text or len(text.strip()) < 10:
         return None
     try:
         return await asyncio.to_thread(_generate_narration_sync, text, voice_name)
     except Exception as e:
-        logger.warning(f"TTS generation failed: {e}")
+        logger.warning("TTS generation failed: %s", e, exc_info=True)
         return None
 
 

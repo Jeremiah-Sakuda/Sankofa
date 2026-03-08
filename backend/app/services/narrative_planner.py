@@ -18,24 +18,58 @@ logger = logging.getLogger(__name__)
 
 async def plan_and_generate(session: Session) -> list[NarrativeSegment]:
     """Execute the full 3-step narrative pipeline."""
+    arc, context = await plan_arc_only(session)
+    return await generate_narrative_only(session, context)
+
+
+# Cap context size per step to reduce prompt size and speed up Gemini calls
+ARC_CONTEXT_MAX_CHARS = 1500   # Keep arc prompt small so the first Gemini call is fast
+NARRATIVE_CONTEXT_MAX_CHARS = 4000  # Narrative can use more for accuracy
+
+
+def get_fast_arc(session: Session) -> tuple[dict, str]:
+    """Build grounding context and use a template arc (no Gemini call). Use for fast mode."""
+    user_input = session.user_input
+    grounding_context_full = build_grounding_context(user_input)
+    arc = _fallback_arc(user_input)
+    session.arc_outline = arc
+    return arc, grounding_context_full
+
+
+def _cap_context(context: str, max_chars: int) -> str:
+    if len(context) <= max_chars:
+        return context
+    return context[: max_chars].rsplit("\n", 1)[0] + "\n\n[... context truncated for length ...]"
+
+
+async def plan_arc_only(session: Session) -> tuple[dict, str]:
+    """Step 1 + 2: Build grounding context and plan arc via Gemini. Returns (arc_outline, grounding_context)."""
     user_input = session.user_input
 
-    # Step 1: Context Assembly
-    grounding_context = build_grounding_context(user_input)
-    logger.info(f"Grounding context assembled: {len(grounding_context)} chars")
+    logger.info("[narrative] Step 1: Assembling grounding context...")
+    grounding_context_full = build_grounding_context(user_input)
+    grounding_context = _cap_context(grounding_context_full, ARC_CONTEXT_MAX_CHARS)
+    logger.info(f"[narrative] Step 1 done: context {len(grounding_context_full)} chars (using {len(grounding_context)} for arc)")
 
-    # Step 2: Arc Planning
+    logger.info("[narrative] Step 2: Planning arc (calling Gemini text model)...")
     arc_outline = await _plan_arc(user_input, grounding_context)
     session.arc_outline = arc_outline
-    logger.info(f"Arc outline planned: {json.dumps(arc_outline)[:200]}")
+    logger.info(f"[narrative] Step 2 done: arc planned ({json.dumps(arc_outline)[:120]}...)")
+    # Return full context for narrative step (we'll cap again there for the prompt)
+    return arc_outline, grounding_context_full
 
-    # Step 3: Interleaved Generation
+
+async def generate_narrative_only(session: Session, grounding_context: str) -> list[NarrativeSegment]:
+    """Step 3: Generate interleaved text + images via Gemini."""
+    user_input = session.user_input
+    arc_outline = session.arc_outline or {}
+
+    logger.info("[narrative] Step 3: Generating interleaved narrative (calling Gemini image model)...")
     segments = await _generate_narrative(user_input, grounding_context, arc_outline)
+    logger.info(f"[narrative] Step 3 done: generated {len(segments)} segments")
+
     segments = apply_trust_tags(segments)
-
-    # Assign act numbers based on content
     _assign_acts(segments)
-
     return segments
 
 
@@ -120,6 +154,7 @@ async def _generate_narrative(
     user_input: UserInput, context: str, arc: dict
 ) -> list[NarrativeSegment]:
     """Step 3: Generate the full interleaved narrative."""
+    context_capped = _cap_context(context, NARRATIVE_CONTEXT_MAX_CHARS)
     act1 = arc.get("act1_setting", {})
     act2 = arc.get("act2_people", {})
     act3 = arc.get("act3_thread", {})
@@ -133,7 +168,7 @@ You are telling the heritage story of the {user_input.family_name} family from
 {user_input.region_of_origin} during {user_input.time_period}.
 
 === GROUNDING CONTEXT (use these facts to ensure accuracy) ===
-{context}
+{context_capped}
 
 === NARRATIVE ARC ===
 
