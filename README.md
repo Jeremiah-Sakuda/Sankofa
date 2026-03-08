@@ -68,7 +68,7 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 | Backend | Python 3.12 / FastAPI | Cloud Run |
 | Frontend | Next.js 16 / React 19 / Tailwind CSS v4 | Cloud Run |
 | Streaming | Server-Sent Events (SSE) via sse-starlette | Cloud Run |
-| Session Store | In-memory (Firestore-ready) | Firestore (optional) |
+| Session Store | In-memory (default) or Firestore via `USE_FIRESTORE` | Firestore (production) |
 
 ## Supported Regions
 
@@ -91,13 +91,15 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 
 ```bash
 cd backend
-cp .env.example .env  # Edit with your Google API key
+cp .env.example .env   # Edit with your Google API key (from https://aistudio.google.com/apikey)
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-# If uvicorn is not found, use: python -m uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-**Note:** The backend reads `.env` only at startup. After you change `GOOGLE_API_KEY` (or any variable in `.env`), restart the backend for it to take effect.
+- Use `python -m uvicorn` if `uvicorn` is not on your PATH (e.g. when not activating a venv).
+- **Windows:** If `--reload` causes a permission or multiprocessing error, run without reload:  
+  `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` (restart the process manually after code changes).
+- The backend reads `.env` only at startup; restart the backend after changing any `.env` values.
 
 ### Frontend
 
@@ -132,6 +134,15 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 chmod +x deploy.sh
 ./deploy.sh
 ```
+
+## Session store (Firestore)
+
+Sessions are persisted in **Firestore** in production so they survive restarts. Locally, the backend uses an **in-memory** store by default.
+
+- **Config:** Set `USE_FIRESTORE=true` and `GOOGLE_CLOUD_PROJECT` when using Firestore. Optional: `FIRESTORE_SESSIONS_COLLECTION` (default `sessions`).
+- **Data model:** One Firestore document per session (document ID = `session_id`) with `user_input`, `narrative_context`, `is_generating`, and `arc_outline`. Segments are stored in a **subcollection** `segments` (one doc per segment, keyed by sequence) to stay under Firestore’s 1 MiB document limit when narratives include base64 images and audio.
+- **Backend:** `app/store/` provides the active store: `FirestoreSessionStore` (when `USE_FIRESTORE=true`) or `InMemorySessionStore`. Routes use `session_store` from `app.store`; no route logic depends on which backend is used.
+- **Deployment:** The deploy script sets `USE_FIRESTORE=True` for the backend. Enable the Firestore API and grant the Cloud Run service account the **Cloud Datastore User** role. See `backend/docs/DEPLOYMENT.md` for steps.
 
 ## Trust & Accuracy
 
