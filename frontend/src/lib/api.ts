@@ -1,6 +1,38 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_TIMEOUT_MS = 60000; // 1 minute for long-running narrative
 
+export interface HealthCheckResult {
+  ok: boolean;
+  message?: string;
+  status?: string;
+  service?: string;
+}
+
+/** Call before starting a narrative to verify backend is reachable. */
+export async function checkBackendHealth(): Promise<HealthCheckResult> {
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${API_BASE}/api/health`, { signal: controller.signal });
+    clearTimeout(id);
+    if (!res.ok) {
+      return { ok: false, message: `Backend returned ${res.status}` };
+    }
+    const data = (await res.json()) as { status?: string; service?: string };
+    return {
+      ok: true,
+      status: data.status,
+      service: data.service,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Request failed";
+    return {
+      ok: false,
+      message: message.includes("abort") ? "Request timed out" : message,
+    };
+  }
+}
+
 export interface UserInput {
   family_name: string;
   region_of_origin: string;
