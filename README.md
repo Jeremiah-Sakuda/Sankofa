@@ -94,7 +94,10 @@ cd backend
 cp .env.example .env  # Edit with your Google API key
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+# If uvicorn is not found, use: python -m uvicorn app.main:app --reload --port 8000
 ```
+
+**Note:** The backend reads `.env` only at startup. After you change `GOOGLE_API_KEY` (or any variable in `.env`), restart the backend for it to take effect.
 
 ### Frontend
 
@@ -106,6 +109,17 @@ npm run dev
 ```
 
 Visit http://localhost:3000 to begin.
+
+### Test API and network
+
+With the backend running, verify it’s reachable:
+
+```powershell
+# PowerShell
+Invoke-RestMethod -Uri "http://localhost:8000/api/health" -Method Get
+```
+
+You should see `status: healthy` and `service: sankofa-api`. In the app, on the narrative “Ready to weave your narrative” screen, use **Test API connection** to check from the browser before clicking Begin.
 
 ## Google Cloud Deployment
 
