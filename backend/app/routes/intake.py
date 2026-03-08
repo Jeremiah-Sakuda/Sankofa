@@ -1,7 +1,7 @@
 import uuid
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import UserInput, IntakeResponse
-from app.models.session import session_store
+from app.store import session_store
 
 router = APIRouter(prefix="/api", tags=["intake"])
 

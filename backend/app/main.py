@@ -63,6 +63,10 @@ async def lifespan(app: FastAPI):
             logger.info("Gemini: API key present (length=%d). Source: aistudio.google.com/apikey", len(key))
         else:
             logger.warning("Gemini: GOOGLE_API_KEY is empty. Set it in backend/.env for narrative generation.")
+    if settings.USE_FIRESTORE:
+        logger.info("Session store: Firestore (project=%s, collection=%s)", settings.GOOGLE_CLOUD_PROJECT, settings.FIRESTORE_SESSIONS_COLLECTION)
+    else:
+        logger.info("Session store: in-memory")
     yield
 
 

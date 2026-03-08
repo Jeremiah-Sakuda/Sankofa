@@ -13,8 +13,8 @@ class Session:
     arc_outline: Optional[dict] = None
 
 
-class SessionStore:
-    """In-memory session storage. Replace with Firestore for production."""
+class InMemorySessionStore:
+    """In-memory session storage. Used when USE_FIRESTORE is false."""
 
     def __init__(self):
         self._sessions: dict[str, Session] = {}
@@ -32,6 +32,3 @@ class SessionStore:
 
     def exists(self, session_id: str) -> bool:
         return session_id in self._sessions
-
-
-session_store = SessionStore()

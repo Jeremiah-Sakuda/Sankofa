@@ -30,6 +30,10 @@ class Settings:
     GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")  # Nano Banana: image+text
     GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-pro-preview-tts")
 
+    # Session store: in-memory (default) or Firestore
+    USE_FIRESTORE: bool = os.getenv("USE_FIRESTORE", "false").lower() == "true"
+    FIRESTORE_SESSIONS_COLLECTION: str = os.getenv("FIRESTORE_SESSIONS_COLLECTION", "sessions")
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"
@@ -44,6 +48,8 @@ class Settings:
                 raise ValueError("GOOGLE_API_KEY is required in production when not using Vertex AI")
         if not self.CORS_ORIGINS and self.is_production:
             raise ValueError("At least one CORS origin (FRONTEND_URL or CORS_ORIGINS) is required in production")
+        if self.USE_FIRESTORE and not self.GOOGLE_CLOUD_PROJECT:
+            raise ValueError("GOOGLE_CLOUD_PROJECT is required when USE_FIRESTORE is true")
 
 
 settings = Settings()

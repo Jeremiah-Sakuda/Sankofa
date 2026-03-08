@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 from app.models.schemas import NarrativeSegment, FollowUpRequest
-from app.models.session import session_store
+from app.store import session_store
 from app.services.narrative_planner import plan_arc_only, generate_narrative_only, get_fast_arc
 from app.services.gemini_service import generate_interleaved
 from app.services.trust_classifier import apply_trust_tags
