@@ -10,6 +10,46 @@ interface AudioPlayerProps {
   onPlayStateChange?: (playing: boolean) => void;
 }
 
+/** Build a playable blob URL from base64 audio. Trims whitespace for compatibility. */
+function useAudioSrc(audioData: string | undefined, mediaType: string): string | null {
+  const [src, setSrc] = useState<string | null>(null);
+  const revokeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!audioData) {
+      setSrc(null);
+      return;
+    }
+    const mime = mediaType?.startsWith("audio/") ? mediaType : "audio/wav";
+    const trimmed = audioData.replace(/\s/g, "").trim();
+    if (!trimmed) {
+      setSrc(null);
+      return;
+    }
+    try {
+      const binary = atob(trimmed);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      const url = URL.createObjectURL(blob);
+      if (revokeRef.current) URL.revokeObjectURL(revokeRef.current);
+      revokeRef.current = url;
+      setSrc(url);
+    } catch {
+      setSrc(null);
+    }
+    return () => {
+      if (revokeRef.current) {
+        URL.revokeObjectURL(revokeRef.current);
+        revokeRef.current = null;
+      }
+      setSrc(null);
+    };
+  }, [audioData, mediaType]);
+
+  return src;
+}
+
 export default function AudioPlayer({
   audioData,
   mediaType = "audio/wav",
@@ -19,24 +59,33 @@ export default function AudioPlayer({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const src = useAudioSrc(audioData, mediaType);
 
   useEffect(() => {
-    if (!audioData) return;
+    if (!src || !audioRef.current) return;
+    setLoadError(false);
+  }, [src]);
 
-    const audio = new Audio(`data:${mediaType};base64,${audioData}`);
-    audioRef.current = audio;
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !src) return;
 
     const onTimeUpdate = () => {
-      if (audio.duration) setProgress(audio.currentTime / audio.duration);
+      if (audio.duration && Number.isFinite(audio.duration)) setProgress(audio.currentTime / audio.duration);
     };
     const onEnded = () => {
       setIsPlaying(false);
       setProgress(0);
       onPlayStateChange?.(false);
     };
+    const onError = () => setLoadError(true);
+    const onCanPlay = () => setLoadError(false);
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
+    audio.addEventListener("error", onError);
+    audio.addEventListener("canplay", onCanPlay);
 
     if (autoPlay) {
       audio.play().catch(() => {});
@@ -48,24 +97,32 @@ export default function AudioPlayer({
       audio.pause();
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
-      audioRef.current = null;
+      audio.removeEventListener("error", onError);
+      audio.removeEventListener("canplay", onCanPlay);
     };
-  }, [audioData, mediaType, autoPlay, onPlayStateChange]);
+  }, [src, autoPlay, onPlayStateChange]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || !src) return;
 
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
       onPlayStateChange?.(false);
     } else {
-      audio.play().catch(() => {});
-      setIsPlaying(true);
-      onPlayStateChange?.(true);
+      const p = audio.play();
+      if (p && typeof p.then === "function") {
+        p.then(() => {
+          setIsPlaying(true);
+          onPlayStateChange?.(true);
+        }).catch(() => setLoadError(true));
+      } else {
+        setIsPlaying(true);
+        onPlayStateChange?.(true);
+      }
     }
-  }, [isPlaying, onPlayStateChange]);
+  }, [isPlaying, onPlayStateChange, src]);
 
   if (!audioData) return null;
 
@@ -75,9 +132,14 @@ export default function AudioPlayer({
       animate={{ opacity: 1, scale: 1 }}
       className="inline-flex items-center gap-3 mt-2 mb-1"
     >
+      {src && (
+        <audio ref={audioRef} src={src} preload="metadata" className="hidden" />
+      )}
       <button
+        type="button"
         onClick={togglePlay}
-        className="relative w-8 h-8 rounded-full border border-[var(--gold)]/60 flex items-center justify-center transition-all duration-300 hover:border-[var(--gold)] hover:shadow-[0_0_12px_rgba(212,168,67,0.2)] cursor-pointer group"
+        disabled={!src || loadError}
+        className="relative w-8 h-8 rounded-full border border-[var(--gold)]/60 flex items-center justify-center transition-all duration-300 hover:border-[var(--gold)] hover:shadow-[0_0_12px_rgba(212,168,67,0.2)] cursor-pointer group disabled:opacity-50 disabled:cursor-not-allowed"
         aria-label={isPlaying ? "Pause narration" : "Play narration"}
       >
         {isPlaying ? (
@@ -134,7 +196,7 @@ export default function AudioPlayer({
 
       {!isPlaying && (
         <span className="text-[var(--muted)] text-xs font-[family-name:var(--font-body)] opacity-60 group-hover:opacity-100 transition-opacity">
-          Listen
+          {loadError ? "Audio unavailable" : "Listen"}
         </span>
       )}
     </motion.div>
