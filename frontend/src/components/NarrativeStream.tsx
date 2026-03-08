@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
+import type { StreamProgressStep } from "../hooks/useSSEStream";
 import NarrativeSegment from "./NarrativeSegment";
 import SankofaBird from "./SankofaBird";
 
@@ -12,6 +13,8 @@ interface Props {
   isStreaming: boolean;
   isComplete: boolean;
   error: string | null;
+  followUpError?: string | null;
+  progressStep?: StreamProgressStep;
   familyName?: string;
   region?: string;
   era?: string;
@@ -37,6 +40,8 @@ export default function NarrativeStream({
   familyName,
   region,
   era,
+  followUpError,
+  progressStep,
   onFollowUp,
   onRetry,
 }: Props) {
@@ -124,7 +129,7 @@ export default function NarrativeStream({
           <div className="flex items-center gap-3 mt-8 mb-4" ref={endRef}>
             <div className="w-2 h-2 rounded-full bg-[var(--gold)] animate-gentle-pulse" />
             <span className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] italic">
-              The story continues…
+              {progressStep === "generating_audio" ? "Adding narration…" : "The story continues…"}
             </span>
           </div>
         )}
@@ -170,11 +175,17 @@ export default function NarrativeStream({
                 />
                 <button
                   onClick={handleFollowUp}
-                  className="px-5 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
+                  disabled={isStreaming}
+                  className="px-5 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Ask
                 </button>
               </div>
+              {followUpError && (
+                <p className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--terracotta)]" role="alert">
+                  {followUpError}
+                </p>
+              )}
             </div>
           )}
         </motion.footer>
