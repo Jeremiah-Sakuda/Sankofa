@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { motion } from "motion/react";
 
 interface AudioPlayerProps {
@@ -61,6 +61,18 @@ export default function AudioPlayer({
   const [progress, setProgress] = useState(0);
   const [loadError, setLoadError] = useState(false);
   const src = useAudioSrc(audioData, mediaType);
+
+  // Deterministic waveform bar config (stable across renders for hydration)
+  const waveformBars = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => ({
+        height: [4, 8 + (i * 7) % 13, 4],
+        duration: 0.4 + (i % 5) * 0.08,
+        delay: i * 0.05,
+        opacity: 0.5 + (i % 4) * 0.08,
+      })),
+    []
+  );
 
   useEffect(() => {
     if (!src || !audioRef.current) return;
@@ -173,22 +185,20 @@ export default function AudioPlayer({
         )}
       </button>
 
-      {/* Waveform visualization */}
+      {/* Waveform visualization - deterministic for hydration safety */}
       {isPlaying && (
         <div className="flex items-center gap-[2px] h-4">
-          {Array.from({ length: 12 }).map((_, i) => (
+          {waveformBars.map((bar, i) => (
             <motion.div
               key={i}
               className="w-[2px] bg-[var(--gold)] rounded-full"
-              animate={{
-                height: [4, 8 + Math.random() * 8, 4],
-              }}
+              animate={{ height: bar.height }}
               transition={{
-                duration: 0.4 + Math.random() * 0.4,
+                duration: bar.duration,
                 repeat: Infinity,
-                delay: i * 0.05,
+                delay: bar.delay,
               }}
-              style={{ opacity: 0.5 + Math.random() * 0.3 }}
+              style={{ opacity: bar.opacity }}
             />
           ))}
         </div>
