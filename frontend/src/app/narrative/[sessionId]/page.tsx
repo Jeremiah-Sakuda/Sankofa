@@ -5,18 +5,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useSSEStream } from "../../../hooks/useSSEStream";
-import { submitFollowUp, NarrativeSegment, checkBackendHealth } from "../../../lib/api";
+import { submitFollowUp, NarrativeSegment, checkBackendHealth, getSession, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
 import SankofaBird from "../../../components/SankofaBird";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const STUCK_TIMEOUT_MS = 90_000; // show "taking longer" after 90s with no segments
-
-interface SessionInfo {
-  family_name: string;
-  region_of_origin: string;
-  time_period: string;
-}
 
 export default function NarrativePage() {
   const params = useParams();
@@ -37,29 +30,17 @@ export default function NarrativePage() {
   const [followUpError, setFollowUpError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (sessionId) {
-      fetch(`${API_BASE}/api/session/${sessionId}`)
-        .then((r) => {
-          if (r.status === 404) setSessionInvalid(true);
-          return r.json();
-        })
-        .then((data) => {
-          if (data?.user_input) setSessionInfo(data.user_input);
-        })
-        .catch(() => setSessionInvalid(true));
-    }
+    if (!sessionId) return;
+    getSession(sessionId).then((data) => {
+      if (data === null) setSessionInvalid(true);
+      else setSessionInfo(data.user_input);
+    });
   }, [sessionId]);
 
   const handleBeginStream = useCallback(async () => {
     if (!sessionId || hasStarted) return;
-    // Confirm session still exists before starting stream (avoids 404 after backend restart)
-    try {
-      const r = await fetch(`${API_BASE}/api/session/${sessionId}`);
-      if (r.status === 404) {
-        setSessionInvalid(true);
-        return;
-      }
-    } catch {
+    const data = await getSession(sessionId);
+    if (data === null) {
       setSessionInvalid(true);
       return;
     }
@@ -194,7 +175,7 @@ export default function NarrativePage() {
                     Please start over from the beginning.
                   </p>
                   <Link
-                    href="/intake"
+                    href="/"
                     className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
                   >
                     Start over

@@ -1,5 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const API_TIMEOUT_MS = 60000; // 1 minute for long-running narrative
+const SESSION_FETCH_TIMEOUT_MS = 10_000;
 
 export interface HealthCheckResult {
   ok: boolean;
@@ -56,6 +57,33 @@ export interface NarrativeSegment {
 export interface IntakeResponse {
   session_id: string;
   message: string;
+}
+
+export interface SessionInfo {
+  family_name: string;
+  region_of_origin: string;
+  time_period: string;
+}
+
+export interface SessionResponse {
+  user_input: SessionInfo;
+}
+
+/** Fetch session by ID. Returns null if session not found (404) or request fails. */
+export async function getSession(sessionId: string): Promise<SessionResponse | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `${API_BASE}/api/session/${sessionId}`,
+      { method: "GET" },
+      SESSION_FETCH_TIMEOUT_MS
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as SessionResponse | null;
+    return data?.user_input ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchWithTimeout(
