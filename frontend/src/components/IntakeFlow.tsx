@@ -6,36 +6,44 @@ import { useRouter } from "next/navigation";
 import { createSession, UserInput } from "../lib/api";
 import SankofaBird from "./SankofaBird";
 
+const MAX_LENGTH_SHORT = 120;
+const MAX_LENGTH_LONG = 500;
+
 const STEPS = [
   {
     key: "family_name",
     question: "What is your family name?",
     placeholder: "Okonkwo, Baptiste, Chen…",
     required: true,
+    maxLength: MAX_LENGTH_SHORT,
   },
   {
     key: "region_of_origin",
     question: "Where did your ancestors come from?",
     placeholder: "Ghana, coastal West Africa, Fujian province…",
     required: true,
+    maxLength: MAX_LENGTH_SHORT,
   },
   {
     key: "time_period",
     question: "What era are you drawn to?",
     placeholder: "My grandmother's era, the 1940s, pre-independence…",
     required: true,
+    maxLength: MAX_LENGTH_SHORT,
   },
   {
     key: "known_fragments",
     question: "Do you know any fragments of the story?",
     placeholder: "She was a trader… they came from the coast… (or press Enter to skip)",
     required: false,
+    maxLength: MAX_LENGTH_LONG,
   },
   {
     key: "specific_interests",
     question: "What would you most like to explore?",
     placeholder: "Daily life, music and art, the journey to America… (or press Enter to skip)",
     required: false,
+    maxLength: MAX_LENGTH_LONG,
   },
 ] as const;
 
@@ -57,6 +65,10 @@ export default function IntakeFlow() {
 
     if (step.required && !val) {
       setError("This field is required to weave your narrative.");
+      return;
+    }
+    if (step.maxLength && val.length > step.maxLength) {
+      setError(`Please keep this to ${step.maxLength} characters or fewer.`);
       return;
     }
 
@@ -152,6 +164,7 @@ export default function IntakeFlow() {
             onKeyDown={handleKeyDown}
             placeholder={step.placeholder}
             autoFocus
+            maxLength={step.maxLength ?? undefined}
             className="w-full max-w-lg bg-transparent border-b-2 border-[var(--ochre)] text-[var(--ivory)] font-[family-name:var(--font-body)] text-xl md:text-2xl text-center pb-3 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
           />
 

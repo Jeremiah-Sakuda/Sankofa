@@ -8,6 +8,8 @@ import type { StreamProgressStep } from "../hooks/useSSEStream";
 import NarrativeSegment from "./NarrativeSegment";
 import SankofaBird from "./SankofaBird";
 
+const FOLLOW_UP_MAX_LENGTH = 500;
+
 interface Props {
   segments: SegmentType[];
   isStreaming: boolean;
@@ -46,6 +48,7 @@ export default function NarrativeStream({
   onRetry,
 }: Props) {
   const [followUpInput, setFollowUpInput] = useState("");
+  const [followUpValidationError, setFollowUpValidationError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,10 +61,14 @@ export default function NarrativeStream({
 
   const handleFollowUp = () => {
     const q = followUpInput.trim();
-    if (q && onFollowUp) {
-      onFollowUp(q);
-      setFollowUpInput("");
+    if (!q || !onFollowUp) return;
+    if (q.length > FOLLOW_UP_MAX_LENGTH) {
+      setFollowUpValidationError(`Please keep your question to ${FOLLOW_UP_MAX_LENGTH} characters or fewer.`);
+      return;
     }
+    setFollowUpValidationError(null);
+    onFollowUp(q);
+    setFollowUpInput("");
   };
 
   if (segments.length === 0 && !isStreaming) {
@@ -168,9 +175,13 @@ export default function NarrativeStream({
                 <input
                   type="text"
                   value={followUpInput}
-                  onChange={(e) => setFollowUpInput(e.target.value)}
+                  onChange={(e) => {
+                    setFollowUpInput(e.target.value);
+                    setFollowUpValidationError(null);
+                  }}
                   onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
                   placeholder="Tell me about the music of that era…"
+                  maxLength={FOLLOW_UP_MAX_LENGTH}
                   className="flex-1 bg-transparent border-b-2 border-[var(--ochre)]/40 text-[var(--umber)] font-[family-name:var(--font-body)] text-base pb-2 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
                 />
                 <button
@@ -181,9 +192,9 @@ export default function NarrativeStream({
                   Ask
                 </button>
               </div>
-              {followUpError && (
+              {(followUpError || followUpValidationError) && (
                 <p className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--terracotta)]" role="alert">
-                  {followUpError}
+                  {followUpError ?? followUpValidationError}
                 </p>
               )}
             </div>
