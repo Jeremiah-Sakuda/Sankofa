@@ -51,31 +51,37 @@ export function useSSEStream(): UseSSEStreamReturn {
     fetchEventSource(getStreamUrl(sessionId, enableAudio), {
       signal: ctrl.signal,
       onmessage(ev) {
-        if (ev.event === "status") {
-          const data = JSON.parse(ev.data);
-          if (data.status === "complete") {
-            setIsStreaming(false);
-            setIsComplete(true);
-            setProgressStep(null);
-          } else if (
-            data.status === "planning_arc" ||
-            data.status === "generating_narrative" ||
-            data.status === "generating_audio"
-          ) {
-            setProgressStep(data.status);
+        try {
+          if (ev.event === "status") {
+            const data = JSON.parse(ev.data) as { status?: string };
+            if (data?.status === "complete") {
+              setIsStreaming(false);
+              setIsComplete(true);
+              setProgressStep(null);
+            } else if (
+              data?.status === "planning_arc" ||
+              data?.status === "generating_narrative" ||
+              data?.status === "generating_audio"
+            ) {
+              setProgressStep(data.status);
+            }
+            return;
           }
-          return;
-        }
-        if (ev.event === "error") {
-          const data = JSON.parse(ev.data);
-          setError(data.error || "Generation failed");
+          if (ev.event === "error") {
+            const data = JSON.parse(ev.data) as { error?: string };
+            setError(data?.error || "Generation failed");
+            setIsStreaming(false);
+            setProgressStep(null);
+            return;
+          }
+          if (["text", "image", "audio", "map"].includes(ev.event)) {
+            const segment = JSON.parse(ev.data) as NarrativeSegment;
+            setSegments((prev) => [...prev, segment]);
+          }
+        } catch {
+          setError("Received malformed stream data");
           setIsStreaming(false);
           setProgressStep(null);
-          return;
-        }
-        if (["text", "image", "audio", "map"].includes(ev.event)) {
-          const segment: NarrativeSegment = JSON.parse(ev.data);
-          setSegments((prev) => [...prev, segment]);
         }
       },
       onerror(err) {
