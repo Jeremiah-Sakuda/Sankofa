@@ -20,7 +20,9 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 - **AI-generated period imagery** — Watercolor-style illustrations of landscapes, people, and cultural artifacts
 - **Trust indicators** — Every segment marked as Historical, Cultural, or Reconstructed
 - **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, and auto-advance)
-- **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage
+- **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage, with answers streaming in segment-by-segment via SSE
+- **Voice input** — Speak your follow-up questions using the mic button (Web Speech API) — no typing required
+- **ADK-orchestrated generation** — The Gemini ADK agent actively decides tool order, validates the arc, and adapts on the fly (with a direct-pipeline fallback via `use_adk=false`)
 
 ### Experience & Immersion
 
@@ -42,7 +44,7 @@ flowchart TB
         FE["Next.js 16 / React 19 / Tailwind v4"]
         LP["Landing Page"]
         IF["Intake Flow"]
-        ND["Narrative Display"]
+        ND["Narrative Display\n+ Voice Input"]
         NB["Narration Bar"]
         LP --> IF --> ND
         ND --- NB
@@ -50,12 +52,20 @@ flowchart TB
 
     subgraph Backend["Backend Orchestrator — Cloud Run"]
         FA["FastAPI + SSE Streaming"]
-        
-        subgraph Pipeline["3-Step Narrative Planner"]
-            S1["1. Context Assembly"]
-            S2["2. Arc Planning"]
-            S3["3. Interleaved Generation"]
-            S1 --> S2 --> S3
+
+        subgraph ADK["ADK Agent Orchestrator"]
+            AG["sankofa_heritage_narrator\n(google.adk.Agent)"]
+            OR["ADK Orchestrator\n(Runner → SSE bridge)"]
+            AG --> OR
+        end
+
+        subgraph Tools["Agent Tools (11)"]
+            T1["lookup_cultural_context"]
+            T2["plan_narrative_arc"]
+            T3["validate_narrative_arc"]
+            T4["generate_act_segments"]
+            T5["enrich_segment"]
+            T6["generate_audio_narration"]
         end
 
         subgraph Services["Services"]
@@ -71,20 +81,21 @@ flowchart TB
 
     subgraph GCP["Google Cloud"]
         subgraph Gemini["Gemini API — GenAI SDK"]
-            GM1["gemini-2.5-flash\n(Arc Planning)"]
+            GM1["gemini-2.5-flash\n(Arc Planning + Agent)"]
             GM2["gemini-2.5-flash-image\n(Text + Images)"]
             GM3["gemini-2.5-pro-preview-tts\n(Audio Narration)"]
         end
         FS["Cloud Firestore\n(Production Sessions)"]
     end
 
-    FE -- "SSE Stream\n(arc, text, image, audio)" --> FA
-    FA --> Pipeline
-    S1 --> KB
-    S2 --> GM1
-    S3 --> GM2
-    FA --> TTS --> GM3
-    S3 --> TC
+    FE -- "SSE Stream\n(arc, text, image, audio, thinking)" --> FA
+    FA --> OR
+    AG --> Tools
+    T1 --> KB
+    T2 --> GM1
+    T4 --> GM2
+    OR --> TTS --> GM3
+    T4 --> TC
     FA --> SS
     SS -. "production" .-> FS
 
@@ -92,17 +103,19 @@ flowchart TB
     style Backend fill:#1c1210,color:#f5edda,stroke:#c8963e
     style GCP fill:#0d47a1,color:#fff,stroke:#4285f4
     style Gemini fill:#1565c0,color:#fff,stroke:#4285f4
-    style Pipeline fill:#2a1a0e,color:#f5edda,stroke:#c8963e
+    style ADK fill:#2a1a0e,color:#f5edda,stroke:#c8963e
 ```
 
 ## Tech Stack
 
 | Component | Technology | Google Cloud Service |
 |---|---|---|
-| AI Models | Gemini 2.5 Flash Image (narrative + images), Gemini 2.5 Pro Preview TTS (audio), Gemini 2.5 Flash (arc planning) | Vertex AI / GenAI SDK |
+| AI Models | Gemini 2.5 Flash Image (narrative + images), Gemini 2.5 Pro Preview TTS (audio), Gemini 2.5 Flash (arc planning + agent) | Vertex AI / GenAI SDK |
+| Agent Orchestration | Google Agent Development Kit (ADK) — `sankofa_heritage_narrator` agent with 11 tools, validation loops, and dynamic decisions | ADK + GenAI SDK |
 | Backend | Python 3.12 / FastAPI | Cloud Run |
 | Frontend | Next.js 16 / React 19 / Tailwind CSS v4 / Motion (motion/react) | Cloud Run |
-| Streaming | Server-Sent Events (SSE) via sse-starlette; arc outline + segments streamed with staggered delays | Cloud Run |
+| Streaming | SSE via sse-starlette — initial narrative + follow-ups both stream via SSE; "thinking aloud" status messages show agent progress | Cloud Run |
+| Voice Input | Web Speech API (browser-native) for voice follow-up questions | — |
 | Session Store | In-memory (default) or Firestore via `USE_FIRESTORE` | Firestore (production) |
 
 ## Supported Regions
@@ -167,6 +180,20 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/health" -Method Get
 ```
 
 You should see `status: healthy` and `service: sankofa-api`. In the app, on the narrative “Ready to weave your narrative” screen, use **Test API connection** to check from the browser before clicking Begin.
+
+## ADK Agent Orchestration
+
+The narrative pipeline is orchestrated by an ADK agent (`sankofa_heritage_narrator`) rather than hard-coded function calls. The agent decides tool order, validates its own output, and adapts dynamically:
+
+1. **Context gathering** — `lookup_cultural_context` → `assess_context_quality` → (if sparse) `research_region_history`
+2. **Arc planning with validation** — `plan_narrative_arc` → `validate_narrative_arc` → re-plan if FAIL
+3. **Per-act generation** — `generate_act_segments` called 3 times with continuity threading
+4. **Enrichment** — `enrich_segment` upgrades RECONSTRUCTED segments with real historical detail
+5. **Status updates** — `notify_user` surfaces progress to the frontend as "thinking aloud" messages
+
+The `adk_orchestrator.py` module bridges the ADK Runner with SSE: it observes tool calls and results in real-time and emits the SSE events (`arc`, `text`, `image`, `audio`, `status`) that the frontend expects.
+
+**Fallback:** Pass `use_adk=false` to the stream endpoint to bypass the agent and use the direct 3-step pipeline instead.
 
 ## Google Cloud Deployment
 
