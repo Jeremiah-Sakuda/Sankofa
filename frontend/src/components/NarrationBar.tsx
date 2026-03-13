@@ -24,11 +24,9 @@ function useBlobUrl(audioData: string | undefined, mediaType: string): string | 
 
   useEffect(() => {
     if (!audioData) {
-      console.log("NarrationBar: No audio data for track", currentTrack?.id);
       setSrc(null);
       return;
     }
-    console.log("NarrationBar: Creating blob for track", currentTrack?.id, "length:", audioData.length);
     const mime = mediaType?.startsWith("audio/") ? mediaType : "audio/wav";
     const trimmed = audioData.replace(/\s/g, "");
     if (!trimmed) {

@@ -4,7 +4,9 @@ TTS Service — Generates audio narration using Gemini TTS.
 
 import asyncio
 import base64
+import io
 import logging
+import wave
 from google.genai.types import (
     GenerateContentConfig,
     Modality,
@@ -44,14 +46,26 @@ Let the words breathe. This is oral storytelling, not news reading.
     ):
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
+                # Wrap PCM in WAV container
+                pcm_data = part.inline_data.data
+                wav_buffer = io.BytesIO()
+                with wave.open(wav_buffer, "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)
+                    wf.setframerate(24000)
+                    wf.writeframes(pcm_data)
+                
+                wav_bytes = wav_buffer.getvalue()
+
                 # Log success
                 logger.info(
-                    "TTS Success: generated %d bytes for text '%s...'",
-                    len(part.inline_data.data),
+                    "TTS Success: generated %d bytes (WAV) for text '%s...'",
+                    len(wav_bytes),
                     text[:30].replace("\n", " "),
                 )
-                b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
-                mime = getattr(part.inline_data, "mime_type", None) or "audio/wav"
+                
+                b64 = base64.b64encode(wav_bytes).decode("utf-8")
+                mime = "audio/wav"
                 return (b64, mime)
     return None
 
