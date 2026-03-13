@@ -19,55 +19,90 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 - **Griot-inspired narration** — Warm, oral storytelling voice grounded in historical fact
 - **AI-generated period imagery** — Watercolor-style illustrations of landscapes, people, and cultural artifacts
 - **Trust indicators** — Every segment marked as Historical, Cultural, or Reconstructed
-- **Audio narration** — TTS audio for each text segment in a warm storytelling voice
+- **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, and auto-advance)
 - **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage
+
+### Experience & Immersion
+
+The frontend is built for a **cinematic, fluid** reading experience rather than a static page:
+
+- **Progressive streaming** — The narrative arc (act titles) is sent as soon as it’s planned, so users see chapter teasers while the full story is still generating. Segments stream in with staggered timing (longer pauses after images) for a natural reveal.
+- **Word-by-word text reveal** — New narrative text animates in word-by-word with a staggered fade, evoking the cadence of a griot speaking. The effect runs only on first appearance.
+- **Cinematic image reveals** — Images enter with a soft blur-to-sharp transition; hero images get a warm vignette and a sepia-to-full-color reveal. A subtle golden shimmer fades away as the image materializes.
+- **Act transitions** — Between acts, a full-width divider shows the Sankofa bird, act numeral, and title (from the arc outline), with floating gold particles and an expanding gold line.
+- **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird.
+- **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text at estimated reading pace. Non-active segments dim for focus.
+- **Scroll progress** — A fixed vertical progress bar on the left shows how far you’ve scrolled through the story, with act markers that fill as you pass each act. A “Your story continues…” CTA with animated Sankofa bird invites follow-up questions at the end.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────┐
-│                   Frontend                       │
-│          Next.js / React / Tailwind              │
-│   Landing → Intake Flow → Narrative Display      │
-└─────────────────┬───────────────────────────────┘
-                  │ SSE (Server-Sent Events)
-                  ▼
-┌─────────────────────────────────────────────────┐
-│              Backend Orchestrator                 │
-│            Python / FastAPI / Cloud Run           │
-│                                                   │
-│  ┌──────────┐ ┌────────────────────────────────┐ │
-│  │ Session   │ │  3-Step Narrative Planner      │ │
-│  │ Store     │ │  1. Context Assembly           │ │
-│  │(In-memory)│ │  2. Arc Planning (Gemini)      │ │
-│  └──────────┘ │  3. Interleaved Generation      │ │
-│               └────────────────────────────────┘ │
-│                                                   │
-│  ┌────────────────────────────────────────────┐  │
-│  │          Gemini API (GenAI SDK)             │  │
-│  │  • gemini-2.5-flash-image (text + images)  │  │
-│  │  • gemini-2.5-flash-tts (audio narration)  │  │
-│  │  • gemini-2.0-flash (arc planning)         │  │
-│  └────────────────────────────────────────────┘  │
-│                                                   │
-│  ┌──────────────┐  ┌────────────────────────┐    │
-│  │ Cultural      │  │  Trust Classifier      │    │
-│  │ Knowledge Base│  │  (Fact vs. Imagination) │    │
-│  │ (West Africa, │  └────────────────────────┘    │
-│  │  Caribbean,   │                                │
-│  │  South Asia)  │                                │
-│  └──────────────┘                                 │
-└─────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Frontend["Frontend — Cloud Run"]
+        FE["Next.js 16 / React 19 / Tailwind v4"]
+        LP["Landing Page"]
+        IF["Intake Flow"]
+        ND["Narrative Display"]
+        NB["Narration Bar"]
+        LP --> IF --> ND
+        ND --- NB
+    end
+
+    subgraph Backend["Backend Orchestrator — Cloud Run"]
+        FA["FastAPI + SSE Streaming"]
+        
+        subgraph Pipeline["3-Step Narrative Planner"]
+            S1["1. Context Assembly"]
+            S2["2. Arc Planning"]
+            S3["3. Interleaved Generation"]
+            S1 --> S2 --> S3
+        end
+
+        subgraph Services["Services"]
+            TTS["TTS Service"]
+            TC["Trust Classifier"]
+        end
+
+        subgraph Data["Data Layer"]
+            KB["Cultural Knowledge Base"]
+            SS["Session Store"]
+        end
+    end
+
+    subgraph GCP["Google Cloud"]
+        subgraph Gemini["Gemini API — GenAI SDK"]
+            GM1["gemini-2.5-flash\n(Arc Planning)"]
+            GM2["gemini-2.5-flash-image\n(Text + Images)"]
+            GM3["gemini-2.5-pro-preview-tts\n(Audio Narration)"]
+        end
+        FS["Cloud Firestore\n(Production Sessions)"]
+    end
+
+    FE -- "SSE Stream\n(arc, text, image, audio)" --> FA
+    FA --> Pipeline
+    S1 --> KB
+    S2 --> GM1
+    S3 --> GM2
+    FA --> TTS --> GM3
+    S3 --> TC
+    FA --> SS
+    SS -. "production" .-> FS
+
+    style Frontend fill:#1a1a2e,color:#f5edda,stroke:#d4a843
+    style Backend fill:#1c1210,color:#f5edda,stroke:#c8963e
+    style GCP fill:#0d47a1,color:#fff,stroke:#4285f4
+    style Gemini fill:#1565c0,color:#fff,stroke:#4285f4
+    style Pipeline fill:#2a1a0e,color:#f5edda,stroke:#c8963e
 ```
 
 ## Tech Stack
 
 | Component | Technology | Google Cloud Service |
 |---|---|---|
-| AI Models | Gemini 2.5 Flash Image, Gemini 2.5 Flash TTS, Gemini 2.0 Flash | Vertex AI / GenAI SDK |
+| AI Models | Gemini 2.5 Flash Image (narrative + images), Gemini 2.5 Pro Preview TTS (audio), Gemini 2.5 Flash (arc planning) | Vertex AI / GenAI SDK |
 | Backend | Python 3.12 / FastAPI | Cloud Run |
-| Frontend | Next.js 16 / React 19 / Tailwind CSS v4 | Cloud Run |
-| Streaming | Server-Sent Events (SSE) via sse-starlette | Cloud Run |
+| Frontend | Next.js 16 / React 19 / Tailwind CSS v4 / Motion (motion/react) | Cloud Run |
+| Streaming | Server-Sent Events (SSE) via sse-starlette; arc outline + segments streamed with staggered delays | Cloud Run |
 | Session Store | In-memory (default) or Firestore via `USE_FIRESTORE` | Firestore (production) |
 
 ## Supported Regions
@@ -89,9 +124,19 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 
 ### Backend
 
+**Run all backend commands from the `backend` directory** (so Python finds the `app` package and `requirements.txt`):
+
 ```bash
 cd backend
 cp .env.example .env   # Edit with your Google API key (from https://aistudio.google.com/apikey)
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+**PowerShell (Windows):**
+```powershell
+cd backend
+copy .env.example .env   # Edit .env with your Google API key
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```
@@ -143,6 +188,14 @@ Sessions are persisted in **Firestore** in production so they survive restarts. 
 - **Data model:** One Firestore document per session (document ID = `session_id`) with `user_input`, `narrative_context`, `is_generating`, and `arc_outline`. Segments are stored in a **subcollection** `segments` (one doc per segment, keyed by sequence) to stay under Firestore’s 1 MiB document limit when narratives include base64 images and audio.
 - **Backend:** `app/store/` provides the active store: `FirestoreSessionStore` (when `USE_FIRESTORE=true`) or `InMemorySessionStore`. Routes use `session_store` from `app.store`; no route logic depends on which backend is used.
 - **Deployment:** The deploy script sets `USE_FIRESTORE=True` for the backend. Enable the Firestore API and grant the Cloud Run service account the **Cloud Datastore User** role. See `backend/docs/DEPLOYMENT.md` for steps.
+
+## Error Handling
+
+Error handling across the backend and frontend is documented in **[docs/ERROR_HANDLING.md](docs/ERROR_HANDLING.md)**. That report covers:
+
+- Where and how errors are handled (config, validation, HTTP, SSE stream, Gemini, TTS, session store, frontend API and UI)
+- Identified bugs and fixes
+- Recommendations for improvement (sanitized stream errors, Firestore guards, global exception handler, SSE timeout, React error boundary, etc.)
 
 ## Trust & Accuracy
 
