@@ -194,6 +194,9 @@ export default function NarrativeSegment({
   }, [isInView, isNew, hasRevealed]);
 
   if (segment.type === "text" && segment.content) {
+    const wordCount = segment.content.split(/\s+/).length;
+    const estimatedDuration = Math.max(8, wordCount / 2.5);
+
     return (
       <motion.div
         ref={containerRef}
@@ -208,7 +211,8 @@ export default function NarrativeSegment({
           opacity: isDimmed ? 0.3 : undefined,
           filter: isDimmed ? "blur(0.5px)" : undefined,
           transition: "opacity 0.7s ease, filter 0.7s ease",
-        }}
+          "--narrate-duration": `${estimatedDuration}s`,
+        } as React.CSSProperties}
         data-sequence={segment.sequence}
       >
         <TrustBadge level={segment.trust_level} />

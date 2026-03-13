@@ -143,9 +143,16 @@ html {
   border-radius: 3px;
 }
 
-/* Active narrating segment — warm left-edge glow */
+/* Active narrating segment — warm left-edge glow + reading highlight */
 .narrating-segment {
   position: relative;
+  background: linear-gradient(
+    90deg,
+    rgba(212, 168, 67, 0.04) 0%,
+    transparent 80%
+  );
+  border-radius: 4px;
+  transition: background 0.7s ease;
 }
 
 .narrating-segment::before {
@@ -161,9 +168,32 @@ html {
   animation: narrate-glow 1.8s ease-in-out infinite;
 }
 
+.narrating-segment::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgba(212, 168, 67, 0.06) 0%,
+    rgba(212, 168, 67, 0.02) 80%,
+    transparent 100%
+  );
+  border-radius: 4px;
+  pointer-events: none;
+  animation: reading-sweep var(--narrate-duration, 30s) linear forwards;
+}
+
 @keyframes narrate-glow {
-  0%, 100% { opacity: 0.35; box-shadow: 0 0 8px var(--gold); }
-  50% { opacity: 0.8; box-shadow: 0 0 18px var(--gold); }
+  0%, 100% { opacity: 0.4; box-shadow: 0 0 12px var(--gold); }
+  50% { opacity: 0.9; box-shadow: 0 0 24px var(--gold); }
+}
+
+@keyframes reading-sweep {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
 @media (min-width: 768px) {
