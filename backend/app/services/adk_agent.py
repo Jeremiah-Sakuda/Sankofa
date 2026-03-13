@@ -13,6 +13,7 @@ FastAPI backend for structured agent orchestration.
 
 import json
 import logging
+import uuid
 from google.adk import Agent
 from google.adk.tools import FunctionTool
 
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Tool Functions — these are the capabilities the agent can invoke
 # ---------------------------------------------------------------------------
+
+media_store: dict[str, str] = {}
 
 def lookup_cultural_context(
     region: str,
@@ -305,12 +308,20 @@ Use the warm, unhurried cadence of a West African griot."""
         segments = apply_trust_tags(segments)
 
     # Assign act number and mark first image as hero for act 1
+    result = []
     for i, seg in enumerate(segments):
         seg.act = act_number
         if act_number == 1 and seg.type == "image" and i == 0:
             seg.is_hero = True
+            
+        dump = seg.model_dump()
+        if dump.get("media_data"):
+            media_ref = str(uuid.uuid4())
+            media_store[media_ref] = dump["media_data"]
+            dump["media_data"] = None  # Remove from LLM context!
+            dump["media_reference"] = media_ref
+        result.append(dump)
 
-    result = [seg.model_dump() for seg in segments]
     logger.info("[adk] generate_act_segments: produced %d segments for act %d", len(result), act_number)
     return json.dumps(result)
 
@@ -430,7 +441,17 @@ Prepend paragraphs with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
     
     segments = await generate_interleaved(prompt)
     segments = apply_trust_tags(segments)
-    result = [seg.model_dump() for seg in segments]
+    
+    result = []
+    for seg in segments:
+        dump = seg.model_dump()
+        if dump.get("media_data"):
+            media_ref = str(uuid.uuid4())
+            media_store[media_ref] = dump["media_data"]
+            dump["media_data"] = None  # Remove from LLM context!
+            dump["media_reference"] = media_ref
+        result.append(dump)
+
     logger.info("[adk] deep_dive: produced %d segments", len(result))
     return json.dumps(result)
 

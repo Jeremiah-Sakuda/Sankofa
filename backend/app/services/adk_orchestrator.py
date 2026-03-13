@@ -20,7 +20,7 @@ from google.genai.types import Content, Part
 
 from app.models.schemas import NarrativeSegment
 from app.models.session import Session
-from app.services.adk_agent import sankofa_agent
+from app.services.adk_agent import sankofa_agent, media_store
 from app.services.tts_service import generate_narration
 from app.store import session_store
 
@@ -210,7 +210,8 @@ async def run_adk_narrative(
                                 seg = NarrativeSegment(
                                     type=seg_data.get("type", "text"),
                                     content=seg_data.get("content"),
-                                    media_data=seg_data.get("media_data"),
+                                    media_data=media_store.pop(seg_data["media_reference"], None) if 
+                                               seg_data.get("media_reference") else seg_data.get("media_data"),
                                     media_type=seg_data.get("media_type"),
                                     trust_level=seg_data.get("trust_level", "reconstructed"),
                                     sequence=len(total_segments),
@@ -349,7 +350,8 @@ async def run_adk_followup(
                                 seg = NarrativeSegment(
                                     type=seg_data.get("type", "text"),
                                     content=seg_data.get("content"),
-                                    media_data=seg_data.get("media_data"),
+                                    media_data=media_store.pop(seg_data["media_reference"], None) if 
+                                               seg_data.get("media_reference") else seg_data.get("media_data"),
                                     media_type=seg_data.get("media_type"),
                                     trust_level=seg_data.get("trust_level", "reconstructed"),
                                     sequence=len(session.segments),
