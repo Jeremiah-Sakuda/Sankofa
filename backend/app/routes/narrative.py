@@ -142,6 +142,13 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    MAX_SEGMENTS_PER_SESSION = 50
+    if len(session.segments) >= MAX_SEGMENTS_PER_SESSION:
+        raise HTTPException(
+            status_code=400,
+            detail="This journey has reached its natural conclusion. Please begin a new narrative to explore further."
+        )
+
     question = payload.question
 
     is_safe = await validate_followup_question(question)

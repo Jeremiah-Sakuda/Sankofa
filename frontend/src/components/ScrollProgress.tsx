@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useRef, useMemo } from "react";
+import { motion, AnimatePresence, useScroll, useSpring } from "motion/react";
 
 interface ScrollProgressProps {
   totalActs: number;
@@ -10,23 +10,23 @@ interface ScrollProgressProps {
 }
 
 export default function ScrollProgress({ totalActs, currentAct, isComplete }: ScrollProgressProps) {
-  const [scrollProgress, setScrollProgress] = useState(0);
+  // Use framer-motion for butter-smooth, performant scroll tracking without React state thrashing
+  const { scrollYProgress } = useScroll();
+  
+  // Add a spring physics smoothing layer to handle dynamic height changes during streaming
+  const scaleY = useSpring(scrollYProgress, {
+    stiffness: 100,
+    damping: 30,
+    restDelta: 0.001
+  });
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (scrollHeight <= 0) { setScrollProgress(0); return; }
-      setScrollProgress(Math.min(1, window.scrollY / scrollHeight));
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const actMarkers = Array.from({ length: totalActs }, (_, i) => ({
+  // Calculate act markers based on a fixed 3 acts instead of dynamic totalActs
+  // This prevents the markers from jumping around when new acts stream in
+  const EXPECTED_ACTS = 3;
+  const actMarkers = useMemo(() => Array.from({ length: EXPECTED_ACTS }, (_, i) => ({
     act: i + 1,
-    position: totalActs <= 1 ? 0 : i / (totalActs - 1),
-  }));
+    position: i / (EXPECTED_ACTS - 1),
+  })), [EXPECTED_ACTS]);
 
   return (
     <motion.div
@@ -37,11 +37,10 @@ export default function ScrollProgress({ totalActs, currentAct, isComplete }: Sc
     >
       {/* Track */}
       <div className="relative w-[2px] h-48 bg-[var(--ochre)]/15 rounded-full overflow-hidden">
-        {/* Fill */}
+        {/* Fill - hardware accelerated scaling instead of height manipulation */}
         <motion.div
-          className="absolute top-0 left-0 w-full bg-[var(--gold)] rounded-full origin-top"
-          style={{ height: `${scrollProgress * 100}%` }}
-          transition={{ duration: 0.1 }}
+          className="absolute inset-0 bg-[var(--gold)] rounded-full origin-top"
+          style={{ scaleY }}
         />
 
         {/* Act markers */}

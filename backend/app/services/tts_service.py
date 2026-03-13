@@ -124,12 +124,20 @@ async def generate_narration(text: str, voice_name: str = "Kore") -> tuple[str, 
 
     try:
         # Generate all chunks concurrently
-        pcm_results = await asyncio.gather(
+        api_results = await asyncio.gather(
             *[_generate_pcm_async(chunk, voice_name) for chunk in chunks]
         )
 
-        # Concatenate successful PCM results in order
-        pcm_parts = [r for r in pcm_results if r is not None]
+        def _extract_pcm(data: bytes) -> bytes:
+            """Extract pure PCM frames, stripping WAV headers if present."""
+            try:
+                with wave.open(io.BytesIO(data), 'rb') as w:
+                    return w.readframes(w.getnframes())
+            except wave.Error:
+                return data  # Fallback if it's already raw PCM
+
+        pcm_parts = [_extract_pcm(r) for r in api_results if r is not None]
+        
         if not pcm_parts:
             logger.warning("TTS: no chunks succeeded for '%s...'", text[:30])
             return None

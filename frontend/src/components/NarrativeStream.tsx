@@ -102,13 +102,17 @@ function ActTransition({ actNumber, arcOutline }: { actNumber: number; arcOutlin
               left: `${15 + (i * 10) % 70}%`,
               top: `${20 + (i * 13) % 60}%`,
             }}
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: [0, 0.4, 0], y: [10, -15, -25] }}
+            initial={{ opacity: 0, y: 10, x: 0 }}
+            whileInView={{ 
+              opacity: [0, 0.5, 0], 
+              y: [10, -20, -35],
+              x: [0, (i % 3 === 0 ? -15 : 15), (i % 2 === 0 ? 10 : -10)]
+            }}
             viewport={{ once: true }}
             transition={{
-              duration: 2.5,
-              delay: 0.4 + i * 0.15,
-              ease: "easeOut",
+              duration: 3 + (i % 3),
+              delay: 0.2 + i * 0.15,
+              ease: "easeInOut",
             }}
           />
         ))}

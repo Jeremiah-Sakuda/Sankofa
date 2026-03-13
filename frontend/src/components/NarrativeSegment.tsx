@@ -1,29 +1,56 @@
 "use client";
 
 import { useRef, useState, useEffect } from "react";
-import { motion, useScroll, useTransform, useInView } from "motion/react";
+import { motion, useScroll, useTransform, useInView, Variants } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import TrustBadge from "./TrustBadge";
 
 const WORD_STAGGER = 0.018;
 const LINE_STAGGER = 0.12;
 
-function RevealWords({ text, baseDelay = 0 }: { text: string; baseDelay?: number }) {
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: WORD_STAGGER,
+      delayChildren: 0.1,
+    },
+  },
+};
+
+const wordVariants: Variants = {
+  hidden: { opacity: 0, y: 6 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
+  },
+};
+
+function RevealWords({ text, isNarrating, totalWordsInSegment, cumulativeWordOffset }: { text: string; isNarrating: boolean; totalWordsInSegment: number; cumulativeWordOffset: number }) {
   const words = text.split(/(\s+)/);
-  let wordIdx = 0;
+  let localWordIdx = 0;
+  
   return (
     <>
       {words.map((token, i) => {
         if (/^\s+$/.test(token)) return token;
-        const delay = baseDelay + wordIdx * WORD_STAGGER;
-        wordIdx++;
+        
+        const globalWordIdx = cumulativeWordOffset + localWordIdx;
+        localWordIdx++;
+
+        // Calculate staggered delay for audio sync highlighting 
+        // We know the total duration is CSS variable --narrate-duration (in seconds)
+        // We approximate start time as a fraction of total words
+        const syncDelayPct = totalWordsInSegment > 0 ? (globalWordIdx / totalWordsInSegment) : 0;
+        
         return (
           <motion.span
             key={i}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay, ease: [0.22, 1, 0.36, 1] }}
-            className="inline"
+            variants={wordVariants}
+            className={`inline ${isNarrating ? "sync-highlight" : ""}`}
+            style={isNarrating ? { "--sync-delay": syncDelayPct } as React.CSSProperties : undefined}
           >
             {token}
           </motion.span>
@@ -58,16 +85,28 @@ function parseNodes(content: string) {
   return nodes;
 }
 
-function SegmentContent({ content, isFirstInAct, animate }: { content: string; isFirstInAct: boolean; animate: boolean }) {
+function SegmentContent({ content, isFirstInAct, animate, isNarrating }: { content: string; isFirstInAct: boolean; animate: boolean; isNarrating: boolean }) {
   const nodes = parseNodes(content);
 
+  // Calculate total words for audio sync timing
+  const totalWordsInSegment = content.split(/\s+/).filter(w => w.length > 0).length;
   let cumulativeWords = 0;
 
+  // We wrap the whole content in a motion.div to orchestrate staggerChildren
+  const Wrapper = animate ? motion.div : "div";
+  const wrapperProps = animate ? {
+    variants: containerVariants,
+    initial: "hidden",
+    whileInView: "visible",
+    viewport: { once: true, amount: 0.2 }
+  } : {};
+
   return (
-    <>
+    <Wrapper {...wrapperProps}>
       {nodes.map((node, i) => {
-        const wordCount = node.text.split(/\s+/).length;
-        const baseDelay = i * LINE_STAGGER;
+        const wordCount = node.text.split(/\s+/).filter(w => w.length > 0).length;
+        const currentCumulative = cumulativeWords;
+        cumulativeWords += wordCount;
 
         const headingClasses: Record<string, string> = {
           h1: "font-[family-name:var(--font-display)] text-[var(--gold)] text-2xl md:text-3xl tracking-wider uppercase mt-10 mb-4 first:mt-0",
@@ -75,44 +114,49 @@ function SegmentContent({ content, isFirstInAct, animate }: { content: string; i
           h3: "font-[family-name:var(--font-display)] text-[var(--gold)] text-lg md:text-xl tracking-wider uppercase mt-8 mb-3 first:mt-0",
         };
 
+        const renderText = () => {
+          if (animate) {
+             return <RevealWords 
+                text={node.text} 
+                isNarrating={isNarrating} 
+                totalWordsInSegment={totalWordsInSegment}
+                cumulativeWordOffset={currentCumulative} 
+              />;
+          }
+          // If not animating (e.g. old segments), still render words individually if narrating
+          // so the sync highlight works when they play audio later
+          if (isNarrating) {
+            return <RevealWords 
+              text={node.text} 
+              isNarrating={true} 
+              totalWordsInSegment={totalWordsInSegment}
+              cumulativeWordOffset={currentCumulative} 
+            />;
+          }
+          return node.text;
+        };
+
         if (node.type !== "p") {
           const Tag = node.type as "h1" | "h2" | "h3";
-          const el = animate ? (
+          return (
             <Tag key={i} className={headingClasses[node.type]}>
-              <RevealWords text={node.text} baseDelay={baseDelay} />
+              {renderText()}
             </Tag>
-          ) : (
-            <Tag key={i} className={headingClasses[node.type]}>{node.text}</Tag>
           );
-          cumulativeWords += wordCount;
-          return el;
         }
-
-        const delay = cumulativeWords * WORD_STAGGER + i * LINE_STAGGER;
-        cumulativeWords += wordCount;
 
         const dropCap = isFirstInAct && i === 0;
         const cls = dropCap
           ? "first-letter:text-[3.5rem] first-letter:font-[family-name:var(--font-display)] first-letter:text-[var(--gold)] first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:leading-[0.8]"
           : "";
 
-        if (!animate) {
-          return <p key={i} className={cls}>{node.text}</p>;
-        }
-
         return (
-          <motion.p
-            key={i}
-            className={cls}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4, delay: baseDelay }}
-          >
-            <RevealWords text={node.text} baseDelay={delay} />
-          </motion.p>
+          <p key={i} className={cls}>
+            {renderText()}
+          </p>
         );
       })}
-    </>
+    </Wrapper>
   );
 }
 
@@ -160,15 +204,19 @@ function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string;
           }}
         />
       )}
-      {/* Golden shimmer that fades out on reveal */}
+      {/* Golden shimmer that sweeps and fades out on reveal */}
       {isNew && (
         <motion.div
           className="absolute inset-0 pointer-events-none"
-          initial={{ opacity: 0.5 }}
-          animate={shouldAnimate ? { opacity: 0 } : undefined}
-          transition={{ duration: 3, ease: "easeOut" }}
+          initial={{ opacity: 0.8, backgroundPosition: "200% 0%" }}
+          animate={shouldAnimate ? { opacity: 0, backgroundPosition: "-100% 0%" } : undefined}
+          transition={{ 
+            opacity: { duration: 3, ease: "easeOut" },
+            backgroundPosition: { duration: 2.5, ease: "easeOut" }
+          }}
           style={{
-            background: "linear-gradient(135deg, rgba(212,168,67,0.15) 0%, transparent 50%, rgba(212,168,67,0.1) 100%)",
+            background: "linear-gradient(110deg, transparent 20%, rgba(212,168,67,0.3) 40%, rgba(212,168,67,0.6) 50%, rgba(212,168,67,0.3) 60%, transparent 80%)",
+            backgroundSize: "200% 100%",
           }}
         />
       )}
@@ -220,7 +268,8 @@ export default function NarrativeSegment({
           <SegmentContent
             content={segment.content}
             isFirstInAct={isFirstInAct}
-            animate={isNew && isInView}
+            animate={isNew}
+            isNarrating={isNarrating}
           />
         </div>
       </motion.div>

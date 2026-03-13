@@ -201,3 +201,34 @@ html {
     left: -24px;
   }
 }
+
+/* Individual word highlighting synced with audio */
+.sync-highlight {
+  transition: color 0.3s ease;
+  animation: word-sync var(--narrate-duration, 30s) linear forwards;
+  /* Add a tiny baseline offset so they don't all fire exactly at 0 if no delay */
+  animation-delay: calc(var(--sync-delay, 0) * var(--narrate-duration, 30s) + 0.1s);
+}
+
+@keyframes word-sync {
+  0% {
+    color: inherit;
+    text-shadow: none;
+  }
+  1% {
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(212, 168, 67, 0.4);
+  }
+  3% {
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(212, 168, 67, 0.4);
+  }
+  6% {
+    color: inherit;
+    text-shadow: none;
+  }
+  100% {
+    color: inherit;
+    text-shadow: none;
+  }
+}
