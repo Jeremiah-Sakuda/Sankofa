@@ -3,9 +3,7 @@
 import { motion } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import TrustBadge from "./TrustBadge";
-import AudioPlayer from "./AudioPlayer";
 
-/** Renders segment content with simple markdown-style headings (### ACT 1 → styled h3). */
 function SegmentContent({ content, isFirstInAct }: { content: string; isFirstInAct: boolean }) {
   const lines = content.split(/\n/);
   const nodes: { type: "h1" | "h2" | "h3" | "p"; text: string }[] = [];
@@ -91,33 +89,36 @@ interface Props {
   segment: SegmentType;
   index: number;
   isFirstInAct?: boolean;
+  isNarrating?: boolean;
 }
+
+const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] };
+const revealViewport = { once: true, amount: 0.12, margin: "-40px 0px 0px 0px" };
 
 export default function NarrativeSegment({
   segment,
   index,
   isFirstInAct = false,
+  isNarrating = false,
 }: Props) {
   if (segment.type === "text" && segment.content) {
-    const hasAudio = segment.media_data && segment.media_type?.startsWith("audio");
-
     return (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
-        className="relative mb-8 group"
+        initial={{ opacity: 0, y: 28 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={revealViewport}
+        transition={{ ...revealTransition, delay: 0.05 }}
+        className={`relative mb-8 group transition-all duration-700 ${
+          isNarrating
+            ? "narrating-segment"
+            : ""
+        }`}
+        data-sequence={segment.sequence}
       >
         <TrustBadge level={segment.trust_level} />
         <div className="font-[family-name:var(--font-body)] text-[var(--umber)] leading-[1.85] text-[1.1rem] md:text-[1.15rem]">
           <SegmentContent content={segment.content} isFirstInAct={isFirstInAct} />
         </div>
-        {hasAudio && (
-          <AudioPlayer
-            audioData={segment.media_data}
-            mediaType={segment.media_type}
-          />
-        )}
       </motion.div>
     );
   }
@@ -127,9 +128,10 @@ export default function NarrativeSegment({
 
     return (
       <motion.figure
-        initial={{ opacity: 0, scale: 0.98, filter: "blur(6px)" }}
-        animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+        initial={{ opacity: 0, scale: 0.96, filter: "blur(8px)" }}
+        whileInView={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+        viewport={revealViewport}
+        transition={{ ...revealTransition, duration: 0.85 }}
         className={`my-10 ${isHero ? "-mx-8 md:-mx-16 lg:-mx-24" : "mx-auto"}`}
         style={{ maxWidth: isHero ? "none" : "85%" }}
       >
@@ -152,19 +154,6 @@ export default function NarrativeSegment({
           </figcaption>
         )}
       </motion.figure>
-    );
-  }
-
-  if (segment.type === "audio" && segment.media_data) {
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="my-4"
-      >
-        <AudioPlayer audioData={segment.media_data} mediaType={segment.media_type} />
-      </motion.div>
     );
   }
 

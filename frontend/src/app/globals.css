@@ -142,3 +142,32 @@ html {
   background: var(--ochre);
   border-radius: 3px;
 }
+
+/* Active narrating segment — warm left-edge glow */
+.narrating-segment {
+  position: relative;
+}
+
+.narrating-segment::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--gold);
+  opacity: 0;
+  animation: narrate-glow 1.8s ease-in-out infinite;
+}
+
+@keyframes narrate-glow {
+  0%, 100% { opacity: 0.35; box-shadow: 0 0 8px var(--gold); }
+  50% { opacity: 0.8; box-shadow: 0 0 18px var(--gold); }
+}
+
+@media (min-width: 768px) {
+  .narrating-segment::before {
+    left: -24px;
+  }
+}

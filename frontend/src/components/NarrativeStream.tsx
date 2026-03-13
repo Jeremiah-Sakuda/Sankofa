@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import type { StreamProgressStep } from "../hooks/useSSEStream";
 import NarrativeSegment from "./NarrativeSegment";
+import NarrationBar, { type AudioTrack } from "./NarrationBar";
 import SankofaBird from "./SankofaBird";
 
 const FOLLOW_UP_MAX_LENGTH = 500;
@@ -26,12 +27,47 @@ interface Props {
 
 function ActDivider() {
   return (
-    <div className="flex items-center justify-center my-12 gap-4">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.3 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="flex items-center justify-center my-12 gap-4"
+    >
       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--ochre)]/30 to-transparent" />
-      <SankofaBird className="w-6 h-6 text-[var(--ochre)] opacity-40" />
+      <SankofaBird className="w-6 h-6 text-[var(--ochre)] opacity-40 shrink-0" />
       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--ochre)]/30 to-transparent" />
-    </div>
+    </motion.div>
   );
+}
+
+function buildAudioTracks(segments: SegmentType[]): AudioTrack[] {
+  const tracks: AudioTrack[] = [];
+
+  for (const seg of segments) {
+    // Text segments that have embedded audio
+    if (seg.type === "text" && seg.media_data && seg.media_type?.startsWith("audio")) {
+      tracks.push({
+        id: `text-${seg.sequence}`,
+        label: seg.content?.slice(0, 80)?.replace(/\[.*?\]/g, "").trim() || `Segment ${seg.sequence + 1}`,
+        audioData: seg.media_data,
+        mediaType: seg.media_type,
+        segmentSequence: seg.sequence,
+      });
+    }
+    // Standalone audio segments
+    if (seg.type === "audio" && seg.media_data) {
+      tracks.push({
+        id: `audio-${seg.sequence}`,
+        label: seg.content?.slice(0, 80) || `Narration ${seg.sequence + 1}`,
+        audioData: seg.media_data,
+        mediaType: seg.media_type ?? "audio/wav",
+        segmentSequence: seg.sequence,
+      });
+    }
+  }
+
+  return tracks;
 }
 
 export default function NarrativeStream({
@@ -49,13 +85,25 @@ export default function NarrativeStream({
 }: Props) {
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpValidationError, setFollowUpValidationError] = useState<string | null>(null);
+  const [activeSequence, setActiveSequence] = useState<number | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+
+  const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
   useEffect(() => {
     if (segments.length > 0) {
       endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
   }, [segments.length]);
+
+  const handleTrackChange = useCallback((track: AudioTrack | null) => {
+    setActiveSequence(track?.segmentSequence ?? null);
+    // Scroll the narrating segment into view
+    if (track) {
+      const el = document.querySelector(`[data-sequence="${track.segmentSequence}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
   let lastAct = 0;
 
@@ -112,6 +160,8 @@ export default function NarrativeStream({
       <div className="relative pl-4 md:pl-28">
         <AnimatePresence>
           {segments.map((segment, i) => {
+            if (segment.type === "audio") return null;
+
             const isNewAct = segment.act && segment.act !== lastAct;
             if (segment.act) lastAct = segment.act;
             const isFirstInAct = isNewAct && segment.type === "text";
@@ -126,6 +176,7 @@ export default function NarrativeStream({
                   segment={segment}
                   index={i}
                   isFirstInAct={isFirstInAct || false}
+                  isNarrating={activeSequence === segment.sequence}
                 />
               </div>
             );
@@ -145,9 +196,10 @@ export default function NarrativeStream({
       {/* Footer */}
       {(isComplete || (!isStreaming && segments.length > 0)) && (
         <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.8 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.1 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           className="mt-16 pt-8 border-t border-[var(--ochre)]/20"
         >
           <p className="text-center font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
@@ -216,6 +268,20 @@ export default function NarrativeStream({
           )}
         </div>
       )}
+
+      {/* Bottom padding so content doesn't hide behind the narration bar */}
+      {audioTracks.length > 0 && <div className="h-28" />}
+
+      {/* Persistent bottom narration bar */}
+      <AnimatePresence>
+        {audioTracks.length > 0 && (
+          <NarrationBar
+            tracks={audioTracks}
+            onTrackChange={handleTrackChange}
+            autoPlay
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
