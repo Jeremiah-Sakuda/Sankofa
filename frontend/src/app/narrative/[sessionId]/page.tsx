@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useSSEStream } from "../../../hooks/useSSEStream";
-import { submitFollowUp, NarrativeSegment, checkBackendHealth, getSession, type SessionInfo } from "../../../lib/api";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { submitFollowUp, NarrativeSegment, checkBackendHealth, getSession, getFollowUpStreamUrl, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
 import SankofaBird from "../../../components/SankofaBird";
 import GoldParticles from "../../../components/GoldParticles";
@@ -15,9 +16,11 @@ const STUCK_TIMEOUT_MS = 90_000; // show "taking longer" after 90s with no segme
 export default function NarrativePage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
-  const { segments, isStreaming, isComplete, error, progressStep, arcOutline, startStream, abort, reset } = useSSEStream();
+  const { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, abort, reset } = useSSEStream();
   const [followUpSegments, setFollowUpSegments] = useState<NarrativeSegment[]>([]);
   const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
+  const [followUpThinking, setFollowUpThinking] = useState<string | null>(null);
+  const followUpAbortRef = useRef<AbortController | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [enableAudio, setEnableAudio] = useState(false);
@@ -111,17 +114,66 @@ export default function NarrativePage() {
     async (question: string) => {
       setFollowUpError(null);
       setIsLoadingFollowUp(true);
+      setFollowUpThinking(null);
+
+      // Abort any previous follow-up stream
+      followUpAbortRef.current?.abort();
+      const ctrl = new AbortController();
+      followUpAbortRef.current = ctrl;
+
+      let receivedSegments = false;
+
       try {
-        const result = await submitFollowUp(sessionId, question, enableAudio);
-        if (!result.segments?.length) {
-          setFollowUpError("Sankofa couldn't add to the story this time. Try another question.");
-        } else {
-          setFollowUpSegments((prev) => [...prev, ...result.segments]);
-        }
+        await fetchEventSource(getFollowUpStreamUrl(sessionId, question, enableAudio), {
+          signal: ctrl.signal,
+          onmessage(ev) {
+            try {
+              if (ev.event === "status") {
+                const data = JSON.parse(ev.data) as { status?: string; message?: string };
+                if (data?.status === "complete") {
+                  setIsLoadingFollowUp(false);
+                  setFollowUpThinking(null);
+                  if (!receivedSegments) {
+                    setFollowUpError("Sankofa couldn't add to the story this time. Try another question.");
+                  }
+                } else if (data?.status === "thinking" || data?.status === "agent_message") {
+                  setFollowUpThinking(data.message ?? null);
+                }
+                return;
+              }
+              if (ev.event === "error") {
+                const data = JSON.parse(ev.data) as { error?: string };
+                setFollowUpError(data?.error || "Follow-up generation failed");
+                setIsLoadingFollowUp(false);
+                setFollowUpThinking(null);
+                return;
+              }
+              if (["text", "image", "audio", "map"].includes(ev.event)) {
+                const segment = JSON.parse(ev.data) as NarrativeSegment;
+                receivedSegments = true;
+                setFollowUpSegments((prev) => [...prev, segment]);
+              }
+            } catch {
+              // Ignore malformed events
+            }
+          },
+          onerror(err) {
+            if (ctrl.signal.aborted) return;
+            setFollowUpError(err?.message || "Connection lost during follow-up");
+            setIsLoadingFollowUp(false);
+            setFollowUpThinking(null);
+          },
+          onclose() {
+            setIsLoadingFollowUp(false);
+            setFollowUpThinking(null);
+          },
+        });
       } catch (e) {
-        setFollowUpError(e instanceof Error ? e.message : "Something went wrong. Try again.");
-      } finally {
-        setIsLoadingFollowUp(false);
+        if (!ctrl.signal.aborted) {
+          setFollowUpError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+          setIsLoadingFollowUp(false);
+          setFollowUpThinking(null);
+        }
       }
     },
     [sessionId, enableAudio]
@@ -255,11 +307,13 @@ export default function NarrativePage() {
                 <p className="mt-3 font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
                   Weaving your ancestral narrative
                 </p>
-                {progressStep && (
+                {(progressStep || thinkingMessage) && (
                   <p className="mt-2 font-[family-name:var(--font-body)] text-xs text-[var(--ochre)]/80" role="status">
-                    {progressStep === "planning_arc"
-                      ? "Planning your story…"
-                      : "Generating narrative and images…"}
+                    {thinkingMessage
+                      ? thinkingMessage
+                      : progressStep === "planning_arc"
+                        ? "Planning your story…"
+                        : "Generating narrative and images…"}
                     {stepElapsed > 0 && (
                       <span className="ml-1 text-[var(--muted)]">({stepElapsed}s)</span>
                     )}
@@ -355,6 +409,7 @@ export default function NarrativePage() {
             isComplete={isComplete && !isLoadingFollowUp}
             error={error}
             followUpError={followUpError}
+            followUpThinking={followUpThinking}
             progressStep={progressStep}
             familyName={sessionInfo?.family_name}
             region={sessionInfo?.region_of_origin}

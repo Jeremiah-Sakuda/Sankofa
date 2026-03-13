@@ -19,6 +19,7 @@ interface UseSSEStreamReturn {
   isComplete: boolean;
   error: string | null;
   progressStep: StreamProgressStep;
+  thinkingMessage: string | null;
   arcOutline: ArcOutline | null;
   startStream: (sessionId: string, enableAudio?: boolean) => void;
   reset: () => void;
@@ -31,6 +32,7 @@ export function useSSEStream(): UseSSEStreamReturn {
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<StreamProgressStep>(null);
+  const [thinkingMessage, setThinkingMessage] = useState<string | null>(null);
   const [arcOutline, setArcOutline] = useState<ArcOutline | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -41,6 +43,7 @@ export function useSSEStream(): UseSSEStreamReturn {
     setIsComplete(false);
     setError(null);
     setProgressStep(null);
+    setThinkingMessage(null);
     setArcOutline(null);
   }, []);
 
@@ -70,17 +73,20 @@ export function useSSEStream(): UseSSEStreamReturn {
             return;
           }
           if (ev.event === "status") {
-            const data = JSON.parse(ev.data) as { status?: string };
+            const data = JSON.parse(ev.data) as { status?: string; message?: string };
             if (data?.status === "complete") {
               setIsStreaming(false);
               setIsComplete(true);
               setProgressStep(null);
+              setThinkingMessage(null);
             } else if (
               data?.status === "planning_arc" ||
               data?.status === "generating_narrative" ||
               data?.status === "generating_audio"
             ) {
               setProgressStep(data.status);
+            } else if (data?.status === "thinking" || data?.status === "agent_message") {
+              setThinkingMessage(data.message ?? null);
             }
             return;
           }
@@ -113,5 +119,5 @@ export function useSSEStream(): UseSSEStreamReturn {
     });
   }, []);
 
-  return { segments, isStreaming, isComplete, error, progressStep, arcOutline, startStream, reset, abort };
+  return { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, reset, abort };
 }

@@ -139,6 +139,16 @@ export function getStreamUrl(sessionId: string, audio: boolean = false): string 
   return audio ? `${base}?audio=true` : base;
 }
 
+export function getFollowUpStreamUrl(
+  sessionId: string,
+  question: string,
+  audio: boolean = false,
+): string {
+  const params = new URLSearchParams({ question });
+  if (audio) params.set("audio", "true");
+  return `${API_BASE}/api/narrative/${sessionId}/followup-stream?${params.toString()}`;
+}
+
 export async function generateAudio(text: string): Promise<{ audio_data: string; media_type: string } | null> {
   try {
     const res = await fetch(`${API_BASE}/api/audio/generate`, {
