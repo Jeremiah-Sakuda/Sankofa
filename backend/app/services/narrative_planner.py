@@ -111,7 +111,7 @@ Output a JSON object with this exact structure:
 
 Output ONLY the JSON, no other text."""
 
-    response = await generate_text(prompt)
+    response = await generate_text(prompt, grounded=True)
 
     try:
         cleaned = response.strip()

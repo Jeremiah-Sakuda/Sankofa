@@ -2,7 +2,7 @@ import asyncio
 import base64
 import logging
 from google import genai
-from google.genai.types import GenerateContentConfig, Modality
+from google.genai.types import GenerateContentConfig, GoogleSearch, Modality, Tool
 from app.config import settings
 from app.models.schemas import NarrativeSegment
 
@@ -137,15 +137,21 @@ async def generate_interleaved(prompt: str) -> list[NarrativeSegment]:
     return await asyncio.to_thread(_generate_interleaved_sync, prompt)
 
 
-def _generate_text_sync(prompt: str, model: str) -> str:
+def _generate_text_sync(prompt: str, model: str, grounded: bool = False) -> str:
     """Synchronous Gemini text call (run in thread pool)."""
-    logger.info("[gemini] Calling Gemini (text model: %s) for arc planning...", model)
+    logger.info("[gemini] Calling Gemini (text model: %s, grounded=%s) for arc planning...", model, grounded)
     try:
         client = get_client()
+        config = GenerateContentConfig(temperature=0.7)
+        if grounded:
+            config = GenerateContentConfig(
+                temperature=0.7,
+                tools=[Tool(google_search=GoogleSearch())],
+            )
         response = client.models.generate_content(
             model=model,
             contents=prompt,
-            config=GenerateContentConfig(temperature=0.7),
+            config=config,
         )
     except Exception as e:
         logger.error("[gemini] Gemini text model call failed: %s", e, exc_info=True)
@@ -158,11 +164,21 @@ def _generate_text_sync(prompt: str, model: str) -> str:
     parts = response.candidates[0].content.parts
     if not parts:
         return ""
+
+    # Log grounding metadata if available
+    if grounded and hasattr(response.candidates[0], 'grounding_metadata') and response.candidates[0].grounding_metadata:
+        gm = response.candidates[0].grounding_metadata
+        logger.info("[gemini] Grounding metadata: %s search queries used", 
+                     len(gm.web_search_queries) if hasattr(gm, 'web_search_queries') and gm.web_search_queries else 0)
+
     logger.info("[gemini] Gemini text model returned successfully")
     return parts[0].text or ""
 
 
-async def generate_text(prompt: str, model: str | None = None) -> str:
-    """Generate text-only content from Gemini (non-blocking)."""
+async def generate_text(prompt: str, model: str | None = None, grounded: bool = False) -> str:
+    """Generate text-only content from Gemini (non-blocking).
+    
+    When grounded=True, uses Google Search to ground responses in real-world data.
+    """
     target_model = model or settings.GEMINI_PLANNING_MODEL
-    return await asyncio.to_thread(_generate_text_sync, prompt, target_model)
+    return await asyncio.to_thread(_generate_text_sync, prompt, target_model, grounded)
