@@ -22,6 +22,7 @@ from app.models.schemas import UserInput
 from app.services.gemini_service import generate_text, generate_interleaved
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration
+from app.store import session_store
 
 logger = logging.getLogger(__name__)
 
@@ -379,6 +380,56 @@ async def notify_user(message: str) -> str:
     return "Notification sent."
 
 
+def recall_narrative_context(session_id: str) -> str:
+    """Retrieve the previous narrative and its trust tags for follow-up explorations.
+    
+    Call this when a user asks a follow-up question to recall what was already generated.
+    
+    Args:
+        session_id: The active session ID.
+        
+    Returns:
+        A formatted string of all previous text segments and their trust levels.
+    """
+    session = session_store.get(session_id)
+    if not session:
+        return "No previous narrative found for this session."
+        
+    context_parts = []
+    for seg in session.segments:
+        if seg.type == "text" and seg.content:
+            context_parts.append(f"[{seg.trust_level.upper()}] {seg.content}")
+            
+    return "\n".join(context_parts)
+    
+
+async def deep_dive(topic: str, cultural_context: str) -> str:
+    """Generate a focused mini-narrative (1 act) exploring a specific aspect in depth.
+    
+    Call this when the user asks a follow-up question like 'tell me more about the trade routes.'
+    
+    Args:
+        topic: The specific aspect to explore.
+        cultural_context: The gathered historical context.
+        
+    Returns:
+        A detailed, focused text/image segment explaining the topic.
+    """
+    prompt = f"""You are Sankofa, a West African griot. Deep dive into this specific topic: '{topic}'.
+    
+=== HISTORICAL CONTEXT ===
+{cultural_context[:3000]}
+
+Write 1-2 rich paragraphs explaining this topic in detail within the context of the region.
+Prepend paragraphs with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
+    
+    segments = await generate_interleaved(prompt)
+    segments = apply_trust_tags(segments)
+    result = [seg.model_dump() for seg in segments]
+    logger.info("[adk] deep_dive: produced %d segments", len(result))
+    return json.dumps(result)
+
+
 # ---------------------------------------------------------------------------
 # ADK Agent Definition
 # ---------------------------------------------------------------------------
@@ -410,6 +461,13 @@ When a user provides their family name, region of origin, and time period, follo
 9. Audio (Optional): Use `generate_audio_narration` for text segments.
 10. Notifications: Use `notify_user` to communicate if you must drop images or audio.
 
+FOLLOW-UP EXPLORATION:
+If the user asks a follow-up question:
+1. Use `recall_narrative_context` with their session_id to read the existing story.
+2. If the question requires a short narrative exploration, use `deep_dive` to generate a 1-act vignette.
+3. Suggest proactively: Analyze the recalled context, and if parts were [RECONSTRUCTED], 
+   you can ask the user if they have any family oral traditions to fill the gaps.
+
 Always maintain a warm, reverent tone. Clearly distinguish between historical facts,
 cultural practices, and imaginative reconstruction. Never fabricate specific genealogical
 claims — instead, paint a vivid picture of the world their ancestors inhabited.
@@ -427,6 +485,8 @@ The three acts should flow naturally:
         generate_act_segments,
         enrich_segment,
         generate_audio_narration,
+        recall_narrative_context,
+        deep_dive,
         notify_user,
     ],
 )
