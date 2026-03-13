@@ -55,8 +55,59 @@ def lookup_cultural_context(
         time_period=time_period,
     )
     context = build_grounding_context(user_input)
+    # Determine basic coverage metadata based on whether fallback was used
+    is_fallback = "not in our detailed knowledge base" in context.lower()
+    
+    metadata = {
+        "region_match_confidence": "low" if is_fallback else "high",
+        "decade_coverage_range": time_period,
+        "gaps": ["No detailed regional data in knowledge base"] if is_fallback else ["May lack specific family history"],
+        "content_length": len(context),
+        "context_data": context
+    }
+    
     logger.info("[adk] lookup_cultural_context: %d chars for %s / %s", len(context), region, time_period)
-    return context if context else f"No specific knowledge base entries found for {region} during {time_period}. Use your general knowledge."
+    return json.dumps(metadata, indent=2)
+
+
+def assess_context_quality(context_metadata_json: str) -> str:
+    """Evaluate the quality and coverage of the culturally gathered context.
+    
+    Call this immediately after lookup_cultural_context to determine if the 
+    knowledge base coverage is sufficient.
+    
+    Args:
+        context_metadata_json: The JSON string returned by lookup_cultural_context.
+        
+    Returns:
+        A string indicating 'rich', 'moderate', or 'sparse'. If 'sparse', you should
+        call research_region_history before planning the narrative.
+    """
+    try:
+        data = json.loads(context_metadata_json)
+        if data.get("region_match_confidence") == "low":
+            return "sparse"
+        return "rich"
+    except Exception:
+        return "moderate"
+
+
+async def research_region_history(region: str, time_period: str) -> str:
+    """Use Google Search grounding to gather historical context for uncovered regions.
+    
+    Call this ONLY if assess_context_quality returns 'sparse' or 'none'.
+    
+    Args:
+        region: The geographic region.
+        time_period: The historical era.
+        
+    Returns:
+        A rich historical context string retrieved via web search.
+    """
+    prompt = f"Provide a detailed historical and cultural overview of {region} during {time_period}. Focus on daily life, major events, social structure, and historical context. This will be used to ground a family heritage story."
+    result = await generate_text(prompt, grounded=True)
+    logger.info("[adk] research_region_history: gathered %d chars via search", len(result))
+    return result
 
 
 async def plan_narrative_arc(
@@ -199,12 +250,14 @@ sankofa_agent = Agent(
 West African griot. Your purpose is to help users discover and connect with their
 ancestral heritage through immersive storytelling.
 
-When a user provides their family name, region of origin, and time period:
+When a user provides their family name, region of origin, and time period, follow this process:
 
-1. First, use lookup_cultural_context to gather historical and cultural facts
-2. Then, use plan_narrative_arc to structure a 3-act story
-3. Finally, use generate_narrative_segments to create the full narrative with images
-4. Optionally, use generate_audio_narration for each text segment to add voice narration
+1. Gather Context: Use `lookup_cultural_context` to query the knowledge base.
+2. Evaluate Context: Use `assess_context_quality` on the result.
+   - If it returns "sparse" or "none", use `research_region_history` to gather better grounding via Google Search.
+3. Plan: Use `plan_narrative_arc` to structure a 3-act story, passing either the knowledge base context or the researched context.
+4. Generate: Use `generate_narrative_segments` to create the full narrative with images.
+5. Audio (Optional): Use `generate_audio_narration` for text segments to add voice narration.
 
 Always maintain a warm, reverent tone. Clearly distinguish between historical facts,
 cultural practices, and imaginative reconstruction. Never fabricate specific genealogical
@@ -216,6 +269,8 @@ The three acts should flow naturally:
 - Act 3 (Thread): The connection between past and present, diaspora and survival""",
     tools=[
         lookup_cultural_context,
+        assess_context_quality,
+        research_region_history,
         plan_narrative_arc,
         generate_narrative_segments,
         generate_audio_narration,

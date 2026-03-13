@@ -91,19 +91,22 @@ Output a JSON object with this exact structure:
     "title": "A short evocative title for the opening",
     "focus": "What specific aspect of the landscape/environment to describe",
     "image_prompt": "A detailed prompt for a watercolor-style landscape image",
-    "key_facts": ["2-3 historical facts to weave in"]
+    "key_facts": ["2-3 historical facts to weave in"],
+    "ambient_track": "Must be exactly one of: fire.wav, wind.wav, nature.wav, market.wav, drums.wav"
   }},
   "act2_people": {{
     "title": "A short evocative title for the people section",
     "focus": "What aspect of daily life/culture to center",
     "image_prompt": "A detailed prompt for a portrait-style image of people",
-    "key_facts": ["2-3 cultural/historical facts to weave in"]
+    "key_facts": ["2-3 cultural/historical facts to weave in"],
+    "ambient_track": "Must be exactly one of: fire.wav, wind.wav, nature.wav, market.wav, drums.wav"
   }},
   "act3_thread": {{
     "title": "A short evocative title for the connection section",
     "focus": "What thread connects past to present",
     "image_prompt": "A detailed prompt for an image bridging past and present",
-    "key_facts": ["2-3 facts about diaspora/migration/cultural survival"]
+    "key_facts": ["2-3 facts about diaspora/migration/cultural survival"],
+    "ambient_track": "Must be exactly one of: fire.wav, wind.wav, nature.wav, market.wav, drums.wav"
   }},
   "tone": "The specific emotional register (e.g., 'reverent and warm', 'bittersweet but hopeful')",
   "narrative_voice": "How the griot narrator should speak to this specific listener"
@@ -132,18 +135,21 @@ def _fallback_arc(user_input: UserInput) -> dict:
             "focus": f"The landscape and atmosphere of {user_input.region_of_origin} during {user_input.time_period}",
             "image_prompt": f"Watercolor illustration of {user_input.region_of_origin} landscape, {user_input.time_period}, warm earth tones, golden hour light",
             "key_facts": [],
+            "ambient_track": "wind.wav",
         },
         "act2_people": {
             "title": "The People and Their Ways",
             "focus": "Daily life, cultural practices, and community",
             "image_prompt": f"Watercolor portrait of people in {user_input.region_of_origin}, {user_input.time_period}, traditional dress, warm tones",
             "key_facts": [],
+            "ambient_track": "market.wav",
         },
         "act3_thread": {
             "title": "The Thread That Reaches You",
             "focus": "Migration, cultural survival, and connection to the present",
             "image_prompt": f"Watercolor illustration bridging {user_input.region_of_origin} heritage to modern diaspora life, warm earth tones",
             "key_facts": [],
+            "ambient_track": "drums.wav",
         },
         "tone": "warm and reverent",
         "narrative_voice": "a griot speaking with warmth and gravity",

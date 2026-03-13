@@ -6,9 +6,9 @@ import { NarrativeSegment, getStreamUrl } from "../lib/api";
 export type StreamProgressStep = "planning_arc" | "generating_narrative" | "generating_audio" | null;
 
 export interface ArcOutline {
-  act1_setting?: { title?: string; focus?: string; image_prompt?: string };
-  act2_people?: { title?: string; focus?: string; image_prompt?: string };
-  act3_thread?: { title?: string; focus?: string; image_prompt?: string };
+  act1_setting?: { title?: string; focus?: string; image_prompt?: string; ambient_track?: string };
+  act2_people?: { title?: string; focus?: string; image_prompt?: string; ambient_track?: string };
+  act3_thread?: { title?: string; focus?: string; image_prompt?: string; ambient_track?: string };
   tone?: string;
   narrative_voice?: string;
 }
