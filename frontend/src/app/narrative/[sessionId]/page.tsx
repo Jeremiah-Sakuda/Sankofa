@@ -360,6 +360,7 @@ export default function NarrativePage() {
             familyName={sessionInfo?.family_name}
             region={sessionInfo?.region_of_origin}
             era={sessionInfo?.time_period}
+            arcOutline={arcOutline}
             onFollowUp={handleFollowUp}
             onRetry={() => {
               reset();

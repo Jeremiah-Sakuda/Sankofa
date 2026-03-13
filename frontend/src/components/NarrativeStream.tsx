@@ -4,12 +4,17 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
-import type { StreamProgressStep } from "../hooks/useSSEStream";
+import type { StreamProgressStep, ArcOutline } from "../hooks/useSSEStream";
 import NarrativeSegment from "./NarrativeSegment";
 import NarrationBar, { type AudioTrack } from "./NarrationBar";
 import SankofaBird from "./SankofaBird";
 
 const FOLLOW_UP_MAX_LENGTH = 500;
+
+const ACT_LABELS: Record<number, { numeral: string; arcKey: keyof ArcOutline }> = {
+  2: { numeral: "II", arcKey: "act2_people" },
+  3: { numeral: "III", arcKey: "act3_thread" },
+};
 
 interface Props {
   segments: SegmentType[];
@@ -21,22 +26,92 @@ interface Props {
   familyName?: string;
   region?: string;
   era?: string;
+  arcOutline?: ArcOutline | null;
   onFollowUp?: (question: string) => void;
   onRetry?: () => void;
 }
 
-function ActDivider() {
+function ActTransition({ actNumber, arcOutline }: { actNumber: number; arcOutline?: ArcOutline | null }) {
+  const label = ACT_LABELS[actNumber];
+  const actData = label && arcOutline ? arcOutline[label.arcKey] : null;
+  const title = typeof actData === "object" && actData?.title ? actData.title : null;
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
       viewport={{ once: true, amount: 0.3 }}
-      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="flex items-center justify-center my-12 gap-4"
+      transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}
+      className="my-16 md:my-20 py-8 relative"
     >
-      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--ochre)]/30 to-transparent" />
-      <SankofaBird className="w-6 h-6 text-[var(--ochre)] opacity-40 shrink-0" />
-      <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[var(--ochre)]/30 to-transparent" />
+      {/* Golden line expanding from center */}
+      <motion.div
+        className="h-px mx-auto bg-gradient-to-r from-transparent via-[var(--gold)]/50 to-transparent"
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+      />
+
+      {/* Sankofa bird traveling along the line */}
+      <div className="flex justify-center -mt-3">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.5, rotate: -20 }}
+          whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <SankofaBird className="w-7 h-7 text-[var(--gold)] opacity-60" />
+        </motion.div>
+      </div>
+
+      {/* Act numeral and title */}
+      {label && (
+        <motion.div
+          className="text-center mt-4"
+          initial={{ opacity: 0, y: 10 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.7, delay: 0.6 }}
+        >
+          <span className="font-[family-name:var(--font-display)] text-xs tracking-[0.3em] text-[var(--gold)]/50 uppercase">
+            Act {label.numeral}
+          </span>
+          {title && (
+            <motion.p
+              className="mt-2 font-[family-name:var(--font-display)] text-base md:text-lg italic text-[var(--umber)]/70"
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 1.0 }}
+            >
+              {title}
+            </motion.p>
+          )}
+        </motion.div>
+      )}
+
+      {/* Floating gold particles */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute w-1 h-1 rounded-full bg-[var(--gold)]"
+            style={{
+              left: `${15 + (i * 10) % 70}%`,
+              top: `${20 + (i * 13) % 60}%`,
+            }}
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: [0, 0.4, 0], y: [10, -15, -25] }}
+            viewport={{ once: true }}
+            transition={{
+              duration: 2.5,
+              delay: 0.4 + i * 0.15,
+              ease: "easeOut",
+            }}
+          />
+        ))}
+      </div>
     </motion.div>
   );
 }
@@ -81,6 +156,7 @@ export default function NarrativeStream({
   era,
   followUpError,
   progressStep,
+  arcOutline,
   onFollowUp,
   onRetry,
 }: Props) {
@@ -180,7 +256,7 @@ export default function NarrativeStream({
                 key={`seg-${segment.sequence}-${i}`}
                 ref={i === segments.length - 1 ? endRef : undefined}
               >
-                {isNewAct && i > 0 && <ActDivider />}
+                {isNewAct && i > 0 && <ActTransition actNumber={segment.act!} arcOutline={arcOutline} />}
                 <NarrativeSegment
                   segment={segment}
                   index={i}
