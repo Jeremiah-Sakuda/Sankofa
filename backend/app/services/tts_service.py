@@ -44,6 +44,12 @@ Let the words breathe. This is oral storytelling, not news reading.
     ):
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
+                # Log success
+                logger.info(
+                    "TTS Success: generated %d bytes for text '%s...'",
+                    len(part.inline_data.data),
+                    text[:30].replace("\n", " "),
+                )
                 b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
                 mime = getattr(part.inline_data, "mime_type", None) or "audio/wav"
                 return (b64, mime)
