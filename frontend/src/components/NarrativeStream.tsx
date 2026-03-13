@@ -23,6 +23,7 @@ interface Props {
   isComplete: boolean;
   error: string | null;
   followUpError?: string | null;
+  followUpThinking?: string | null;
   progressStep?: StreamProgressStep;
   familyName?: string;
   region?: string;
@@ -160,6 +161,7 @@ export default function NarrativeStream({
   region,
   era,
   followUpError,
+  followUpThinking,
   progressStep,
   arcOutline,
   onFollowUp,
@@ -169,6 +171,8 @@ export default function NarrativeStream({
   const [followUpValidationError, setFollowUpValidationError] = useState<string | null>(null);
   const [activeSequence, setActiveSequence] = useState<number | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const seenSequences = useRef<Set<number>>(new Set());
   const prevSegmentCountRef = useRef(0);
@@ -241,6 +245,44 @@ export default function NarrativeStream({
     onFollowUp(q);
     setFollowUpInput("");
   };
+
+  const hasSpeechRecognition =
+    typeof window !== "undefined" &&
+    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  const toggleVoiceInput = useCallback(() => {
+    if (!hasSpeechRecognition) return;
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognitionAPI =
+      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = Array.from(event.results)
+        .map((r) => r[0].transcript)
+        .join("");
+      setFollowUpInput(transcript);
+    };
+
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening, hasSpeechRecognition]);
 
   if (segments.length === 0 && !isStreaming) {
     return null;
@@ -316,7 +358,11 @@ export default function NarrativeStream({
           <div className="flex items-center gap-3 mt-8 mb-4" ref={endRef}>
             <div className="w-2 h-2 rounded-full bg-[var(--gold)] animate-gentle-pulse" />
             <span className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] italic">
-              {progressStep === "generating_audio" ? "Adding narration…" : "The story continues…"}
+              {followUpThinking
+                ? followUpThinking
+                : progressStep === "generating_audio"
+                  ? "Adding narration…"
+                  : "The story continues…"}
             </span>
           </div>
         )}
@@ -391,10 +437,28 @@ export default function NarrativeStream({
                     setFollowUpValidationError(null);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
-                  placeholder="Tell me about the music of that era…"
+                  placeholder={isListening ? "Listening…" : "Tell me about the music of that era…"}
                   maxLength={FOLLOW_UP_MAX_LENGTH}
                   className="flex-1 bg-transparent border-b-2 border-[var(--ochre)]/40 text-[var(--umber)] font-[family-name:var(--font-body)] text-base pb-2 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
                 />
+                {hasSpeechRecognition && (
+                  <button
+                    onClick={toggleVoiceInput}
+                    disabled={isStreaming}
+                    className={`w-10 h-10 flex items-center justify-center border rounded-full transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isListening
+                        ? "border-[var(--terracotta)] text-[var(--terracotta)] bg-[var(--terracotta)]/10 animate-gentle-pulse"
+                        : "border-[var(--ochre)]/40 text-[var(--ochre)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
+                    }`}
+                    title={isListening ? "Stop listening" : "Speak your question"}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" x2="12" y1="19" y2="22" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={handleFollowUp}
                   disabled={isStreaming}
