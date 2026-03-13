@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useSSEStream } from "../../../hooks/useSSEStream";
-import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
 import { submitFollowUp, NarrativeSegment, checkBackendHealth, getSession, getFollowUpStreamUrl, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
 import SankofaBird from "../../../components/SankofaBird";
@@ -126,6 +126,19 @@ export default function NarrativePage() {
       try {
         await fetchEventSource(getFollowUpStreamUrl(sessionId, question, enableAudio), {
           signal: ctrl.signal,
+          async onopen(response) {
+            const ct = response.headers.get("content-type") || "";
+            if (response.ok && ct.includes(EventStreamContentType)) return;
+            let message = `Follow-up failed (${response.status})`;
+            try {
+              const body = await response.json();
+              message = body?.detail || body?.error || message;
+            } catch { /* ignore */ }
+            setFollowUpError(message);
+            setIsLoadingFollowUp(false);
+            setFollowUpThinking(null);
+            throw new Error(message);
+          },
           onmessage(ev) {
             try {
               if (ev.event === "status") {
@@ -304,19 +317,33 @@ export default function NarrativePage() {
                 >
                   Sankofa is reaching back…
                 </motion.p>
-                <p className="mt-3 font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
-                  Weaving your ancestral narrative
-                </p>
-                {(progressStep || thinkingMessage) && (
-                  <p className="mt-2 font-[family-name:var(--font-body)] text-xs text-[var(--ochre)]/80" role="status">
+
+                {/* ADK thinking-aloud message — the main status indicator */}
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={thinkingMessage || progressStep || "default"}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                    className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--ochre)] italic text-center max-w-sm"
+                    role="status"
+                  >
                     {thinkingMessage
                       ? thinkingMessage
                       : progressStep === "planning_arc"
                         ? "Planning your story…"
-                        : "Generating narrative and images…"}
-                    {stepElapsed > 0 && (
-                      <span className="ml-1 text-[var(--muted)]">({stepElapsed}s)</span>
-                    )}
+                        : progressStep === "generating_audio"
+                          ? "Adding narration…"
+                          : progressStep === "generating_narrative"
+                            ? "Generating narrative and images…"
+                            : "Weaving your ancestral narrative"}
+                  </motion.p>
+                </AnimatePresence>
+
+                {stepElapsed > 0 && (
+                  <p className="mt-1 font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+                    {stepElapsed}s
                   </p>
                 )}
 

@@ -134,9 +134,12 @@ export async function submitFollowUp(
   return res.json();
 }
 
-export function getStreamUrl(sessionId: string, audio: boolean = false): string {
-  const base = `${API_BASE}/api/narrative/${sessionId}/stream`;
-  return audio ? `${base}?audio=true` : base;
+export function getStreamUrl(sessionId: string, audio: boolean = false, useAdk: boolean = true): string {
+  const params = new URLSearchParams();
+  if (audio) params.set("audio", "true");
+  if (!useAdk) params.set("use_adk", "false");
+  const qs = params.toString();
+  return `${API_BASE}/api/narrative/${sessionId}/stream${qs ? `?${qs}` : ""}`;
 }
 
 export function getFollowUpStreamUrl(

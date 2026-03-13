@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
 import { NarrativeSegment, getStreamUrl } from "../lib/api";
 
 /** Progress step from backend: planning_arc | generating_narrative | generating_audio */
@@ -61,10 +61,28 @@ export function useSSEStream(): UseSSEStreamReturn {
     setSegments([]);
     setIsComplete(false);
     setProgressStep(null);
+    setThinkingMessage(null);
     setArcOutline(null);
 
     fetchEventSource(getStreamUrl(sessionId, enableAudio), {
       signal: ctrl.signal,
+      async onopen(response) {
+        const ct = response.headers.get("content-type") || "";
+        if (response.ok && ct.includes(EventStreamContentType)) {
+          return; // valid SSE stream
+        }
+        // Server returned a non-SSE response (JSON error, 500, etc.)
+        let message = `Server error (${response.status})`;
+        try {
+          const body = await response.json();
+          message = body?.detail || body?.error || message;
+        } catch {
+          // couldn't parse body
+        }
+        setError(message);
+        setIsStreaming(false);
+        throw new Error(message); // stop fetchEventSource from retrying
+      },
       onmessage(ev) {
         try {
           if (ev.event === "arc") {
