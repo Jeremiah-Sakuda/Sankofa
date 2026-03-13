@@ -116,14 +116,15 @@ export async function createSession(input: UserInput): Promise<IntakeResponse> {
 
 export async function submitFollowUp(
   sessionId: string,
-  question: string
+  question: string,
+  audio: boolean = false
 ): Promise<{ segments: NarrativeSegment[] }> {
   const res = await fetchWithTimeout(
     `${API_BASE}/api/narrative/${sessionId}/followup`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
+      body: JSON.stringify({ question, audio }),
     }
   );
   if (!res.ok) {

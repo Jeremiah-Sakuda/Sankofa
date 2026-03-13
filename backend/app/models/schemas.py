@@ -36,6 +36,7 @@ class IntakeResponse(BaseModel):
 
 class FollowUpRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=MAX_FOLLOWUP_QUESTION_LEN)
+    audio: bool = Field(default=False, description="Generate TTS audio for follow-up segments")
 
 
 class AudioGenerateRequest(BaseModel):

@@ -197,5 +197,27 @@ Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
         seg.sequence = base_seq + i
         session.segments.append(seg)
 
+    # Generate TTS for follow-up text segments if requested
+    audio_segments: list[NarrativeSegment] = []
+    if request.audio:
+        for seg in segments:
+            if seg.type == "text" and seg.content:
+                try:
+                    result = await generate_narration(seg.content)
+                    if result:
+                        audio_data, media_type = result
+                        audio_segments.append(NarrativeSegment(
+                            type="audio",
+                            content=seg.content[:100],
+                            media_data=audio_data,
+                            media_type=media_type,
+                            trust_level=seg.trust_level,
+                            sequence=seg.sequence,
+                            act=seg.act,
+                        ))
+                except Exception as e:
+                    logger.warning("TTS failed for follow-up segment %s: %s", seg.sequence, e)
+
     session_store.update(session)
-    return {"segments": [seg.model_dump() for seg in segments]}
+    all_segments = segments + audio_segments
+    return {"segments": [seg.model_dump() for seg in all_segments]}

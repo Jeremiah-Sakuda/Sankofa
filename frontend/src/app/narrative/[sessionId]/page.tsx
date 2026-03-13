@@ -112,7 +112,7 @@ export default function NarrativePage() {
       setFollowUpError(null);
       setIsLoadingFollowUp(true);
       try {
-        const result = await submitFollowUp(sessionId, question);
+        const result = await submitFollowUp(sessionId, question, enableAudio);
         if (!result.segments?.length) {
           setFollowUpError("Sankofa couldn't add to the story this time. Try another question.");
         } else {
@@ -124,7 +124,7 @@ export default function NarrativePage() {
         setIsLoadingFollowUp(false);
       }
     },
-    [sessionId]
+    [sessionId, enableAudio]
   );
 
   const currentAct = allSegments.length > 0
@@ -181,47 +181,47 @@ export default function NarrativePage() {
                   </Link>
                 </>
               ) : (
-              <>
-                <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]">
-                  Ready to weave your narrative.
-                </p>
-                <label className="mt-6 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableAudio}
-                    onChange={(e) => setEnableAudio(e.target.checked)}
-                    className="w-4 h-4 accent-[var(--gold)]"
-                  />
-                  Include audio narration
-                </label>
-                <div className="mt-6 flex flex-col items-center gap-2">
+                <>
+                  <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]">
+                    Ready to weave your narrative.
+                  </p>
+                  <label className="mt-6 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enableAudio}
+                      onChange={(e) => setEnableAudio(e.target.checked)}
+                      className="w-4 h-4 accent-[var(--gold)]"
+                    />
+                    Include audio narration
+                  </label>
+                  <div className="mt-6 flex flex-col items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={connectionTest === "checking"}
+                      className="px-5 py-2 font-[family-name:var(--font-body)] text-sm text-[var(--muted)] border border-[var(--ochre)]/40 hover:border-[var(--ochre)] hover:text-[var(--ivory)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {connectionTest === "checking" ? "Checking…" : "Test API connection"}
+                    </button>
+                    {connectionTest === "ok" && (
+                      <p className="text-sm text-[var(--gold)]" role="status">
+                        {connectionMessage}
+                      </p>
+                    )}
+                    {connectionTest === "fail" && (
+                      <p className="text-sm text-[var(--terracotta)] max-w-xs text-center" role="alert">
+                        {connectionMessage}
+                      </p>
+                    )}
+                  </div>
                   <button
                     type="button"
-                    onClick={handleTestConnection}
-                    disabled={connectionTest === "checking"}
-                    className="px-5 py-2 font-[family-name:var(--font-body)] text-sm text-[var(--muted)] border border-[var(--ochre)]/40 hover:border-[var(--ochre)] hover:text-[var(--ivory)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleBeginStream}
+                    className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
                   >
-                    {connectionTest === "checking" ? "Checking…" : "Test API connection"}
+                    Begin
                   </button>
-                  {connectionTest === "ok" && (
-                    <p className="text-sm text-[var(--gold)]" role="status">
-                      {connectionMessage}
-                    </p>
-                  )}
-                  {connectionTest === "fail" && (
-                    <p className="text-sm text-[var(--terracotta)] max-w-xs text-center" role="alert">
-                      {connectionMessage}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={handleBeginStream}
-                  className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
-                >
-                  Begin
-                </button>
-              </>
+                </>
               )
             ) : error ? (
               <>
