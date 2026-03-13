@@ -8,7 +8,7 @@ from app.models.schemas import NarrativeSegment, FollowUpRequest
 from app.store import session_store
 from app.rate_limiter import limiter
 from app.services.narrative_planner import plan_arc_only, generate_narrative_only, get_fast_arc
-from app.services.gemini_service import generate_interleaved
+from app.services.gemini_service import generate_interleaved, validate_followup_question
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration
 from app.knowledge.loader import build_grounding_context
@@ -143,6 +143,14 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
         raise HTTPException(status_code=404, detail="Session not found")
 
     question = payload.question
+
+    is_safe = await validate_followup_question(question)
+    if not is_safe:
+        logger.warning(f"Rejected unsafe/off-topic prompt in session {session_id}: {question}")
+        raise HTTPException(
+            status_code=400, 
+            detail="I'm sorry, I can only weave narratives about ancestral heritage, family history, and culture."
+        )
 
     existing_context = "\n".join(
         seg.content for seg in session.segments if seg.type == "text" and seg.content
