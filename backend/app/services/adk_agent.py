@@ -304,7 +304,12 @@ Use the warm, unhurried cadence of a West African griot."""
     if segments:
         segments = apply_trust_tags(segments)
 
-    # We update sequences inside the list, though the caller manages the overall sequence.
+    # Assign act number and mark first image as hero for act 1
+    for i, seg in enumerate(segments):
+        seg.act = act_number
+        if act_number == 1 and seg.type == "image" and i == 0:
+            seg.is_hero = True
+
     result = [seg.model_dump() for seg in segments]
     logger.info("[adk] generate_act_segments: produced %d segments for act %d", len(result), act_number)
     return json.dumps(result)
@@ -475,7 +480,12 @@ claims — instead, paint a vivid picture of the world their ancestors inhabited
 The three acts should flow naturally:
 - Act 1 (Setting): The land, landscape, and atmosphere of the ancestral region
 - Act 2 (People): Daily life, cultural practices, and community
-- Act 3 (Thread): The connection between past and present, diaspora and survival""",
+- Act 3 (Thread): The connection between past and present, diaspora and survival
+
+IMPORTANT: Always return the raw data from tool calls. Do NOT summarize or paraphrase
+the output of generate_act_segments or deep_dive — the orchestrator needs the full
+JSON segment arrays to stream them to the user. If the user message says to skip
+generate_audio_narration, respect that instruction.""",
     tools=[
         lookup_cultural_context,
         assess_context_quality,
