@@ -174,15 +174,12 @@ const revealViewport = { once: true, amount: 0.12, margin: "-40px 0px 0px 0px" }
 
 function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string; isHero: boolean; isNew: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, amount: 0.15 });
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
   });
   const y = useTransform(scrollYProgress, [0, 1], [isHero ? -50 : -30, isHero ? 50 : 30]);
   const scale = useTransform(scrollYProgress, [0, 0.5, 1], [1.08, 1, 1.08]);
-
-  const shouldAnimate = isNew && isInView;
 
   return (
     <div ref={ref} className="overflow-hidden relative">
@@ -191,8 +188,9 @@ function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string;
         alt={alt}
         className="w-full h-auto block will-change-transform"
         style={{ y, scale }}
-        initial={isNew ? { filter: "sepia(100%) brightness(0.8)" } : undefined}
-        animate={shouldAnimate ? { filter: "sepia(0%) brightness(1)" } : undefined}
+        initial={isNew ? { filter: "sepia(100%) brightness(0.8)" } : false}
+        whileInView={isNew ? { filter: "sepia(0%) brightness(1)" } : undefined}
+        viewport={{ once: true, amount: 0.15 }}
         transition={{ duration: 2.5, ease: "easeOut" }}
       />
       {/* Warm vignette overlay for hero images */}
@@ -209,7 +207,8 @@ function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string;
         <motion.div
           className="absolute inset-0 pointer-events-none"
           initial={{ opacity: 0.8, backgroundPosition: "200% 0%" }}
-          animate={shouldAnimate ? { opacity: 0, backgroundPosition: "-100% 0%" } : undefined}
+          whileInView={{ opacity: 0, backgroundPosition: "-100% 0%" }}
+          viewport={{ once: true, amount: 0.15 }}
           transition={{ 
             opacity: { duration: 3, ease: "easeOut" },
             backgroundPosition: { duration: 2.5, ease: "easeOut" }

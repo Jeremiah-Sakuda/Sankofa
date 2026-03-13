@@ -115,10 +115,11 @@ async def plan_narrative_arc(
     time_period: str,
     family_name: str,
     cultural_context: str,
+    feedback: str = "",
 ) -> str:
-    """Plan a 3-act narrative arc for a heritage story using Gemini with Google Search grounding.
+    """Plan a 3-act narrative arc for a heritage story using Gemini.
 
-    Call this after lookup_cultural_context to structure the narrative.
+    Call this after context is gathered to structure the narrative.
     Returns a JSON string with act1_setting, act2_people, act3_thread,
     tone, and narrative_voice.
 
@@ -126,7 +127,8 @@ async def plan_narrative_arc(
         region: The geographic region of origin.
         time_period: The historical era for the story.
         family_name: The family name being narrated.
-        cultural_context: Cultural/historical context from lookup_cultural_context.
+        cultural_context: Cultural/historical context.
+        feedback: Optional previous validation feedback to address.
 
     Returns:
         A JSON string containing the 3-act narrative arc structure.
@@ -138,9 +140,15 @@ during {time_period}, plan a three-act narrative structure for the
 {family_name} family heritage story.
 
 === GROUNDING CONTEXT ===
-{cultural_context[:2000]}
+{cultural_context[:2000]}\n"""
 
-=== TASK ===
+    if feedback:
+        prompt += f"""\n=== FEEDBACK TO ADDRESS ===
+The previous plan failed validation for these reasons:
+{feedback}
+Please revise the arc to specifically address these issues.\n"""
+
+    prompt += f"""\n=== TASK ===
 Output a JSON object with this structure:
 {{
   "act1_setting": {{
@@ -167,6 +175,44 @@ Output ONLY the JSON, no other text."""
     response = await generate_text(prompt, grounded=True)
     logger.info("[adk] plan_narrative_arc: received %d chars", len(response))
     return response
+
+
+async def validate_narrative_arc(arc_json: str, cultural_context: str) -> str:
+    """Validate a planned narrative arc against the gathered cultural context.
+    
+    Call this after plan_narrative_arc to ensure the story is specific, grounded,
+    and has a strong emotional progression.
+    
+    Args:
+        arc_json: The JSON string output from plan_narrative_arc.
+        cultural_context: The historical and cultural context string.
+        
+    Returns:
+        A validation report string. If it says 'PASS', you can proceed. 
+        If it says 'FAIL' with reasons, you must call plan_narrative_arc again
+        with a modified prompt to address the feedback.
+    """
+    prompt = f"""You are a master storyteller evaluating an ancestral narrative arc.
+Review the proposed arc against the provided historical context.
+
+=== HISTORICAL CONTEXT ===
+{cultural_context[:3000]}
+
+=== NARRATIVE ARC ===
+{arc_json[:2000]}
+
+Evaluate based on:
+1. Specificity: Does it use real historical facts/names/practices, or is it generic?
+2. Coverage: Does each act draw on different aspects of the context?
+3. Emotional progression: Does it build toward a strong past-to-present connection?
+4. Trust tags: Are the claims plausibly grounded in the context?
+
+If the arc is strong and grounded, respond only with "PASS".
+If it is weak, generic, or ungrounded, respond with "FAIL:" followed by specific feedback on what to fix."""
+
+    result = await generate_text(prompt)
+    logger.info("[adk] validate_narrative_arc: result=%s", result[:50].replace('\n', ' '))
+    return result
 
 
 async def generate_narrative_segments(
@@ -254,10 +300,11 @@ When a user provides their family name, region of origin, and time period, follo
 
 1. Gather Context: Use `lookup_cultural_context` to query the knowledge base.
 2. Evaluate Context: Use `assess_context_quality` on the result.
-   - If it returns "sparse" or "none", use `research_region_history` to gather better grounding via Google Search.
-3. Plan: Use `plan_narrative_arc` to structure a 3-act story, passing either the knowledge base context or the researched context.
-4. Generate: Use `generate_narrative_segments` to create the full narrative with images.
-5. Audio (Optional): Use `generate_audio_narration` for text segments to add voice narration.
+   - If it returns "sparse" or "none", use `research_region_history` to gather better grounding.
+3. Plan: Use `plan_narrative_arc` to structure a 3-act story.
+4. Validate: Use `validate_narrative_arc` to review the plan. If it FAILS, call `plan_narrative_arc` again providing the feedback string (do this at most once).
+5. Generate: Use `generate_narrative_segments` to create the full narrative with images.
+6. Audio (Optional): Use `generate_audio_narration` for text segments to add voice narration.
 
 Always maintain a warm, reverent tone. Clearly distinguish between historical facts,
 cultural practices, and imaginative reconstruction. Never fabricate specific genealogical
@@ -272,6 +319,7 @@ The three acts should flow naturally:
         assess_context_quality,
         research_region_history,
         plan_narrative_arc,
+        validate_narrative_arc,
         generate_narrative_segments,
         generate_audio_narration,
     ],

@@ -185,6 +185,20 @@ export default function NarrativeStream({
     return textSegs.length > 0 ? (textSegs[textSegs.length - 1].act ?? 1) : 1;
   }, [segments]);
 
+  const currentAmbientTrack = useMemo(() => {
+    if (!arcOutline) return null;
+    const actKey = currentAct === 1 ? "act1_setting" : currentAct === 2 ? "act2_people" : "act3_thread";
+    // @ts-ignore
+    return arcOutline[actKey]?.ambient_track || null;
+  }, [arcOutline, currentAct]);
+
+  const ambientAudioRef = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (ambientAudioRef.current) {
+      ambientAudioRef.current.volume = 0.15; // Background ambient volume
+    }
+  }, [currentAmbientTrack]);
+
   // Auto-scroll only during active streaming when the user is near the bottom
   useEffect(() => {
     const isNewSegment = segments.length > prevSegmentCountRef.current;
