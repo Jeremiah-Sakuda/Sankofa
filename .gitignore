@@ -38,3 +38,6 @@ Thumbs.db
 
 # Docker
 docker-compose.override.yml
+
+# Blog (draft — publish externally)
+BLOG_POST.md
