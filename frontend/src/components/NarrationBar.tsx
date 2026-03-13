@@ -14,6 +14,7 @@ export interface AudioTrack {
 interface NarrationBarProps {
   tracks: AudioTrack[];
   onTrackChange?: (track: AudioTrack | null) => void;
+  onPlayStateChange?: (playing: boolean) => void;
   autoPlay?: boolean;
 }
 
@@ -55,7 +56,7 @@ function useBlobUrl(audioData: string | undefined, mediaType: string): string | 
   return src;
 }
 
-export default function NarrationBar({ tracks, onTrackChange, autoPlay = true }: NarrationBarProps) {
+export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, autoPlay = true }: NarrationBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -83,6 +84,10 @@ export default function NarrationBar({ tracks, onTrackChange, autoPlay = true }:
   useEffect(() => {
     onTrackChange?.(currentTrack);
   }, [currentTrack, onTrackChange]);
+
+  useEffect(() => {
+    onPlayStateChange?.(isPlaying);
+  }, [isPlaying, onPlayStateChange]);
 
   // Auto-play first track when it arrives, or newly arriving tracks if user hasn't paused
   useEffect(() => {

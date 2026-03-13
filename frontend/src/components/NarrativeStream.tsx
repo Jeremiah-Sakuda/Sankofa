@@ -86,6 +86,7 @@ export default function NarrativeStream({
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpValidationError, setFollowUpValidationError] = useState<string | null>(null);
   const [activeSequence, setActiveSequence] = useState<number | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
@@ -98,11 +99,14 @@ export default function NarrativeStream({
 
   const handleTrackChange = useCallback((track: AudioTrack | null) => {
     setActiveSequence(track?.segmentSequence ?? null);
-    // Scroll the narrating segment into view
     if (track) {
       const el = document.querySelector(`[data-sequence="${track.segmentSequence}"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+  }, []);
+
+  const handlePlayStateChange = useCallback((playing: boolean) => {
+    setIsAudioPlaying(playing);
   }, []);
 
   let lastAct = 0;
@@ -177,6 +181,7 @@ export default function NarrativeStream({
                   index={i}
                   isFirstInAct={isFirstInAct || false}
                   isNarrating={activeSequence === segment.sequence}
+                  spotlightActive={isAudioPlaying && activeSequence !== null}
                 />
               </div>
             );
@@ -278,6 +283,7 @@ export default function NarrativeStream({
           <NarrationBar
             tracks={audioTracks}
             onTrackChange={handleTrackChange}
+            onPlayStateChange={handlePlayStateChange}
             autoPlay
           />
         )}

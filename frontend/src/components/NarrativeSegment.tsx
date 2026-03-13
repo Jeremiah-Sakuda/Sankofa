@@ -1,6 +1,7 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import TrustBadge from "./TrustBadge";
 
@@ -90,17 +91,44 @@ interface Props {
   index: number;
   isFirstInAct?: boolean;
   isNarrating?: boolean;
+  /** True when any segment is actively being narrated (enables spotlight dimming) */
+  spotlightActive?: boolean;
 }
 
 const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] };
 const revealViewport = { once: true, amount: 0.12, margin: "-40px 0px 0px 0px" };
+
+function ParallaxImage({ src, alt, isHero }: { src: string; alt: string; isHero: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start end", "end start"],
+  });
+  // Shift the image 40px over the scroll range of the container
+  const y = useTransform(scrollYProgress, [0, 1], [isHero ? -50 : -30, isHero ? 50 : 30]);
+  const scale = useTransform(scrollYProgress, [0, 0.5, 1], [1.08, 1, 1.08]);
+
+  return (
+    <div ref={ref} className="overflow-hidden">
+      <motion.img
+        src={src}
+        alt={alt}
+        className="w-full h-auto block will-change-transform"
+        style={{ y, scale }}
+      />
+    </div>
+  );
+}
 
 export default function NarrativeSegment({
   segment,
   index,
   isFirstInAct = false,
   isNarrating = false,
+  spotlightActive = false,
 }: Props) {
+  const isDimmed = spotlightActive && !isNarrating;
+
   if (segment.type === "text" && segment.content) {
     return (
       <motion.div
@@ -109,10 +137,13 @@ export default function NarrativeSegment({
         viewport={revealViewport}
         transition={{ ...revealTransition, delay: 0.05 }}
         className={`relative mb-8 group transition-all duration-700 ${
-          isNarrating
-            ? "narrating-segment"
-            : ""
+          isNarrating ? "narrating-segment" : ""
         }`}
+        style={{
+          opacity: isDimmed ? 0.3 : undefined,
+          filter: isDimmed ? "blur(0.5px)" : undefined,
+          transition: "opacity 0.7s ease, filter 0.7s ease",
+        }}
         data-sequence={segment.sequence}
       >
         <TrustBadge level={segment.trust_level} />
@@ -125,6 +156,7 @@ export default function NarrativeSegment({
 
   if (segment.type === "image" && segment.media_data) {
     const isHero = segment.is_hero;
+    const imgSrc = `data:${segment.media_type || "image/png"};base64,${segment.media_data}`;
 
     return (
       <motion.figure
@@ -133,7 +165,12 @@ export default function NarrativeSegment({
         viewport={revealViewport}
         transition={{ ...revealTransition, duration: 0.85 }}
         className={`my-10 ${isHero ? "-mx-8 md:-mx-16 lg:-mx-24" : "mx-auto"}`}
-        style={{ maxWidth: isHero ? "none" : "85%" }}
+        style={{
+          maxWidth: isHero ? "none" : "85%",
+          opacity: isDimmed ? 0.4 : undefined,
+          transition: "opacity 0.7s ease",
+        }}
+        data-sequence={segment.sequence}
       >
         <div
           className={`overflow-hidden ${
@@ -142,10 +179,10 @@ export default function NarrativeSegment({
               : "border-2 border-[var(--ochre)]/30 shadow-[0_4px_24px_rgba(59,35,20,0.15)]"
           }`}
         >
-          <img
-            src={`data:${segment.media_type || "image/png"};base64,${segment.media_data}`}
+          <ParallaxImage
+            src={imgSrc}
             alt={segment.content || "Heritage narrative illustration"}
-            className="w-full h-auto block"
+            isHero={isHero}
           />
         </div>
         {segment.content && (
