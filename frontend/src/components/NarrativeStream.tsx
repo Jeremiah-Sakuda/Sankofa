@@ -44,22 +44,23 @@ function ActDivider() {
 function buildAudioTracks(segments: SegmentType[]): AudioTrack[] {
   const tracks: AudioTrack[] = [];
 
+  let trackNum = 0;
   for (const seg of segments) {
-    // Text segments that have embedded audio
     if (seg.type === "text" && seg.media_data && seg.media_type?.startsWith("audio")) {
+      trackNum++;
       tracks.push({
         id: `text-${seg.sequence}`,
-        label: seg.content?.slice(0, 80)?.replace(/\[.*?\]/g, "").trim() || `Segment ${seg.sequence + 1}`,
+        label: `Narration ${trackNum}`,
         audioData: seg.media_data,
         mediaType: seg.media_type,
         segmentSequence: seg.sequence,
       });
     }
-    // Standalone audio segments
     if (seg.type === "audio" && seg.media_data) {
+      trackNum++;
       tracks.push({
         id: `audio-${seg.sequence}`,
-        label: seg.content?.slice(0, 80) || `Narration ${seg.sequence + 1}`,
+        label: `Narration ${trackNum}`,
         audioData: seg.media_data,
         mediaType: seg.media_type ?? "audio/wav",
         segmentSequence: seg.sequence,
@@ -88,6 +89,7 @@ export default function NarrativeStream({
   const [activeSequence, setActiveSequence] = useState<number | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const seenSequences = useRef<Set<number>>(new Set());
 
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
@@ -170,6 +172,9 @@ export default function NarrativeStream({
             if (segment.act) lastAct = segment.act;
             const isFirstInAct = isNewAct && segment.type === "text";
 
+            const isNew = !seenSequences.current.has(segment.sequence);
+            if (isNew) seenSequences.current.add(segment.sequence);
+
             return (
               <div
                 key={`seg-${segment.sequence}-${i}`}
@@ -182,6 +187,7 @@ export default function NarrativeStream({
                   isFirstInAct={isFirstInAct || false}
                   isNarrating={activeSequence === segment.sequence}
                   spotlightActive={isAudioPlaying && activeSequence !== null}
+                  isNew={isNew}
                 />
               </div>
             );

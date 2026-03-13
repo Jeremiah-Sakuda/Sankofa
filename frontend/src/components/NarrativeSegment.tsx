@@ -1,11 +1,39 @@
 "use client";
 
-import { useRef } from "react";
-import { motion, useScroll, useTransform } from "motion/react";
+import { useRef, useState, useEffect } from "react";
+import { motion, useScroll, useTransform, useInView } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import TrustBadge from "./TrustBadge";
 
-function SegmentContent({ content, isFirstInAct }: { content: string; isFirstInAct: boolean }) {
+const WORD_STAGGER = 0.018;
+const LINE_STAGGER = 0.12;
+
+function RevealWords({ text, baseDelay = 0 }: { text: string; baseDelay?: number }) {
+  const words = text.split(/(\s+)/);
+  let wordIdx = 0;
+  return (
+    <>
+      {words.map((token, i) => {
+        if (/^\s+$/.test(token)) return token;
+        const delay = baseDelay + wordIdx * WORD_STAGGER;
+        wordIdx++;
+        return (
+          <motion.span
+            key={i}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay, ease: [0.22, 1, 0.36, 1] }}
+            className="inline"
+          >
+            {token}
+          </motion.span>
+        );
+      })}
+    </>
+  );
+}
+
+function parseNodes(content: string) {
   const lines = content.split(/\n/);
   const nodes: { type: "h1" | "h2" | "h3" | "p"; text: string }[] = [];
   let para: string[] = [];
@@ -21,65 +49,67 @@ function SegmentContent({ content, isFirstInAct }: { content: string; isFirstInA
     const h3 = line.match(/^###\s+(.+)$/);
     const h2 = line.match(/^##\s+(.+)$/);
     const h1 = line.match(/^#\s+(.+)$/);
-    if (h3) {
-      flushPara();
-      nodes.push({ type: "h3", text: h3[1] });
-    } else if (h2) {
-      flushPara();
-      nodes.push({ type: "h2", text: h2[1] });
-    } else if (h1) {
-      flushPara();
-      nodes.push({ type: "h1", text: h1[1] });
-    } else {
-      para.push(line);
-    }
+    if (h3) { flushPara(); nodes.push({ type: "h3", text: h3[1] }); }
+    else if (h2) { flushPara(); nodes.push({ type: "h2", text: h2[1] }); }
+    else if (h1) { flushPara(); nodes.push({ type: "h1", text: h1[1] }); }
+    else { para.push(line); }
   }
   flushPara();
+  return nodes;
+}
+
+function SegmentContent({ content, isFirstInAct, animate }: { content: string; isFirstInAct: boolean; animate: boolean }) {
+  const nodes = parseNodes(content);
+
+  let cumulativeWords = 0;
 
   return (
     <>
       {nodes.map((node, i) => {
-        if (node.type === "h3") {
-          return (
-            <h3
-              key={i}
-              className="font-[family-name:var(--font-display)] text-[var(--gold)] text-lg md:text-xl tracking-wider uppercase mt-8 mb-3 first:mt-0"
-            >
-              {node.text}
-            </h3>
+        const wordCount = node.text.split(/\s+/).length;
+        const baseDelay = i * LINE_STAGGER;
+
+        const headingClasses: Record<string, string> = {
+          h1: "font-[family-name:var(--font-display)] text-[var(--gold)] text-2xl md:text-3xl tracking-wider uppercase mt-10 mb-4 first:mt-0",
+          h2: "font-[family-name:var(--font-display)] text-[var(--gold)] text-xl md:text-2xl tracking-wider uppercase mt-10 mb-4 first:mt-0",
+          h3: "font-[family-name:var(--font-display)] text-[var(--gold)] text-lg md:text-xl tracking-wider uppercase mt-8 mb-3 first:mt-0",
+        };
+
+        if (node.type !== "p") {
+          const Tag = node.type as "h1" | "h2" | "h3";
+          const el = animate ? (
+            <Tag key={i} className={headingClasses[node.type]}>
+              <RevealWords text={node.text} baseDelay={baseDelay} />
+            </Tag>
+          ) : (
+            <Tag key={i} className={headingClasses[node.type]}>{node.text}</Tag>
           );
+          cumulativeWords += wordCount;
+          return el;
         }
-        if (node.type === "h2") {
-          return (
-            <h2
-              key={i}
-              className="font-[family-name:var(--font-display)] text-[var(--gold)] text-xl md:text-2xl tracking-wider uppercase mt-10 mb-4 first:mt-0"
-            >
-              {node.text}
-            </h2>
-          );
+
+        const delay = cumulativeWords * WORD_STAGGER + i * LINE_STAGGER;
+        cumulativeWords += wordCount;
+
+        const dropCap = isFirstInAct && i === 0;
+        const cls = dropCap
+          ? "first-letter:text-[3.5rem] first-letter:font-[family-name:var(--font-display)] first-letter:text-[var(--gold)] first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:leading-[0.8]"
+          : "";
+
+        if (!animate) {
+          return <p key={i} className={cls}>{node.text}</p>;
         }
-        if (node.type === "h1") {
-          return (
-            <h1
-              key={i}
-              className="font-[family-name:var(--font-display)] text-[var(--gold)] text-2xl md:text-3xl tracking-wider uppercase mt-10 mb-4 first:mt-0"
-            >
-              {node.text}
-            </h1>
-          );
-        }
+
         return (
-          <p
+          <motion.p
             key={i}
-            className={
-              isFirstInAct && i === 0
-                ? "first-letter:text-[3.5rem] first-letter:font-[family-name:var(--font-display)] first-letter:text-[var(--gold)] first-letter:float-left first-letter:mr-3 first-letter:mt-1 first-letter:leading-[0.8]"
-                : ""
-            }
+            className={cls}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: baseDelay }}
           >
-            {node.text}
-          </p>
+            <RevealWords text={node.text} baseDelay={delay} />
+          </motion.p>
         );
       })}
     </>
@@ -91,8 +121,8 @@ interface Props {
   index: number;
   isFirstInAct?: boolean;
   isNarrating?: boolean;
-  /** True when any segment is actively being narrated (enables spotlight dimming) */
   spotlightActive?: boolean;
+  isNew?: boolean;
 }
 
 const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] };
@@ -126,12 +156,21 @@ export default function NarrativeSegment({
   isFirstInAct = false,
   isNarrating = false,
   spotlightActive = false,
+  isNew = false,
 }: Props) {
   const isDimmed = spotlightActive && !isNarrating;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isInView = useInView(containerRef, { once: true, amount: 0.12 });
+  const [hasRevealed, setHasRevealed] = useState(false);
+
+  useEffect(() => {
+    if (isInView && isNew && !hasRevealed) setHasRevealed(true);
+  }, [isInView, isNew, hasRevealed]);
 
   if (segment.type === "text" && segment.content) {
     return (
       <motion.div
+        ref={containerRef}
         initial={{ opacity: 0, y: 28 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={revealViewport}
@@ -148,7 +187,11 @@ export default function NarrativeSegment({
       >
         <TrustBadge level={segment.trust_level} />
         <div className="font-[family-name:var(--font-body)] text-[var(--umber)] leading-[1.85] text-[1.1rem] md:text-[1.15rem]">
-          <SegmentContent content={segment.content} isFirstInAct={isFirstInAct} />
+          <SegmentContent
+            content={segment.content}
+            isFirstInAct={isFirstInAct}
+            animate={isNew && isInView}
+          />
         </div>
       </motion.div>
     );
