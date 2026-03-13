@@ -12,6 +12,7 @@ from app.services.gemini_service import generate_interleaved, validate_followup_
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration
 from app.knowledge.loader import build_grounding_context
+from app.services.adk_orchestrator import run_adk_narrative, run_adk_followup
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["narrative"])
@@ -24,6 +25,7 @@ async def stream_narrative(
     session_id: UUID,
     audio: bool = Query(default=False, description="Generate TTS audio for text segments"),
     fast: bool = Query(default=True, description="Skip arc-planning Gemini call; use template for faster load"),
+    use_adk: bool = Query(default=True, description="Route through the ADK agent orchestrator"),
 ):
     session = session_store.get(str(session_id))
     if not session:
@@ -32,6 +34,22 @@ async def stream_narrative(
     if session.is_generating:
         raise HTTPException(status_code=409, detail="Narrative already generating")
 
+    # --- ADK-orchestrated path ---
+    if use_adk:
+        async def adk_event_generator():
+            session.is_generating = True
+            session_store.update(session)
+            try:
+                logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
+                async for sse_event in run_adk_narrative(session, audio=audio):
+                    yield sse_event
+            finally:
+                session.is_generating = False
+                session_store.update(session)
+
+        return EventSourceResponse(adk_event_generator())
+
+    # --- Direct pipeline fallback (use_adk=false) ---
     ARC_PLANNING_TIMEOUT = 60   # seconds (Gemini text call)
     NARRATIVE_TIMEOUT = 120     # seconds (Gemini image + text call)
 
@@ -45,7 +63,7 @@ async def stream_narrative(
 
         async def _orchestrator():
             try:
-                logger.info("[stream] Narrative stream started for session %s (fast=%s, audio=%s)", str(session_id), fast, audio)
+                logger.info("[stream] Direct pipeline stream started for session %s (fast=%s, audio=%s)", str(session_id), fast, audio)
                 await _emit("status", json.dumps({"status": "generating"}))
 
                 if fast:
@@ -74,7 +92,7 @@ async def stream_narrative(
                     )
                 logger.info("[stream] Generated %s segments, streaming to client", len(segments))
 
-                # Steam segments immediately to queue, kick off TTS tasks in background
+                # Stream segments immediately to queue, kick off TTS tasks in background
                 tts_tasks = []
                 for i, seg in enumerate(segments):
                     session.segments.append(seg)
@@ -214,3 +232,39 @@ Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
     session_store.update(session)
     all_segments = segments + audio_segments
     return {"segments": [seg.model_dump() for seg in all_segments]}
+
+
+@router.get("/narrative/{session_id}/followup-stream")
+@limiter.limit("10/minute")
+async def followup_stream(
+    request: Request,
+    session_id: UUID,
+    question: str = Query(..., max_length=2000, description="The follow-up question"),
+    audio: bool = Query(default=False, description="Generate TTS audio"),
+):
+    """SSE-streaming follow-up endpoint — segments arrive one-by-one like the initial narrative."""
+    session = session_store.get(str(session_id))
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    MAX_SEGMENTS_PER_SESSION = 50
+    if len(session.segments) >= MAX_SEGMENTS_PER_SESSION:
+        raise HTTPException(
+            status_code=400,
+            detail="This journey has reached its natural conclusion. Please begin a new narrative to explore further.",
+        )
+
+    is_safe = await validate_followup_question(question)
+    if not is_safe:
+        logger.warning("Rejected unsafe/off-topic followup in session %s: %s", session_id, question)
+        raise HTTPException(
+            status_code=400,
+            detail="I'm sorry, I can only weave narratives about ancestral heritage, family history, and culture.",
+        )
+
+    async def followup_event_generator():
+        logger.info("[followup-stream] ADK follow-up stream for session %s: %s", session_id, question[:80])
+        async for sse_event in run_adk_followup(session, question, audio=audio):
+            yield sse_event
+
+    return EventSourceResponse(followup_event_generator())
