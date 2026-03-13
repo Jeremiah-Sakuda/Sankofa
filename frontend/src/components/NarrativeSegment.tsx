@@ -128,24 +128,50 @@ interface Props {
 const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] };
 const revealViewport = { once: true, amount: 0.12, margin: "-40px 0px 0px 0px" };
 
-function ParallaxImage({ src, alt, isHero }: { src: string; alt: string; isHero: boolean }) {
+function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string; isHero: boolean; isNew: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, amount: 0.15 });
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
   });
-  // Shift the image 40px over the scroll range of the container
   const y = useTransform(scrollYProgress, [0, 1], [isHero ? -50 : -30, isHero ? 50 : 30]);
   const scale = useTransform(scrollYProgress, [0, 0.5, 1], [1.08, 1, 1.08]);
 
+  const shouldAnimate = isNew && isInView;
+
   return (
-    <div ref={ref} className="overflow-hidden">
+    <div ref={ref} className="overflow-hidden relative">
       <motion.img
         src={src}
         alt={alt}
         className="w-full h-auto block will-change-transform"
         style={{ y, scale }}
+        initial={isNew ? { filter: "sepia(100%) brightness(0.8)" } : undefined}
+        animate={shouldAnimate ? { filter: "sepia(0%) brightness(1)" } : undefined}
+        transition={{ duration: 2.5, ease: "easeOut" }}
       />
+      {/* Warm vignette overlay for hero images */}
+      {isHero && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse at center, transparent 50%, rgba(59,35,20,0.25) 100%)",
+          }}
+        />
+      )}
+      {/* Golden shimmer that fades out on reveal */}
+      {isNew && (
+        <motion.div
+          className="absolute inset-0 pointer-events-none"
+          initial={{ opacity: 0.5 }}
+          animate={shouldAnimate ? { opacity: 0 } : undefined}
+          transition={{ duration: 3, ease: "easeOut" }}
+          style={{
+            background: "linear-gradient(135deg, rgba(212,168,67,0.15) 0%, transparent 50%, rgba(212,168,67,0.1) 100%)",
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -203,10 +229,14 @@ export default function NarrativeSegment({
 
     return (
       <motion.figure
-        initial={{ opacity: 0, scale: 0.96, filter: "blur(8px)" }}
+        ref={containerRef}
+        initial={{ opacity: 0, scale: 0.94, filter: "blur(12px)" }}
         whileInView={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
         viewport={revealViewport}
-        transition={{ ...revealTransition, duration: 0.85 }}
+        transition={{
+          duration: isNew ? 1.4 : 0.85,
+          ease: [0.22, 1, 0.36, 1],
+        }}
         className={`my-10 ${isHero ? "-mx-8 md:-mx-16 lg:-mx-24" : "mx-auto"}`}
         style={{
           maxWidth: isHero ? "none" : "85%",
@@ -218,20 +248,26 @@ export default function NarrativeSegment({
         <div
           className={`overflow-hidden ${
             isHero
-              ? ""
+              ? "shadow-[0_8px_60px_rgba(59,35,20,0.3)]"
               : "border-2 border-[var(--ochre)]/30 shadow-[0_4px_24px_rgba(59,35,20,0.15)]"
           }`}
         >
-          <ParallaxImage
+          <CinematicImage
             src={imgSrc}
             alt={segment.content || "Heritage narrative illustration"}
             isHero={isHero}
+            isNew={isNew}
           />
         </div>
         {segment.content && (
-          <figcaption className="mt-3 text-center font-[family-name:var(--font-body)] text-sm italic text-[var(--muted)]">
+          <motion.figcaption
+            className="mt-3 text-center font-[family-name:var(--font-body)] text-sm italic text-[var(--muted)]"
+            initial={isNew ? { opacity: 0, y: 8 } : undefined}
+            animate={isNew && isInView ? { opacity: 1, y: 0 } : undefined}
+            transition={{ duration: 0.6, delay: 1.0 }}
+          >
             {segment.content}
-          </figcaption>
+          </motion.figcaption>
         )}
       </motion.figure>
     );
