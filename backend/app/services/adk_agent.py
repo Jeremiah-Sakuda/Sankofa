@@ -122,6 +122,8 @@ async def plan_narrative_arc(
     Call this after context is gathered to structure the narrative.
     Returns a JSON string with act1_setting, act2_people, act3_thread,
     tone, and narrative_voice.
+    
+    If this fails, it recovers gracefully using a template.
 
     Args:
         region: The geographic region of origin.
@@ -172,9 +174,21 @@ Output a JSON object with this structure:
 
 Output ONLY the JSON, no other text."""
 
-    response = await generate_text(prompt, grounded=True)
-    logger.info("[adk] plan_narrative_arc: received %d chars", len(response))
-    return response
+    try:
+        response = await generate_text(prompt, grounded=True)
+        logger.info("[adk] plan_narrative_arc: received %d chars", len(response))
+        return response
+    except Exception as e:
+        logger.warning(f"[adk] plan_narrative_arc failed: {e}. Falling back to template.")
+        await notify_user("I had trouble planning the story structure, so I will use a reliable traditional format.")
+        fallback = {
+            "act1_setting": {"title": "The Land", "focus": "landscape", "key_facts": []},
+            "act2_people": {"title": "The People", "focus": "daily life", "key_facts": []},
+            "act3_thread": {"title": "Connection", "focus": "diaspora", "key_facts": []},
+            "tone": "warm and reverent",
+            "narrative_voice": "West African griot"
+        }
+        return json.dumps(fallback)
 
 
 async def validate_narrative_arc(arc_json: str, cultural_context: str) -> str:
@@ -272,8 +286,22 @@ Use warm earth tones, gold accents, and period-appropriate details for any image
 Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED].
 Use the warm, unhurried cadence of a West African griot."""
 
-    segments = await generate_interleaved(prompt)
-    segments = apply_trust_tags(segments)
+    try:
+        segments = await generate_interleaved(prompt)
+    except Exception as e:
+        logger.warning(f"[adk] generate_act_segments failed ({e}). Retrying with text-only...")
+        await notify_user(f"Encountered an issue generating Act {act_number} (possible content filter). Switching to text-only narration.")
+        
+        # Fallback to text only
+        prompt_text_only = prompt.replace(density_instruction, "using ONLY text, with NO images.")
+        try:
+            segments = await generate_interleaved(prompt_text_only)
+        except Exception as retry_e:
+            logger.error(f"[adk] Text-only retry also failed: {retry_e}")
+            segments = []
+
+    if segments:
+        segments = apply_trust_tags(segments)
 
     # We update sequences inside the list, though the caller manages the overall sequence.
     result = [seg.model_dump() for seg in segments]
@@ -322,11 +350,33 @@ async def generate_audio_narration(text: str) -> str:
     Returns:
         A JSON string with base64 audio data and mime type, or an error message.
     """
-    result = await generate_narration(text)
-    if result:
-        audio_data, mime_type = result
-        return json.dumps({"audio_data": audio_data, "mime_type": mime_type})
+    try:
+        result = await generate_narration(text)
+        if result:
+            audio_data, mime_type = result
+            return json.dumps({"audio_data": audio_data, "mime_type": mime_type})
+    except Exception as e:
+        logger.warning(f"[adk] TTS generation failed: {e}")
+        await notify_user("Audio generation unavailable for this passage. Continuing with text.")
+        
     return json.dumps({"error": "TTS generation failed"})
+
+
+async def notify_user(message: str) -> str:
+    """Send a status message to the user about generation progress or issues.
+    
+    Call this when encountering errors, adapting the plan, or switching modes
+    (e.g. falling back to text-only due to sensitive content).
+    
+    Args:
+        message: The status message to show to the user.
+        
+    Returns:
+        Confirmation string.
+    """
+    # In a full deployment, this would push to an async queue connected to an SSE endpoint.
+    logger.info(f"[adk SSE NOTIFY] {message}")
+    return "Notification sent."
 
 
 # ---------------------------------------------------------------------------
@@ -358,6 +408,7 @@ When a user provides their family name, region of origin, and time period, follo
 7. Generate Act 2: Use `generate_act_segments` for Act 2, passing Act 1's text as `previous_narrative`.
 8. Generate Act 3: Use `generate_act_segments` for Act 3, passing previous acts text.
 9. Audio (Optional): Use `generate_audio_narration` for text segments.
+10. Notifications: Use `notify_user` to communicate if you must drop images or audio.
 
 Always maintain a warm, reverent tone. Clearly distinguish between historical facts,
 cultural practices, and imaginative reconstruction. Never fabricate specific genealogical
@@ -376,5 +427,6 @@ The three acts should flow naturally:
         generate_act_segments,
         enrich_segment,
         generate_audio_narration,
+        notify_user,
     ],
 )
