@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from app.config import settings
-from app.routes import intake, narrative, audio
+from app.routes import intake, narrative, audio, live
 from app.rate_limiter import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
@@ -106,6 +106,7 @@ app.add_middleware(
 app.include_router(intake.router)
 app.include_router(narrative.router)
 app.include_router(audio.router)
+app.include_router(live.router)
 
 
 @app.get("/api/health")

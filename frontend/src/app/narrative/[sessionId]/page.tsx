@@ -8,6 +8,7 @@ import { useSSEStream } from "../../../hooks/useSSEStream";
 import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
 import { submitFollowUp, NarrativeSegment, checkBackendHealth, getSession, getFollowUpStreamUrl, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
+import LiveGriot from "../../../components/LiveGriot";
 import SankofaBird from "../../../components/SankofaBird";
 import GoldParticles from "../../../components/GoldParticles";
 
@@ -32,6 +33,7 @@ export default function NarrativePage() {
   const stepStartRef = useRef<number | null>(null);
   const [sessionInvalid, setSessionInvalid] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
+  const [showLiveGriot, setShowLiveGriot] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -443,6 +445,7 @@ export default function NarrativePage() {
             era={sessionInfo?.time_period}
             arcOutline={arcOutline}
             onFollowUp={handleFollowUp}
+            onTalkToGriot={() => setShowLiveGriot(true)}
             onRetry={() => {
               reset();
               setHasStarted(false);
@@ -451,6 +454,16 @@ export default function NarrativePage() {
           />
         </div>
       </motion.div>
+
+      {/* Live Griot voice conversation overlay */}
+      <AnimatePresence>
+        {showLiveGriot && (
+          <LiveGriot
+            sessionId={sessionId}
+            onClose={() => setShowLiveGriot(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
