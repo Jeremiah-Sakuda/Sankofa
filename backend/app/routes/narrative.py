@@ -41,10 +41,10 @@ async def stream_narrative(
 
             try:
                 if fast:
-                    # Skip arc-planning Gemini call; use template arc for much faster start
                     yield {"event": "status", "data": json.dumps({"status": "generating_narrative"})}
                     logger.info("[stream] Step: generating_narrative (fast mode, no arc call)")
-                    _, grounding_context = get_fast_arc(session)
+                    arc, grounding_context = get_fast_arc(session)
+                    yield {"event": "arc", "data": json.dumps(arc)}
                     segments = await asyncio.wait_for(
                         generate_narrative_only(session, grounding_context),
                         timeout=NARRATIVE_TIMEOUT,
@@ -56,6 +56,7 @@ async def stream_narrative(
                         plan_arc_only(session),
                         timeout=ARC_PLANNING_TIMEOUT,
                     )
+                    yield {"event": "arc", "data": json.dumps(arc_outline)}
 
                     yield {"event": "status", "data": json.dumps({"status": "generating_narrative"})}
                     logger.info("[stream] Step: generating_narrative (timeout %ss)", NARRATIVE_TIMEOUT)
@@ -65,7 +66,6 @@ async def stream_narrative(
                     )
                 logger.info("[stream] Generated %s segments, streaming to client", len(segments))
             except asyncio.TimeoutError as e:
-                # asyncio.wait_for doesn't tell us which call timed out; log and give a generic message
                 logger.warning("[stream] A step timed out: %s", e)
                 yield {
                     "event": "error",
@@ -75,13 +75,14 @@ async def stream_narrative(
                 }
                 return
 
-            for seg in segments:
+            for i, seg in enumerate(segments):
                 session.segments.append(seg)
                 yield {
                     "event": seg.type,
                     "data": seg.model_dump_json(),
                 }
-                await asyncio.sleep(0.5)
+                delay = 1.2 if seg.type == "image" else 0.6 if i == 0 else 0.35
+                await asyncio.sleep(delay)
 
             # After all segments are streamed, generate TTS audio if requested
             if audio:

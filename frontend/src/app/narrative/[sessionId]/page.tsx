@@ -14,7 +14,7 @@ const STUCK_TIMEOUT_MS = 90_000; // show "taking longer" after 90s with no segme
 export default function NarrativePage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
-  const { segments, isStreaming, isComplete, error, progressStep, startStream, abort, reset } = useSSEStream();
+  const { segments, isStreaming, isComplete, error, progressStep, arcOutline, startStream, abort, reset } = useSSEStream();
   const [followUpSegments, setFollowUpSegments] = useState<NarrativeSegment[]>([]);
   const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -246,9 +246,13 @@ export default function NarrativePage() {
               </>
             ) : (
               <>
-                <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)] animate-fade-pulse">
+                <motion.p
+                  className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]"
+                  animate={{ opacity: [0.5, 1, 0.5] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
                   Sankofa is reaching back…
-                </p>
+                </motion.p>
                 <p className="mt-3 font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
                   Weaving your ancestral narrative
                 </p>
@@ -262,6 +266,52 @@ export default function NarrativePage() {
                     )}
                   </p>
                 )}
+
+                {/* Arc chapter cards -- shown while Gemini generates the narrative */}
+                <AnimatePresence>
+                  {arcOutline && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className="mt-10 w-full max-w-md"
+                    >
+                      <div className="h-px w-16 mx-auto bg-[var(--gold)]/40 mb-6" />
+                      {[
+                        { key: "act1_setting", num: "I" },
+                        { key: "act2_people", num: "II" },
+                        { key: "act3_thread", num: "III" },
+                      ].map((act, i) => {
+                        const actData = arcOutline[act.key as keyof typeof arcOutline];
+                        const title = typeof actData === "object" && actData?.title ? actData.title : null;
+                        if (!title) return null;
+                        return (
+                          <motion.div
+                            key={act.key}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.6, delay: 0.5 + i * 0.4 }}
+                            className="flex items-baseline gap-3 mb-3"
+                          >
+                            <span className="font-[family-name:var(--font-display)] text-xs text-[var(--gold)]/60 tracking-widest shrink-0">
+                              {act.num}
+                            </span>
+                            <span className="font-[family-name:var(--font-display)] text-sm text-[var(--ivory)]/70 italic">
+                              {title}
+                            </span>
+                          </motion.div>
+                        );
+                      })}
+                      <motion.div
+                        className="mt-4 h-px bg-gradient-to-r from-transparent via-[var(--gold)]/30 to-transparent"
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
+                        transition={{ duration: 1.5, delay: 1.8 }}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
                 {showStuckMessage && (
                   <div className="mt-8 text-center">
                     <p className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] max-w-sm">
