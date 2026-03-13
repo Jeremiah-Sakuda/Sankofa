@@ -1,4 +1,5 @@
 import uuid
+from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import UserInput, IntakeResponse
 from app.store import session_store
@@ -17,8 +18,8 @@ async def create_session(user_input: UserInput):
 
 
 @router.get("/session/{session_id}")
-async def get_session(session_id: str):
-    session = session_store.get(session_id)
+async def get_session(session_id: UUID):
+    session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     return {

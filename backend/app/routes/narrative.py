@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query
 from sse_starlette.sse import EventSourceResponse
 from app.models.schemas import NarrativeSegment, FollowUpRequest
@@ -17,11 +18,11 @@ router = APIRouter(prefix="/api", tags=["narrative"])
 
 @router.get("/narrative/{session_id}/stream")
 async def stream_narrative(
-    session_id: str,
+    session_id: UUID,
     audio: bool = Query(default=False, description="Generate TTS audio for text segments"),
     fast: bool = Query(default=True, description="Skip arc-planning Gemini call; use template for faster load"),
 ):
-    session = session_store.get(session_id)
+    session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -36,7 +37,7 @@ async def stream_narrative(
         session_store.update(session)
 
         try:
-            logger.info("[stream] Narrative stream started for session %s (fast=%s, audio=%s)", session_id, fast, audio)
+            logger.info("[stream] Narrative stream started for session %s (fast=%s, audio=%s)", str(session_id), fast, audio)
             yield {"event": "status", "data": json.dumps({"status": "generating"})}
 
             try:
@@ -159,8 +160,8 @@ async def stream_narrative(
 
 
 @router.post("/narrative/{session_id}/followup")
-async def followup_query(session_id: str, request: FollowUpRequest):
-    session = session_store.get(session_id)
+async def followup_query(session_id: UUID, request: FollowUpRequest):
+    session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
