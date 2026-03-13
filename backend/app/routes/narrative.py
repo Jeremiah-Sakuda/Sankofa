@@ -36,7 +36,7 @@ async def stream_narrative(
         session_store.update(session)
 
         try:
-            logger.info("[stream] Narrative stream started for session %s (fast=%s)", session_id, fast)
+            logger.info("[stream] Narrative stream started for session %s (fast=%s, audio=%s)", session_id, fast, audio)
             yield {"event": "status", "data": json.dumps({"status": "generating"})}
 
             try:
@@ -75,43 +75,73 @@ async def stream_narrative(
                 }
                 return
 
+            # Stream segments with interleaved audio generation.
+            # For each text segment: emit the text event, kick off TTS
+            # concurrently, then emit the audio event right after.
+            pending_tts: asyncio.Task | None = None
+
             for i, seg in enumerate(segments):
                 session.segments.append(seg)
+
+                # If there's a pending TTS task from the previous text segment,
+                # await it now and emit the audio event before moving on.
+                if pending_tts is not None:
+                    tts_seg, tts_result = await pending_tts
+                    pending_tts = None
+                    if tts_result is not None:
+                        audio_data, media_type = tts_result
+                        audio_seg = NarrativeSegment(
+                            type="audio",
+                            content=tts_seg.content[:100] if tts_seg.content else "",
+                            media_data=audio_data,
+                            media_type=media_type,
+                            trust_level=tts_seg.trust_level,
+                            sequence=tts_seg.sequence,
+                            act=tts_seg.act,
+                        )
+                        yield {
+                            "event": "audio",
+                            "data": audio_seg.model_dump_json(),
+                        }
+
+                # Emit the current segment
                 yield {
                     "event": seg.type,
                     "data": seg.model_dump_json(),
                 }
+
+                # Kick off TTS for this text segment in the background
+                if audio and seg.type == "text" and seg.content and not seg.media_data:
+                    async def _do_tts(s=seg):
+                        result = await generate_narration(s.content)
+                        return (s, result)
+                    pending_tts = asyncio.create_task(_do_tts())
+
+                # Stagger delay (shorter now since TTS runs concurrently)
                 delay = 1.2 if seg.type == "image" else 0.6 if i == 0 else 0.35
                 await asyncio.sleep(delay)
 
-            # After all segments are streamed, generate TTS audio if requested
-            if audio:
-                yield {"event": "status", "data": json.dumps({"status": "generating_audio"})}
-                logger.info("[stream] Generating TTS for %s text segments", sum(1 for s in session.segments if s.type == "text" and s.content))
-                for seg in session.segments:
-                    if seg.type == "text" and seg.content and not seg.media_data:
-                        try:
-                            result = await generate_narration(seg.content)
-                            if result:
-                                audio_data, media_type = result
-                                audio_seg = NarrativeSegment(
-                                    type="audio",
-                                    content=seg.content[:100],
-                                    media_data=audio_data,
-                                    media_type=media_type,
-                                    trust_level=seg.trust_level,
-                                    sequence=seg.sequence,
-                                    act=seg.act,
-                                )
-                                yield {
-                                    "event": "audio",
-                                    "data": audio_seg.model_dump_json(),
-                                }
-                                await asyncio.sleep(0.3)
-                            else:
-                                logger.warning("TTS returned no audio for segment %s", seg.sequence)
-                        except Exception as e:
-                            logger.warning("TTS failed for segment %s: %s", seg.sequence, e, exc_info=True)
+            # Flush the last pending TTS result
+            if pending_tts is not None:
+                try:
+                    tts_seg, tts_result = await pending_tts
+                    if tts_result is not None:
+                        audio_data, media_type = tts_result
+                        audio_seg = NarrativeSegment(
+                            type="audio",
+                            content=tts_seg.content[:100] if tts_seg.content else "",
+                            media_data=audio_data,
+                            media_type=media_type,
+                            trust_level=tts_seg.trust_level,
+                            sequence=tts_seg.sequence,
+                            act=tts_seg.act,
+                        )
+                        yield {
+                            "event": "audio",
+                            "data": audio_seg.model_dump_json(),
+                        }
+                except Exception as e:
+                    logger.warning("Final TTS task failed: %s", e, exc_info=True)
 
             yield {"event": "status", "data": json.dumps({"status": "complete"})}
 
