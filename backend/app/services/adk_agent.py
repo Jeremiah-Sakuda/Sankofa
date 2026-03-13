@@ -215,49 +215,99 @@ If it is weak, generic, or ungrounded, respond with "FAIL:" followed by specific
     return result
 
 
-async def generate_narrative_segments(
+async def generate_act_segments(
+    act_number: int,
     region: str,
     time_period: str,
     family_name: str,
     cultural_context: str,
     arc_json: str,
+    previous_narrative: str = "",
+    image_density: str = "medium",
 ) -> str:
-    """Generate the full interleaved text + image narrative using Gemini multimodal.
+    """Generate interleaved text + image narrative for a SPECIFIC act (1, 2, or 3).
 
-    Call this after plan_narrative_arc. Returns a JSON array of narrative
-    segments with type, content, trust_level, and media data.
+    Call this three times (once per act) sequentially to build the full narrative.
+    Between acts, you can adjust the prompt or image density based on previous outputs.
 
     Args:
-        region: The geographic region of origin.
+        act_number: The act to generate (1, 2, or 3).
+        region: The geographic region.
         time_period: The historical era.
         family_name: The family name.
-        cultural_context: Cultural context from lookup_cultural_context.
-        arc_json: The arc plan JSON from plan_narrative_arc.
+        cultural_context: Cultural context string.
+        arc_json: The arc plan JSON.
+        previous_narrative: The text of previously generated acts (to maintain continuity).
+        image_density: 'high' (multiple images), 'medium' (one image), or 'none' (text only).
 
     Returns:
-        A JSON string containing an array of narrative segments.
+        A JSON string containing an array of narrative segments for this act.
     """
-    prompt = f"""You are Sankofa, an ancestral heritage narrator in the tradition of a
-West African griot. Generate a rich, immersive narrative for the {family_name} family
-from {region} during {time_period}.
+    density_instruction = "interleaved with 1 watercolor-style image."
+    if image_density == "high":
+        density_instruction = "interleaved with 2-3 watercolor-style images."
+    elif image_density == "none":
+        density_instruction = "using ONLY text, with NO images."
+
+    prompt = f"""You are Sankofa, an ancestral heritage narrator in the tradition of a 
+West African griot. Generate a rich, immersive narrative for ACT {act_number} of the 
+{family_name} family heritage story from {region} during {time_period}.
 
 === CULTURAL/HISTORICAL GROUNDING ===
 {cultural_context[:4000]}
 
 === NARRATIVE ARC ===
 {arc_json[:2000]}
+"""
 
-Generate 6–10 paragraphs of narrative text, interleaved with 2–3 watercolor-style
-images. Use warm earth tones, gold accents, and period-appropriate details.
+    if previous_narrative:
+        prompt += f"""\n=== PREVIOUS ACTS (For Continuity) ===
+Follow seamlessly from this existing narrative:
+{previous_narrative[-3000:]}\n"""
+
+    prompt += f"""
+=== TASK ===
+Generate 3–4 paragraphs of narrative text for ACT {act_number}, {density_instruction}
+Use warm earth tones, gold accents, and period-appropriate details for any images.
 Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED].
 Use the warm, unhurried cadence of a West African griot."""
 
     segments = await generate_interleaved(prompt)
     segments = apply_trust_tags(segments)
 
+    # We update sequences inside the list, though the caller manages the overall sequence.
     result = [seg.model_dump() for seg in segments]
-    logger.info("[adk] generate_narrative_segments: produced %d segments", len(result))
+    logger.info("[adk] generate_act_segments: produced %d segments for act %d", len(result), act_number)
     return json.dumps(result)
+
+
+async def enrich_segment(segment_text: str, context_query: str) -> str:
+    """Run a targeted search to enrich a Reconstructed segment with real history.
+    
+    Call this between acts if a generated segment is tagged [RECONSTRUCTED] but you
+    suspect real historical details could be found to upgrade it to [HISTORICAL].
+    
+    Args:
+        segment_text: The generated text that needs more factual grounding.
+        context_query: A specific search query (e.g. "Trade routes in Ghana 1700s").
+        
+    Returns:
+        A grounded, factually enriched version of the segment.
+    """
+    prompt = f"""Rewrite and enrich the following narrative segment using specific 
+historical facts from a grounded search. Keep the warm, griot-style tone. 
+Tag it with [HISTORICAL] if you find solid facts, or [CULTURAL] if you find general practices.
+
+Original Segment:
+{segment_text}
+
+=== TASK ===
+Search for: {context_query}
+Then return the enriched segment."""
+
+    result = await generate_text(prompt, grounded=True)
+    logger.info("[adk] enrich_segment: enriched segment using query '%s'", context_query)
+    return result
 
 
 async def generate_audio_narration(text: str) -> str:
@@ -303,8 +353,11 @@ When a user provides their family name, region of origin, and time period, follo
    - If it returns "sparse" or "none", use `research_region_history` to gather better grounding.
 3. Plan: Use `plan_narrative_arc` to structure a 3-act story.
 4. Validate: Use `validate_narrative_arc` to review the plan. If it FAILS, call `plan_narrative_arc` again providing the feedback string (do this at most once).
-5. Generate: Use `generate_narrative_segments` to create the full narrative with images.
-6. Audio (Optional): Use `generate_audio_narration` for text segments to add voice narration.
+5. Generate Act 1: Use `generate_act_segments` for Act 1. You specify `image_density`.
+6. Review & Enrich: Review Act 1. If it needs better grounding, use `enrich_segment`.
+7. Generate Act 2: Use `generate_act_segments` for Act 2, passing Act 1's text as `previous_narrative`.
+8. Generate Act 3: Use `generate_act_segments` for Act 3, passing previous acts text.
+9. Audio (Optional): Use `generate_audio_narration` for text segments.
 
 Always maintain a warm, reverent tone. Clearly distinguish between historical facts,
 cultural practices, and imaginative reconstruction. Never fabricate specific genealogical
@@ -320,7 +373,8 @@ The three acts should flow naturally:
         research_region_history,
         plan_narrative_arc,
         validate_narrative_arc,
-        generate_narrative_segments,
+        generate_act_segments,
+        enrich_segment,
         generate_audio_narration,
     ],
 )
