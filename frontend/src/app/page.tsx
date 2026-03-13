@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import IntakeFlow from "../components/IntakeFlow";
 import SankofaBird from "../components/SankofaBird";
+import GoldParticles from "../components/GoldParticles";
 
 export default function Home() {
   const [showIntake, setShowIntake] = useState(false);
@@ -12,6 +13,7 @@ export default function Home() {
     <div className="relative min-h-screen overflow-hidden">
       <div className="fixed inset-0 bg-[var(--night)] animate-gradient-drift bg-gradient-to-br from-[var(--night)] via-[var(--indigo)] to-[#1a0f0a]" />
       <div className="fixed inset-0 noise-texture pointer-events-none" />
+      <GoldParticles count={showIntake ? 40 : 25} />
 
       <AnimatePresence mode="wait">
         {!showIntake ? (
@@ -23,20 +25,33 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="relative z-10 flex min-h-screen flex-col items-center justify-center px-6"
           >
+            {/* Radial glow behind bird */}
+            <motion.div
+              className="absolute w-64 h-64 md:w-80 md:h-80 rounded-full pointer-events-none"
+              style={{
+                background: "radial-gradient(circle, rgba(212,168,67,0.08) 0%, transparent 70%)",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -60%)",
+              }}
+              animate={{ scale: [1, 1.15, 1], opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            />
+
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1.2, ease: "easeOut" }}
-              className="mb-12"
+              className="mb-12 relative"
             >
               <SankofaBird className="w-28 h-28 text-[var(--gold)]" />
             </motion.div>
 
             <motion.h1
               className="font-[family-name:var(--font-display)] text-5xl md:text-7xl tracking-[0.15em] text-[var(--gold)] uppercase text-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.5 }}
+              initial={{ opacity: 0, letterSpacing: "0.3em" }}
+              animate={{ opacity: 1, letterSpacing: "0.15em" }}
+              transition={{ duration: 1.4, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
               Sankofa
             </motion.h1>
@@ -62,18 +77,18 @@ export default function Home() {
 
             <motion.button
               onClick={() => setShowIntake(true)}
-              className="mt-14 px-10 py-4 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-lg tracking-[0.1em] uppercase transition-all duration-500 hover:bg-[var(--gold)] hover:text-[var(--night)] hover:shadow-[0_0_30px_rgba(212,168,67,0.25)] cursor-pointer"
+              className="mt-14 px-10 py-4 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-lg tracking-[0.1em] uppercase transition-all duration-500 hover:bg-[var(--gold)] hover:text-[var(--night)] hover:shadow-[0_0_40px_rgba(212,168,67,0.3)] cursor-pointer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 1.6 }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
             >
               Begin Your Journey
             </motion.button>
 
             <motion.p
-              className="absolute bottom-8 font-[family-name:var(--font-body)] text-xs text-[var(--muted)] italic text-center"
+              className="absolute bottom-8 font-[family-name:var(--font-body)] text-xs text-[var(--muted)] italic text-center px-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               transition={{ delay: 2.5, duration: 1 }}

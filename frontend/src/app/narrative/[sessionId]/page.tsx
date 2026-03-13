@@ -8,6 +8,7 @@ import { useSSEStream } from "../../../hooks/useSSEStream";
 import { submitFollowUp, NarrativeSegment, checkBackendHealth, getSession, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
 import SankofaBird from "../../../components/SankofaBird";
+import GoldParticles from "../../../components/GoldParticles";
 
 const STUCK_TIMEOUT_MS = 90_000; // show "taking longer" after 90s with no segments
 
@@ -126,14 +127,26 @@ export default function NarrativePage() {
     [sessionId]
   );
 
+  const currentAct = allSegments.length > 0
+    ? (allSegments[allSegments.length - 1].act ?? 1)
+    : 1;
+
+  const actGradients: Record<number, string> = {
+    1: "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
+    2: "radial-gradient(ellipse at 50% 40%, #1c1210 0%, var(--night) 70%)",
+    3: "radial-gradient(ellipse at 50% 50%, #1a1815 0%, #0d0d0d 70%)",
+  };
+
   return (
     <div className="min-h-screen relative">
-      {/* Dark outer background with warm radial gradient */}
+      {/* Dark outer background with warm per-act gradient */}
       <div className="fixed inset-0 bg-[var(--night)]">
-        <div
-          className="absolute inset-0 opacity-40"
+        <motion.div
+          className="absolute inset-0"
+          animate={{ opacity: 0.4 }}
+          transition={{ duration: 2 }}
           style={{
-            background: "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
+            background: actGradients[currentAct] ?? actGradients[1],
           }}
         />
       </div>
@@ -148,21 +161,7 @@ export default function NarrativePage() {
             transition={{ duration: 0.8 }}
             className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--night)] overflow-hidden px-6"
           >
-            <div className="absolute inset-0 pointer-events-none" aria-hidden>
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute w-1 h-1 rounded-full bg-[var(--gold)]"
-                  style={{
-                    left: `${10 + (i * 4) % 80}%`,
-                    top: `${10 + (i * 7) % 80}%`,
-                    opacity: 0.2 + (i % 3) * 0.15,
-                    animation: "gentle-pulse 2.5s ease-in-out infinite",
-                    animationDelay: `${i * 0.2}s`,
-                  }}
-                />
-              ))}
-            </div>
+            <GoldParticles count={hasStarted ? 35 : 20} />
 
             <SankofaBird className="w-24 h-24 text-[var(--gold)] animate-slow-rotate" />
             {!hasStarted ? (
