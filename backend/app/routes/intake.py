@@ -1,14 +1,16 @@
 import uuid
 from uuid import UUID
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from app.models.schemas import UserInput, IntakeResponse
 from app.store import session_store
+from app.rate_limiter import limiter
 
 router = APIRouter(prefix="/api", tags=["intake"])
 
 
 @router.post("/intake", response_model=IntakeResponse)
-async def create_session(user_input: UserInput):
+@limiter.limit("5/minute")
+async def create_session(request: Request, user_input: UserInput):
     session_id = str(uuid.uuid4())
     session_store.create(session_id, user_input)
     return IntakeResponse(
@@ -18,7 +20,8 @@ async def create_session(user_input: UserInput):
 
 
 @router.get("/session/{session_id}")
-async def get_session(session_id: UUID):
+@limiter.limit("20/minute")
+async def get_session(request: Request, session_id: UUID):
     session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")

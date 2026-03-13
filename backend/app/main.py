@@ -7,6 +7,9 @@ from starlette.requests import Request
 
 from app.config import settings
 from app.routes import intake, narrative, audio
+from app.rate_limiter import limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,12 +35,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Request body too large"},
                 )
         except (ValueError, TypeError):
-            pass
-            from starlette.responses import JSONResponse
-            return JSONResponse(
-                status_code=413,
-                content={"detail": "Request body too large"},
-            )
+            pass  # Invalid Content-Length: ignore and let request proceed
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -77,6 +75,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Security headers first (outer layer)
 app.add_middleware(SecurityHeadersMiddleware)

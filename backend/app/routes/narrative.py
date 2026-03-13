@@ -2,10 +2,11 @@ import asyncio
 import json
 import logging
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from sse_starlette.sse import EventSourceResponse
 from app.models.schemas import NarrativeSegment, FollowUpRequest
 from app.store import session_store
+from app.rate_limiter import limiter
 from app.services.narrative_planner import plan_arc_only, generate_narrative_only, get_fast_arc
 from app.services.gemini_service import generate_interleaved
 from app.services.trust_classifier import apply_trust_tags
@@ -17,7 +18,9 @@ router = APIRouter(prefix="/api", tags=["narrative"])
 
 
 @router.get("/narrative/{session_id}/stream")
+@limiter.limit("10/minute")
 async def stream_narrative(
+    request: Request,
     session_id: UUID,
     audio: bool = Query(default=False, description="Generate TTS audio for text segments"),
     fast: bool = Query(default=True, description="Skip arc-planning Gemini call; use template for faster load"),
@@ -35,137 +38,111 @@ async def stream_narrative(
     async def event_generator():
         session.is_generating = True
         session_store.update(session)
+        queue = asyncio.Queue()
 
-        try:
-            logger.info("[stream] Narrative stream started for session %s (fast=%s, audio=%s)", str(session_id), fast, audio)
-            yield {"event": "status", "data": json.dumps({"status": "generating"})}
+        async def _emit(event_name: str, data: str):
+            await queue.put({"event": event_name, "data": data})
 
+        async def _orchestrator():
             try:
+                logger.info("[stream] Narrative stream started for session %s (fast=%s, audio=%s)", str(session_id), fast, audio)
+                await _emit("status", json.dumps({"status": "generating"}))
+
                 if fast:
-                    yield {"event": "status", "data": json.dumps({"status": "generating_narrative"})}
+                    await _emit("status", json.dumps({"status": "generating_narrative"}))
                     logger.info("[stream] Step: generating_narrative (fast mode, no arc call)")
                     arc, grounding_context = get_fast_arc(session)
-                    yield {"event": "arc", "data": json.dumps(arc)}
+                    await _emit("arc", json.dumps(arc))
                     segments = await asyncio.wait_for(
                         generate_narrative_only(session, grounding_context),
                         timeout=NARRATIVE_TIMEOUT,
                     )
                 else:
-                    yield {"event": "status", "data": json.dumps({"status": "planning_arc"})}
+                    await _emit("status", json.dumps({"status": "planning_arc"}))
                     logger.info("[stream] Step: planning_arc (timeout %ss)", ARC_PLANNING_TIMEOUT)
                     arc_outline, grounding_context = await asyncio.wait_for(
                         plan_arc_only(session),
                         timeout=ARC_PLANNING_TIMEOUT,
                     )
-                    yield {"event": "arc", "data": json.dumps(arc_outline)}
+                    await _emit("arc", json.dumps(arc_outline))
 
-                    yield {"event": "status", "data": json.dumps({"status": "generating_narrative"})}
+                    await _emit("status", json.dumps({"status": "generating_narrative"}))
                     logger.info("[stream] Step: generating_narrative (timeout %ss)", NARRATIVE_TIMEOUT)
                     segments = await asyncio.wait_for(
                         generate_narrative_only(session, grounding_context),
                         timeout=NARRATIVE_TIMEOUT,
                     )
                 logger.info("[stream] Generated %s segments, streaming to client", len(segments))
+
+                # Steam segments immediately to queue, kick off TTS tasks in background
+                tts_tasks = []
+                for i, seg in enumerate(segments):
+                    session.segments.append(seg)
+                    await _emit(seg.type, seg.model_dump_json())
+
+                    if audio and seg.type == "text" and seg.content and not seg.media_data:
+                        async def _do_tts(s=seg):
+                            try:
+                                result = await generate_narration(s.content)
+                                if result:
+                                    audio_data, media_type = result
+                                    audio_seg = NarrativeSegment(
+                                        type="audio",
+                                        content=s.content[:100] if s.content else "",
+                                        media_data=audio_data,
+                                        media_type=media_type,
+                                        trust_level=s.trust_level,
+                                        sequence=s.sequence,
+                                        act=s.act,
+                                    )
+                                    await _emit("audio", audio_seg.model_dump_json())
+                            except Exception as e:
+                                logger.warning("TTS task failed: %s", e, exc_info=True)
+                        tts_tasks.append(asyncio.create_task(_do_tts()))
+
+                    delay = 1.2 if seg.type == "image" else 0.6 if i == 0 else 0.35
+                    await asyncio.sleep(delay)
+
+                # Wait for all background TTS to finish before completing stream
+                if tts_tasks:
+                    await asyncio.gather(*tts_tasks)
+
+                await _emit("status", json.dumps({"status": "complete"}))
+
             except asyncio.TimeoutError as e:
                 logger.warning("[stream] A step timed out: %s", e)
-                yield {
-                    "event": "error",
-                    "data": json.dumps({
-                        "error": "The request took too long. Check your API key and network, then try again.",
-                    }),
-                }
-                return
+                await _emit("error", json.dumps({
+                    "error": "The request took too long. Check your API key and network, then try again."
+                }))
+            except Exception as e:
+                logger.error(f"Narrative generation error: {e}", exc_info=True)
+                await _emit("error", json.dumps({"error": str(e)}))
+            finally:
+                session.is_generating = False
+                session_store.update(session)
+                await queue.put(None)  # EOF marker
 
-            # Stream segments with interleaved audio generation.
-            # For each text segment: emit the text event, kick off TTS
-            # concurrently, then emit the audio event right after.
-            pending_tts: asyncio.Task | None = None
+        # Start orchestrator task
+        orchestrator_task = asyncio.create_task(_orchestrator())
 
-            for i, seg in enumerate(segments):
-                session.segments.append(seg)
-
-                # If there's a pending TTS task from the previous text segment,
-                # await it now and emit the audio event before moving on.
-                if pending_tts is not None:
-                    tts_seg, tts_result = await pending_tts
-                    pending_tts = None
-                    if tts_result is not None:
-                        audio_data, media_type = tts_result
-                        audio_seg = NarrativeSegment(
-                            type="audio",
-                            content=tts_seg.content[:100] if tts_seg.content else "",
-                            media_data=audio_data,
-                            media_type=media_type,
-                            trust_level=tts_seg.trust_level,
-                            sequence=tts_seg.sequence,
-                            act=tts_seg.act,
-                        )
-                        yield {
-                            "event": "audio",
-                            "data": audio_seg.model_dump_json(),
-                        }
-
-                # Emit the current segment
-                yield {
-                    "event": seg.type,
-                    "data": seg.model_dump_json(),
-                }
-
-                # Kick off TTS for this text segment in the background
-                if audio and seg.type == "text" and seg.content and not seg.media_data:
-                    async def _do_tts(s=seg):
-                        result = await generate_narration(s.content)
-                        return (s, result)
-                    pending_tts = asyncio.create_task(_do_tts())
-
-                # Stagger delay (shorter now since TTS runs concurrently)
-                delay = 1.2 if seg.type == "image" else 0.6 if i == 0 else 0.35
-                await asyncio.sleep(delay)
-
-            # Flush the last pending TTS result
-            if pending_tts is not None:
-                try:
-                    tts_seg, tts_result = await pending_tts
-                    if tts_result is not None:
-                        audio_data, media_type = tts_result
-                        audio_seg = NarrativeSegment(
-                            type="audio",
-                            content=tts_seg.content[:100] if tts_seg.content else "",
-                            media_data=audio_data,
-                            media_type=media_type,
-                            trust_level=tts_seg.trust_level,
-                            sequence=tts_seg.sequence,
-                            act=tts_seg.act,
-                        )
-                        yield {
-                            "event": "audio",
-                            "data": audio_seg.model_dump_json(),
-                        }
-                except Exception as e:
-                    logger.warning("Final TTS task failed: %s", e, exc_info=True)
-
-            yield {"event": "status", "data": json.dumps({"status": "complete"})}
-
-        except Exception as e:
-            logger.error(f"Narrative generation error: {e}", exc_info=True)
-            yield {
-                "event": "error",
-                "data": json.dumps({"error": str(e)}),
-            }
-        finally:
-            session.is_generating = False
-            session_store.update(session)
+        # Yield events from queue as they arrive
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            yield item
 
     return EventSourceResponse(event_generator())
 
 
 @router.post("/narrative/{session_id}/followup")
-async def followup_query(session_id: UUID, request: FollowUpRequest):
+@limiter.limit("10/minute")
+async def followup_query(request: Request, session_id: UUID, payload: FollowUpRequest):
     session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    question = request.question
+    question = payload.question
 
     existing_context = "\n".join(
         seg.content for seg in session.segments if seg.type == "text" and seg.content
@@ -200,7 +177,7 @@ Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
 
     # Generate TTS for follow-up text segments if requested
     audio_segments: list[NarrativeSegment] = []
-    if request.audio:
+    if payload.audio:
         for seg in segments:
             if seg.type == "text" and seg.content:
                 try:
