@@ -125,7 +125,7 @@ interface Props {
   isNew?: boolean;
 }
 
-const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] };
+const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] as const };
 const revealViewport = { once: true, amount: 0.12, margin: "-40px 0px 0px 0px" };
 
 function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string; isHero: boolean; isNew: boolean }) {
@@ -228,7 +228,7 @@ export default function NarrativeSegment({
   }
 
   if (segment.type === "image" && segment.media_data) {
-    const isHero = segment.is_hero;
+    const isHero = segment.is_hero ?? false;
     const imgSrc = `data:${segment.media_type || "image/png"};base64,${segment.media_data}`;
 
     return (
