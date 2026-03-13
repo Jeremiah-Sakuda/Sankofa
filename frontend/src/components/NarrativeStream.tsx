@@ -167,6 +167,7 @@ export default function NarrativeStream({
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const seenSequences = useRef<Set<number>>(new Set());
+  const prevSegmentCountRef = useRef(0);
 
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
@@ -180,11 +181,22 @@ export default function NarrativeStream({
     return textSegs.length > 0 ? (textSegs[textSegs.length - 1].act ?? 1) : 1;
   }, [segments]);
 
+  // Auto-scroll only during active streaming when the user is near the bottom
   useEffect(() => {
-    if (segments.length > 0) {
+    const isNewSegment = segments.length > prevSegmentCountRef.current;
+    prevSegmentCountRef.current = segments.length;
+
+    if (!isStreaming || !isNewSegment || segments.length === 0) return;
+
+    // Only auto-scroll if the user is near the bottom of the page
+    const scrollBottom = window.innerHeight + window.scrollY;
+    const docHeight = document.documentElement.scrollHeight;
+    const isNearBottom = docHeight - scrollBottom < 400;
+
+    if (isNearBottom) {
       endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [segments.length]);
+  }, [segments.length, isStreaming]);
 
   const handleTrackChange = useCallback((track: AudioTrack | null) => {
     setActiveSequence(track?.segmentSequence ?? null);
