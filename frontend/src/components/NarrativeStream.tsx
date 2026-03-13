@@ -7,6 +7,7 @@ import { NarrativeSegment as SegmentType } from "../lib/api";
 import type { StreamProgressStep, ArcOutline } from "../hooks/useSSEStream";
 import NarrativeSegment from "./NarrativeSegment";
 import NarrationBar, { type AudioTrack } from "./NarrationBar";
+import ScrollProgress from "./ScrollProgress";
 import SankofaBird from "./SankofaBird";
 
 const FOLLOW_UP_MAX_LENGTH = 500;
@@ -169,6 +170,16 @@ export default function NarrativeStream({
 
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
+  const totalActs = useMemo(() => {
+    const acts = new Set(segments.map((s) => s.act).filter(Boolean));
+    return Math.max(acts.size, 1);
+  }, [segments]);
+
+  const currentAct = useMemo(() => {
+    const textSegs = segments.filter((s) => s.type === "text" && s.act);
+    return textSegs.length > 0 ? (textSegs[textSegs.length - 1].act ?? 1) : 1;
+  }, [segments]);
+
   useEffect(() => {
     if (segments.length > 0) {
       endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -222,6 +233,7 @@ export default function NarrativeStream({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.2 }}
     >
+      <ScrollProgress totalActs={totalActs} currentAct={currentAct} isComplete={isComplete} />
       {/* Header */}
       <header className="text-center mb-16">
         <div className="flex items-center justify-between mb-4">
@@ -289,11 +301,15 @@ export default function NarrativeStream({
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           className="mt-16 pt-8 border-t border-[var(--ochre)]/20"
         >
-          <p className="text-center font-[family-name:var(--font-body)] text-sm text-[var(--muted)]">
+          <motion.p
+            className="text-center font-[family-name:var(--font-display)] text-sm tracking-wider text-[var(--gold)]/60 uppercase"
+            animate={{ opacity: [0.4, 0.7, 0.4] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          >
             {familyName != null && region != null && era != null
               ? `A narrative woven from: ${familyName}, ${region}, ${era}`
               : "A narrative woven from your heritage."}
-          </p>
+          </motion.p>
           <p className="mt-2 text-center font-[family-name:var(--font-body)] text-xs text-[var(--muted)] opacity-60">
             Sankofa distinguishes historical record from narrative imagination.
             Look for the margin annotations.
@@ -303,13 +319,39 @@ export default function NarrativeStream({
           {onFollowUp && (
             <div className="mt-12 text-center">
               <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="h-px flex-1 max-w-[80px] bg-[var(--ochre)]/20" />
-                <SankofaBird className="w-5 h-5 text-[var(--ochre)] opacity-30" />
-                <div className="h-px flex-1 max-w-[80px] bg-[var(--ochre)]/20" />
+                <motion.div
+                  className="h-px flex-1 max-w-[80px] bg-gradient-to-r from-transparent to-[var(--ochre)]/30"
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8 }}
+                  style={{ transformOrigin: "right" }}
+                />
+                <motion.div
+                  whileInView={{ rotate: [0, 10, -10, 0] }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 1.5, delay: 0.5 }}
+                >
+                  <SankofaBird className="w-5 h-5 text-[var(--gold)] opacity-50" />
+                </motion.div>
+                <motion.div
+                  className="h-px flex-1 max-w-[80px] bg-gradient-to-l from-transparent to-[var(--ochre)]/30"
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.8 }}
+                  style={{ transformOrigin: "left" }}
+                />
               </div>
-              <p className="font-[family-name:var(--font-display)] text-lg italic text-[var(--umber)] mb-6">
-                Want to go deeper? Ask Sankofa…
-              </p>
+              <motion.p
+                className="font-[family-name:var(--font-display)] text-lg italic text-[var(--umber)] mb-6"
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
+                Your story continues&hellip;
+              </motion.p>
               <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
                 <input
                   type="text"
