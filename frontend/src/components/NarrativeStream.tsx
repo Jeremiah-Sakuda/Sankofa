@@ -30,6 +30,7 @@ interface Props {
   era?: string;
   arcOutline?: ArcOutline | null;
   onFollowUp?: (question: string) => void;
+  onTalkToGriot?: () => void;
   onRetry?: () => void;
 }
 
@@ -165,6 +166,7 @@ export default function NarrativeStream({
   progressStep,
   arcOutline,
   onFollowUp,
+  onTalkToGriot,
   onRetry,
 }: Props) {
   const [followUpInput, setFollowUpInput] = useState("");
@@ -428,6 +430,25 @@ export default function NarrativeStream({
               >
                 Your story continues&hellip;
               </motion.p>
+
+              {/* Talk to the Griot button */}
+              {onTalkToGriot && (
+                <motion.button
+                  onClick={onTalkToGriot}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.5 }}
+                  className="mb-8 px-6 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer flex items-center gap-3 mx-auto"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                  Talk to the Griot
+                </motion.button>
+              )}
               <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
                 <input
                   type="text"
