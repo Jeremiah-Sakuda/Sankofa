@@ -22,7 +22,9 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 - **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, and auto-advance)
 - **"Choose Your Griot" interaction modes** — After the narrative completes, a two-card chooser lets you pick how to continue: *Written Word* (text follow-ups) or *Living Voice* (live voice conversation with the Griot)
 - **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage, with answers streaming in segment-by-segment via SSE
-- **Live voice conversation** — Talk to the Griot in real-time via a full-duplex voice session powered by Gemini Live API
+- **Live voice conversation** — Talk to the Griot in real-time via a full-duplex voice session powered by Gemini Live API, with two immersive UI modes:
+  - **Glassmorphism dock** — When a narrative is visible, the voice panel slides up as a frosted-glass bottom dock (`backdrop-blur-xl`), keeping the story and images visible behind it
+  - **Ambient full-screen** — When no narrative exists yet, a warm radial gradient with floating gold particles and an optional Ken Burns background image replaces the old dark overlay
 - **Voice input** — Speak your follow-up questions using the mic button (Web Speech API) — no typing required
 - **Ambient background audio** — Each act plays a soft ambient soundscape (wind, market, drums, etc.) that crossfades between acts, with a mute toggle
 - **ADK-orchestrated generation** — The Gemini ADK agent actively decides tool order, validates the arc, and adapts on the fly (with a direct-pipeline fallback via `use_adk=false`)
@@ -39,6 +41,7 @@ The frontend is built for a **cinematic, fluid** reading experience rather than 
 - **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text at estimated reading pace. Non-active segments dim for focus.
 - **Scroll progress** — A fixed vertical progress bar on the left shows how far you've scrolled through the story, with act markers that fill as you pass each act.
 - **"Choose Your Griot"** — At the end of the narrative, a two-card chooser (Written Word / Living Voice) lets users pick their interaction mode, with the text input sliding in via animated reveal.
+- **Immersive LiveGriot UI** — The voice conversation panel adapts to context: a translucent bottom dock over the narrative (glassmorphism with `backdrop-blur-xl`) or an ambient full-screen mode with warm gradients, gold particles, and a slow Ken Burns zoom on the latest narrative image.
 
 ## Architecture
 
