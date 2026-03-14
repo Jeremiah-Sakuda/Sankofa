@@ -528,10 +528,19 @@ sankofa_agent = Agent(
     tools=sankofa_agent_tools,
 )
 
+sankofa_live_tools = [
+    lookup_cultural_context,
+    assess_context_quality,
+    research_region_history,
+    recall_narrative_context,
+    deep_dive,
+    notify_user,
+]
+
 sankofa_live_agent = Agent(
     model=settings.GEMINI_LIVE_MODEL,
     name="sankofa_heritage_live_narrator",
     description=sankofa_agent_description,
     instruction=sankofa_agent_instruction,
-    tools=sankofa_agent_tools,
+    tools=sankofa_live_tools,
 )

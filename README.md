@@ -19,10 +19,9 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 - **Griot-inspired narration** — Warm, oral storytelling voice grounded in historical fact
 - **AI-generated period imagery** — Watercolor-style illustrations of landscapes, people, and cultural artifacts
 - **Trust indicators** — Every segment marked as Historical, Cultural, or Reconstructed
-- **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, and auto-advance)
-- **"Choose Your Griot" interaction modes** — After the narrative completes, a two-card chooser lets you pick how to continue: *Written Word* (text follow-ups) or *Living Voice* (live voice conversation with the Griot)
+- **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, auto-advance, and integrated mic button). Audio is enabled by default.
 - **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage, with answers streaming in segment-by-segment via SSE
-- **Live voice conversation** — Talk to the Griot in real-time via a full-duplex voice session powered by Gemini Live API, with two immersive UI modes:
+- **Live voice conversation** — Talk to the Griot in real-time via the mic button in the narration bar, powered by Gemini Live API, with two immersive UI modes:
   - **Glassmorphism dock** — When a narrative is visible, the voice panel slides up as a frosted-glass bottom dock (`backdrop-blur-xl`), keeping the story and images visible behind it
   - **Ambient full-screen** — When no narrative exists yet, a warm radial gradient with floating gold particles and an optional Ken Burns background image replaces the old dark overlay
 - **Voice input** — Speak your follow-up questions using the mic button (Web Speech API) — no typing required
@@ -38,10 +37,9 @@ The frontend is built for a **cinematic, fluid** reading experience rather than 
 - **Cinematic image reveals** — Images enter with a soft blur-to-sharp transition; hero images get a warm vignette and a sepia-to-full-color reveal. A subtle golden shimmer fades away as the image materializes.
 - **Act transitions** — Between acts, a full-width divider shows the Sankofa bird, act numeral, and title (from the arc outline), with floating gold particles and an expanding gold line.
 - **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird. Per-act ambient soundscapes (wind, market, drums) crossfade smoothly between acts at low volume, with a mute toggle in the corner.
-- **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text at estimated reading pace. Non-active segments dim for focus.
+- **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text using the actual audio duration. Pausing the audio freezes all highlight animations in place; resuming continues them. Non-active segments dim for focus.
 - **Scroll progress** — A fixed vertical progress bar on the left shows how far you've scrolled through the story, with act markers that fill as you pass each act.
-- **"Choose Your Griot"** — At the end of the narrative, a two-card chooser (Written Word / Living Voice) lets users pick their interaction mode, with the text input sliding in via animated reveal.
-- **Immersive LiveGriot UI** — The voice conversation panel adapts to context: a translucent bottom dock over the narrative (glassmorphism with `backdrop-blur-xl`) or an ambient full-screen mode with warm gradients, gold particles, and a slow Ken Burns zoom on the latest narrative image.
+- **Immersive LiveGriot UI** — The voice conversation panel adapts to context: a translucent bottom dock over the narrative (glassmorphism with `backdrop-blur-xl`) or an ambient full-screen mode with warm gradients, gold particles, and a slow Ken Burns zoom on the latest narrative image. Accessed via the mic button in the narration bar.
 
 ## Architecture
 
@@ -66,7 +64,7 @@ flowchart TB
             AG --> OR
         end
 
-        subgraph Tools["Agent Tools (11)"]
+        subgraph Tools["Agent Tools"]
             T1["lookup_cultural_context"]
             T2["plan_narrative_arc"]
             T3["validate_narrative_arc"]
@@ -91,6 +89,7 @@ flowchart TB
             GM1["gemini-2.5-flash\n(Arc Planning + Agent)"]
             GM2["gemini-2.5-flash-image\n(Text + Images)"]
             GM3["gemini-2.5-pro-preview-tts\n(Audio Narration)"]
+            GM4["gemini-2.0-flash-live-001\n(Live Voice)"]
         end
         FS["Cloud Firestore\n(Production Sessions)"]
     end
@@ -117,8 +116,8 @@ flowchart TB
 
 | Component | Technology | Google Cloud Service |
 |---|---|---|
-| AI Models | Gemini 2.5 Flash Image (narrative + images), Gemini 2.5 Pro Preview TTS (audio), Gemini 2.5 Flash (arc planning + agent) | Vertex AI / GenAI SDK |
-| Agent Orchestration | Google Agent Development Kit (ADK) — `sankofa_heritage_narrator` agent with 11 tools, validation loops, and dynamic decisions | ADK + GenAI SDK |
+| AI Models | Gemini 2.5 Flash Image (narrative + images), Gemini 2.5 Pro Preview TTS (audio), Gemini 2.5 Flash (arc planning + agent), Gemini 2.0 Flash Live (voice conversation) | Vertex AI / GenAI SDK |
+| Agent Orchestration | Google Agent Development Kit (ADK) — `sankofa_heritage_narrator` agent with full tool suite for narrative generation, plus `sankofa_heritage_live_narrator` with a filtered conversation-only tool set for live voice | ADK + GenAI SDK |
 | Backend | Python 3.12 / FastAPI | Cloud Run |
 | Frontend | Next.js 16 / React 19 / Tailwind CSS v4 / Motion (motion/react) | Cloud Run |
 | Streaming | SSE via sse-starlette — initial narrative + follow-ups both stream via SSE; "thinking aloud" status messages show agent progress | Cloud Run |

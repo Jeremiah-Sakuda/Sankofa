@@ -15,6 +15,8 @@ interface NarrationBarProps {
   tracks: AudioTrack[];
   onTrackChange?: (track: AudioTrack | null) => void;
   onPlayStateChange?: (playing: boolean) => void;
+  onDurationChange?: (duration: number) => void;
+  onTalkToGriot?: () => void;
   autoPlay?: boolean;
 }
 
@@ -56,7 +58,7 @@ function useBlobUrl(audioData: string | undefined, mediaType: string): string | 
   return src;
 }
 
-export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, autoPlay = true }: NarrationBarProps) {
+export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, onDurationChange, onTalkToGriot, autoPlay = true }: NarrationBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -118,9 +120,18 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
       }
     };
     const onError = () => setLoadError(true);
+    const onLoadedMetadata = () => {
+      if (audio.duration && Number.isFinite(audio.duration)) {
+        setDuration(audio.duration);
+        onDurationChange?.(audio.duration);
+      }
+    };
     const onCanPlay = () => {
       setLoadError(false);
-      setDuration(audio.duration);
+      if (audio.duration && Number.isFinite(audio.duration)) {
+        setDuration(audio.duration);
+        onDurationChange?.(audio.duration);
+      }
       if (autoPlay && !hasUserPaused) {
         audio.play().then(() => setIsPlaying(true)).catch(() => {});
       }
@@ -129,15 +140,17 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
     audio.addEventListener("canplay", onCanPlay);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
       audio.removeEventListener("canplay", onCanPlay);
     };
-  }, [src, autoPlay, hasUserPaused, currentIndex, tracks.length]);
+  }, [src, autoPlay, hasUserPaused, currentIndex, tracks.length, onDurationChange]);
 
   // When src changes (track change), reset state
   useEffect(() => {
@@ -354,6 +367,23 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
               />
             ))}
           </div>
+
+          {/* Talk to Griot mic button */}
+          {onTalkToGriot && (
+            <button
+              type="button"
+              onClick={onTalkToGriot}
+              className="shrink-0 w-9 h-9 rounded-full border border-[var(--gold)]/40 flex items-center justify-center transition-all hover:border-[var(--gold)] hover:bg-[var(--gold)]/10 text-[var(--gold)]/70 hover:text-[var(--gold)]"
+              aria-label="Talk to the Griot"
+              title="Talk to the Griot"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </motion.div>
