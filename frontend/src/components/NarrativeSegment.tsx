@@ -170,7 +170,7 @@ interface Props {
 }
 
 const revealTransition = { duration: 0.65, ease: [0.22, 1, 0.36, 1] as const };
-const revealViewport = { once: true, amount: 0.12, margin: "-40px 0px 0px 0px" };
+
 
 function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string; isHero: boolean; isNew: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -234,11 +234,11 @@ export default function NarrativeSegment({
   const isDimmed = spotlightActive && !isNarrating;
   const containerRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(containerRef, { once: true, amount: 0.12 });
-  const [hasRevealed, setHasRevealed] = useState(false);
+  const [hasRevealed, setHasRevealed] = useState(!isNew);
 
   useEffect(() => {
-    if (isInView && isNew && !hasRevealed) setHasRevealed(true);
-  }, [isInView, isNew, hasRevealed]);
+    if (isInView && !hasRevealed) setHasRevealed(true);
+  }, [isInView, hasRevealed]);
 
   if (segment.type === "text" && segment.content) {
     const wordCount = segment.content.split(/\s+/).length;
@@ -247,17 +247,17 @@ export default function NarrativeSegment({
     return (
       <motion.div
         ref={containerRef}
-        initial={{ opacity: 0, y: 28 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={revealViewport}
-        transition={{ ...revealTransition, delay: 0.05 }}
-        className={`relative mb-8 group transition-all duration-700 ${
+        initial={isNew ? { opacity: 0, y: 28 } : false}
+        animate={hasRevealed ? {
+          opacity: isDimmed ? 0.3 : 1,
+          y: 0,
+          filter: isDimmed ? "blur(0.5px)" : "blur(0px)",
+        } : undefined}
+        transition={revealTransition}
+        className={`relative mb-8 group ${
           isNarrating ? "narrating-segment" : ""
         }`}
         style={{
-          opacity: isDimmed ? 0.3 : undefined,
-          filter: isDimmed ? "blur(0.5px)" : undefined,
-          transition: "opacity 0.7s ease, filter 0.7s ease",
           "--narrate-duration": `${estimatedDuration}s`,
         } as React.CSSProperties}
         data-sequence={segment.sequence}
@@ -282,19 +282,18 @@ export default function NarrativeSegment({
     return (
       <motion.figure
         ref={containerRef}
-        initial={{ opacity: 0, scale: 0.94, filter: "blur(12px)" }}
-        whileInView={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-        viewport={revealViewport}
+        initial={isNew ? { opacity: 0, scale: 0.94, filter: "blur(12px)" } : false}
+        animate={hasRevealed ? {
+          opacity: isDimmed ? 0.4 : 1,
+          scale: 1,
+          filter: "blur(0px)",
+        } : undefined}
         transition={{
           duration: isNew ? 1.4 : 0.85,
           ease: [0.22, 1, 0.36, 1],
         }}
         className={`my-10 ${isHero ? "-mx-8 md:-mx-16 lg:-mx-24" : "mx-auto"}`}
-        style={{
-          maxWidth: isHero ? "none" : "85%",
-          opacity: isDimmed ? 0.4 : undefined,
-          transition: "opacity 0.7s ease",
-        }}
+        style={{ maxWidth: isHero ? "none" : "85%" }}
         data-sequence={segment.sequence}
       >
         <div

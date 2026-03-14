@@ -295,9 +295,12 @@ export default function NarrativeStream({
     }
   }, [segments.length, isStreaming]);
 
+  const isAudioPlayingRef = useRef(false);
+  useEffect(() => { isAudioPlayingRef.current = isAudioPlaying; }, [isAudioPlaying]);
+
   const handleTrackChange = useCallback((track: AudioTrack | null) => {
     setActiveSequence(track?.segmentSequence ?? null);
-    if (track) {
+    if (track && isAudioPlayingRef.current) {
       const el = document.querySelector(`[data-sequence="${track.segmentSequence}"]`);
       el?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
