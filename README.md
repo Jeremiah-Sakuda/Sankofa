@@ -20,8 +20,11 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 - **AI-generated period imagery** — Watercolor-style illustrations of landscapes, people, and cultural artifacts
 - **Trust indicators** — Every segment marked as Historical, Cultural, or Reconstructed
 - **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, and auto-advance)
+- **"Choose Your Griot" interaction modes** — After the narrative completes, a two-card chooser lets you pick how to continue: *Written Word* (text follow-ups) or *Living Voice* (live voice conversation with the Griot)
 - **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage, with answers streaming in segment-by-segment via SSE
+- **Live voice conversation** — Talk to the Griot in real-time via a full-duplex voice session powered by Gemini Live API
 - **Voice input** — Speak your follow-up questions using the mic button (Web Speech API) — no typing required
+- **Ambient background audio** — Each act plays a soft ambient soundscape (wind, market, drums, etc.) that crossfades between acts, with a mute toggle
 - **ADK-orchestrated generation** — The Gemini ADK agent actively decides tool order, validates the arc, and adapts on the fly (with a direct-pipeline fallback via `use_adk=false`)
 
 ### Experience & Immersion
@@ -32,9 +35,10 @@ The frontend is built for a **cinematic, fluid** reading experience rather than 
 - **Word-by-word text reveal** — New narrative text animates in word-by-word with a staggered fade, evoking the cadence of a griot speaking. The effect runs only on first appearance.
 - **Cinematic image reveals** — Images enter with a soft blur-to-sharp transition; hero images get a warm vignette and a sepia-to-full-color reveal. A subtle golden shimmer fades away as the image materializes.
 - **Act transitions** — Between acts, a full-width divider shows the Sankofa bird, act numeral, and title (from the arc outline), with floating gold particles and an expanding gold line.
-- **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird.
+- **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird. Per-act ambient soundscapes (wind, market, drums) crossfade smoothly between acts at low volume, with a mute toggle in the corner.
 - **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text at estimated reading pace. Non-active segments dim for focus.
-- **Scroll progress** — A fixed vertical progress bar on the left shows how far you’ve scrolled through the story, with act markers that fill as you pass each act. A “Your story continues…” CTA with animated Sankofa bird invites follow-up questions at the end.
+- **Scroll progress** — A fixed vertical progress bar on the left shows how far you've scrolled through the story, with act markers that fill as you pass each act.
+- **"Choose Your Griot"** — At the end of the narrative, a two-card chooser (Written Word / Living Voice) lets users pick their interaction mode, with the text input sliding in via animated reveal.
 
 ## Architecture
 
@@ -116,6 +120,7 @@ flowchart TB
 | Frontend | Next.js 16 / React 19 / Tailwind CSS v4 / Motion (motion/react) | Cloud Run |
 | Streaming | SSE via sse-starlette — initial narrative + follow-ups both stream via SSE; "thinking aloud" status messages show agent progress | Cloud Run |
 | Voice Input | Web Speech API (browser-native) for voice follow-up questions | — |
+| Live Voice | Gemini Live API full-duplex voice conversation with the Griot | GenAI SDK |
 | Session Store | In-memory (default) or Firestore via `USE_FIRESTORE` | Firestore (production) |
 
 ## Supported Regions
