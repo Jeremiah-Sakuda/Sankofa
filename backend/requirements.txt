@@ -1,11 +1,11 @@
 # Production-ready pinned versions
-fastapi>=0.115.0,<0.116
-uvicorn[standard]>=0.32.0,<0.33
-sse-starlette>=2.1.0,<3
-google-genai>=1.0.0,<2
-Pillow>=11.0.0,<12
-python-dotenv>=1.0.0,<2
-pydantic>=2.0.0,<3
-google-cloud-firestore>=2.19.0,<3
-google-adk>=1.0.0,<2
-slowapi>=0.1.9,<0.2.0
+fastapi
+uvicorn[standard]
+sse-starlette
+google-genai
+Pillow
+python-dotenv
+pydantic
+google-cloud-firestore
+google-adk
+slowapi
