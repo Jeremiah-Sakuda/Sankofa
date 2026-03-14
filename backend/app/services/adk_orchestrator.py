@@ -257,12 +257,20 @@ async def run_adk_narrative(
                                 # Stagger delivery for natural feel
                                 delay = 1.2 if seg.type == "image" else (0.6 if i == 0 else 0.35)
                                 await asyncio.sleep(delay)
+
+                            # Drain any TTS that finished during this act
+                            done = [t for t in tts_tasks if t.done()]
+                            for t in done:
+                                tts_tasks.remove(t)
+                            while not tts_queue.empty():
+                                audio_seg = await tts_queue.get()
+                                yield {"event": "audio", "data": audio_seg.model_dump_json()}
                         else:
                             logger.warning(
                                 "[adk-orch] Could not parse segments from generate_act_segments"
                             )
 
-        # --- Collect TTS results ---
+        # --- Collect remaining TTS results ---
         if tts_tasks:
             yield _sse_status("generating_audio")
             await asyncio.gather(*tts_tasks, return_exceptions=True)
@@ -381,6 +389,14 @@ async def run_adk_followup(
                                     tts_tasks.append(asyncio.create_task(_do_tts()))
 
                                 await asyncio.sleep(0.35)
+
+                            # Drain any TTS that finished during this batch
+                            done = [t for t in tts_tasks if t.done()]
+                            for t in done:
+                                tts_tasks.remove(t)
+                            while not tts_queue.empty():
+                                audio_seg = await tts_queue.get()
+                                yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         if tts_tasks:
             yield _sse_status("generating_audio")
