@@ -130,6 +130,7 @@ export function useSSEStream(): UseSSEStreamReturn {
         setError(err?.message || "Connection lost");
         setIsStreaming(false);
         setProgressStep(null);
+        throw err; // prevent fetchEventSource from retrying
       },
       onclose() {
         setIsStreaming(false);
