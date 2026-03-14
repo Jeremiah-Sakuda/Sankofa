@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState, useRef } from "react";
+import { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
@@ -73,6 +73,13 @@ export default function NarrativePage() {
   }, [abort]);
 
   const allSegments = [...segments, ...followUpSegments];
+
+  const latestImageSrc = useMemo(() => {
+    const imgs = allSegments.filter(s => s.type === "image" && s.media_data);
+    if (imgs.length === 0) return null;
+    const last = imgs[imgs.length - 1];
+    return `data:${last.media_type || "image/png"};base64,${last.media_data}`;
+  }, [allSegments]);
 
   // If we're waiting for the first segment for too long, show "taking longer" + retry
   useEffect(() => {
@@ -530,6 +537,8 @@ export default function NarrativePage() {
           <LiveGriot
             sessionId={sessionId}
             onClose={() => setShowLiveGriot(false)}
+            hasNarrative={allSegments.length > 0}
+            latestImageSrc={latestImageSrc}
           />
         )}
       </AnimatePresence>
