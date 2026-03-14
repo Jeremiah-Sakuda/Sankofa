@@ -50,40 +50,56 @@ class FirestoreSessionStore:
         return self._client
 
     def create(self, session_id: str, user_input: UserInput) -> Session:
-        session = Session(session_id=session_id, user_input=user_input)
-        doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
-        doc_ref.set(_session_to_doc(session))
-        logger.info("Firestore: created session %s", session_id)
-        return session
+        try:
+            session = Session(session_id=session_id, user_input=user_input)
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
+            doc_ref.set(_session_to_doc(session))
+            logger.info("Firestore: created session %s", session_id)
+            return session
+        except Exception as e:
+            logger.error("Firestore create error: %s", e, exc_info=True)
+            raise RuntimeError("Failed to create session in data store.") from e
 
     def get(self, session_id: str) -> Optional[Session]:
-        doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
-        doc = doc_ref.get()
-        if not doc.exists:
-            return None
-        data = doc.to_dict()
-        if not data:
-            return None
-        # Load segments subcollection (ordered by doc id = sequence)
-        seg_refs = doc_ref.collection("segments").order_by("sequence").stream()
-        segments = []
-        for seg_doc in seg_refs:
-            seg_data = seg_doc.to_dict()
-            if seg_data:
-                segments.append(NarrativeSegment.model_validate(seg_data))
-        return _doc_to_session(session_id, data, segments)
+        try:
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return None
+            data = doc.to_dict()
+            if not data:
+                return None
+            # Load segments subcollection (ordered by doc id = sequence)
+            seg_refs = doc_ref.collection("segments").order_by("sequence").stream()
+            segments = []
+            for seg_doc in seg_refs:
+                seg_data = seg_doc.to_dict()
+                if seg_data:
+                    segments.append(NarrativeSegment.model_validate(seg_data))
+            return _doc_to_session(session_id, data, segments)
+        except Exception as e:
+            logger.error("Firestore get error: %s", e, exc_info=True)
+            raise RuntimeError("Failed to retrieve session from data store.") from e
 
     def update(self, session: Session) -> None:
-        doc_ref = self._client_or_init().collection(self._collection_name).document(session.session_id)
-        doc_ref.update(_session_to_doc(session))
-        # Replace segments subcollection
-        seg_coll = doc_ref.collection("segments")
-        for seg_doc in seg_coll.stream():
-            seg_doc.reference.delete()
-        for seg in session.segments:
-            seg_coll.document(str(seg.sequence)).set(seg.model_dump())
-        logger.debug("Firestore: updated session %s (%d segments)", session.session_id, len(session.segments))
+        try:
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session.session_id)
+            doc_ref.update(_session_to_doc(session))
+            # Replace segments subcollection
+            seg_coll = doc_ref.collection("segments")
+            for seg_doc in seg_coll.stream():
+                seg_doc.reference.delete()
+            for seg in session.segments:
+                seg_coll.document(str(seg.sequence)).set(seg.model_dump())
+            logger.debug("Firestore: updated session %s (%d segments)", session.session_id, len(session.segments))
+        except Exception as e:
+            logger.error("Firestore update error: %s", e, exc_info=True)
+            raise RuntimeError("Failed to update session in data store.") from e
 
     def exists(self, session_id: str) -> bool:
-        doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
-        return doc_ref.get().exists
+        try:
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
+            return doc_ref.get().exists
+        except Exception as e:
+            logger.error("Firestore exists error: %s", e, exc_info=True)
+            raise RuntimeError("Failed to verify session existence in data store.") from e
