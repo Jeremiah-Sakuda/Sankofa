@@ -9,7 +9,6 @@ import asyncio
 import base64
 import json
 import logging
-from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from google.adk.agents.live_request_queue import LiveRequestQueue

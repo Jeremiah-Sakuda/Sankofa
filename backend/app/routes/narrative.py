@@ -52,8 +52,8 @@ async def stream_narrative(
         return EventSourceResponse(adk_event_generator())
 
     # --- Direct pipeline fallback (use_adk=false) ---
-    ARC_PLANNING_TIMEOUT = 60   # seconds (Gemini text call)
-    NARRATIVE_TIMEOUT = 120     # seconds (Gemini image + text call)
+    arc_planning_timeout = 60   # seconds (Gemini text call)
+    narrative_timeout = 120     # seconds (Gemini image + text call)
 
     async def event_generator():
         session.is_generating = True
@@ -75,22 +75,22 @@ async def stream_narrative(
                     await _emit("arc", json.dumps(arc))
                     segments = await asyncio.wait_for(
                         generate_narrative_only(session, grounding_context),
-                        timeout=NARRATIVE_TIMEOUT,
+                        timeout=narrative_timeout,
                     )
                 else:
                     await _emit("status", json.dumps({"status": "planning_arc"}))
-                    logger.info("[stream] Step: planning_arc (timeout %ss)", ARC_PLANNING_TIMEOUT)
+                    logger.info("[stream] Step: planning_arc (timeout %ss)", arc_planning_timeout)
                     arc_outline, grounding_context = await asyncio.wait_for(
                         plan_arc_only(session),
-                        timeout=ARC_PLANNING_TIMEOUT,
+                        timeout=arc_planning_timeout,
                     )
                     await _emit("arc", json.dumps(arc_outline))
 
                     await _emit("status", json.dumps({"status": "generating_narrative"}))
-                    logger.info("[stream] Step: generating_narrative (timeout %ss)", NARRATIVE_TIMEOUT)
+                    logger.info("[stream] Step: generating_narrative (timeout %ss)", narrative_timeout)
                     segments = await asyncio.wait_for(
                         generate_narrative_only(session, grounding_context),
-                        timeout=NARRATIVE_TIMEOUT,
+                        timeout=narrative_timeout,
                     )
                 logger.info("[stream] Generated %s segments, streaming to client", len(segments))
 
@@ -143,7 +143,7 @@ async def stream_narrative(
                 await queue.put(None)  # EOF marker
 
         # Start orchestrator task
-        orchestrator_task = asyncio.create_task(_orchestrator())
+        asyncio.create_task(_orchestrator())
 
         # Yield events from queue as they arrive
         while True:
@@ -162,8 +162,8 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    MAX_SEGMENTS_PER_SESSION = 50
-    if len(session.segments) >= MAX_SEGMENTS_PER_SESSION:
+    max_segments_per_session = 50
+    if len(session.segments) >= max_segments_per_session:
         raise HTTPException(
             status_code=400,
             detail="This journey has reached its natural conclusion. Please begin a new narrative to explore further."
@@ -249,8 +249,8 @@ async def followup_stream(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    MAX_SEGMENTS_PER_SESSION = 50
-    if len(session.segments) >= MAX_SEGMENTS_PER_SESSION:
+    max_segments_per_session = 50
+    if len(session.segments) >= max_segments_per_session:
         raise HTTPException(
             status_code=400,
             detail="This journey has reached its natural conclusion. Please begin a new narrative to explore further.",
