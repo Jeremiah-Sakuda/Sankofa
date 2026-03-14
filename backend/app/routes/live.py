@@ -148,6 +148,8 @@ async def live_griot(websocket: WebSocket, session_id: str):
                         await websocket.send_json({"type": "turn_complete"})
                     continue
 
+                has_text_part = False
+
                 for part in event.content.parts:
                     # Audio output from the agent
                     if part.inline_data and part.inline_data.data:
@@ -158,12 +160,9 @@ async def live_griot(websocket: WebSocket, session_id: str):
                             "mime_type": part.inline_data.mime_type or "audio/pcm;rate=24000",
                         })
 
-                    # Text from the agent (rare in audio mode, but possible)
+                    # Track text parts (don't send yet — prefer output_transcription)
                     if part.text:
-                        await websocket.send_json({
-                            "type": "transcript_out",
-                            "text": part.text,
-                        })
+                        has_text_part = True
 
                     # Tool calls — surface as thinking messages
                     if part.function_call:
@@ -183,6 +182,8 @@ async def live_griot(websocket: WebSocket, session_id: str):
                     if text:
                         await websocket.send_json({"type": "transcript_in", "text": text})
 
+                # Prefer output_transcription (canonical); fall back to part.text
+                transcript_sent = False
                 if hasattr(event, "output_transcription") and event.output_transcription:
                     text = (
                         event.output_transcription.text
@@ -191,6 +192,16 @@ async def live_griot(websocket: WebSocket, session_id: str):
                     )
                     if text:
                         await websocket.send_json({"type": "transcript_out", "text": text})
+                        transcript_sent = True
+
+                if not transcript_sent and has_text_part:
+                    for part in event.content.parts:
+                        if part.text:
+                            await websocket.send_json({
+                                "type": "transcript_out",
+                                "text": part.text,
+                            })
+                            break
 
                 if event.turn_complete:
                     await websocket.send_json({"type": "turn_complete"})
