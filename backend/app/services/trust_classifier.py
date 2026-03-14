@@ -1,4 +1,5 @@
 import re
+
 from app.models.schemas import NarrativeSegment
 
 TAG_PATTERN = re.compile(r"\[(HISTORICAL|CULTURAL|RECONSTRUCTED)\]", re.IGNORECASE)

@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +28,7 @@ class Settings:
     # Model IDs for Gemini API (aistudio.google.com). Match https://ai.google.dev/gemini-api/docs/models
     # Planning: text-only. Narrative: must support image+text output (e.g. Nano Banana). TTS: audio output.
     GEMINI_PLANNING_MODEL: str = os.getenv("GEMINI_PLANNING_MODEL", "gemini-2.5-flash")
+    GEMINI_LIVE_MODEL: str = os.getenv("GEMINI_LIVE_MODEL", "gemini-2.0-flash-exp")
     GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")  # Nano Banana: image+text
     GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-pro-preview-tts")
 

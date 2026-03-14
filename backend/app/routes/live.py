@@ -12,22 +12,21 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-
-from google.adk.runners import Runner, RunConfig
-from google.adk.agents.run_config import StreamingMode
 from google.adk.agents.live_request_queue import LiveRequestQueue
+from google.adk.agents.run_config import StreamingMode
+from google.adk.runners import RunConfig, Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import (
+    AudioTranscriptionConfig,
     Blob,
     Content,
     Part,
+    PrebuiltVoiceConfig,
     SpeechConfig,
     VoiceConfig,
-    PrebuiltVoiceConfig,
-    AudioTranscriptionConfig,
 )
 
-from app.services.adk_agent import sankofa_agent
+from app.services.adk_agent import sankofa_live_agent
 from app.store import session_store
 
 logger = logging.getLogger(__name__)
@@ -36,7 +35,7 @@ router = APIRouter(prefix="/api", tags=["live"])
 # Dedicated session service for live sessions
 _live_session_service = InMemorySessionService()
 _live_runner = Runner(
-    agent=sankofa_agent,
+    agent=sankofa_live_agent,
     app_name="sankofa_live",
     session_service=_live_session_service,
 )

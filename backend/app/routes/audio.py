@@ -1,8 +1,10 @@
 import logging
+
 from fastapi import APIRouter, HTTPException, Request
+
 from app.models.schemas import AudioGenerateRequest
-from app.services.tts_service import generate_narration
 from app.rate_limiter import limiter
+from app.services.tts_service import generate_narration
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["audio"])

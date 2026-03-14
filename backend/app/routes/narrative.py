@@ -2,17 +2,19 @@ import asyncio
 import json
 import logging
 from uuid import UUID
+
 from fastapi import APIRouter, HTTPException, Query, Request
 from sse_starlette.sse import EventSourceResponse
-from app.models.schemas import NarrativeSegment, FollowUpRequest
-from app.store import session_store
+
+from app.knowledge.loader import build_grounding_context
+from app.models.schemas import FollowUpRequest, NarrativeSegment
 from app.rate_limiter import limiter
-from app.services.narrative_planner import plan_arc_only, generate_narrative_only, get_fast_arc
+from app.services.adk_orchestrator import run_adk_followup, run_adk_narrative
 from app.services.gemini_service import generate_interleaved, validate_followup_question
+from app.services.narrative_planner import generate_narrative_only, get_fast_arc, plan_arc_only
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration
-from app.knowledge.loader import build_grounding_context
-from app.services.adk_orchestrator import run_adk_narrative, run_adk_followup
+from app.store import session_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["narrative"])
@@ -173,7 +175,7 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
     if not is_safe:
         logger.warning(f"Rejected unsafe/off-topic prompt in session {session_id}: {question}")
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="I'm sorry, I can only weave narratives about ancestral heritage, family history, and culture."
         )
 

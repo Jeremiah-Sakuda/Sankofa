@@ -1,6 +1,7 @@
-from typing import Optional
 from dataclasses import dataclass, field
-from app.models.schemas import UserInput, NarrativeSegment
+from typing import Optional
+
+from app.models.schemas import NarrativeSegment, UserInput
 
 
 @dataclass

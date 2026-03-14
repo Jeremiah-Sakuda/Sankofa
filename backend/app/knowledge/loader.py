@@ -3,14 +3,18 @@ Knowledge base query interface.
 Assembles grounding context from the cultural knowledge base.
 """
 
-from app.knowledge.west_africa import (
-    REGIONS as WA_REGIONS,
-    GENERAL_WEST_AFRICA,
-    get_region_data as wa_get_region,
-    get_decade_data,
-)
 from app.knowledge.caribbean import REGIONS as CARIB_REGIONS
 from app.knowledge.south_asia import REGIONS as SA_REGIONS
+from app.knowledge.west_africa import (
+    GENERAL_WEST_AFRICA,
+    get_decade_data,
+)
+from app.knowledge.west_africa import (
+    REGIONS as WA_REGIONS,
+)
+from app.knowledge.west_africa import (
+    get_region_data as wa_get_region,
+)
 from app.models.schemas import UserInput
 
 CARIBBEAN_KEYWORDS = {

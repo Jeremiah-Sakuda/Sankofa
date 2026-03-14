@@ -1,16 +1,17 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from app.config import settings
-from app.routes import intake, narrative, audio, live
 from app.rate_limiter import limiter
-from slowapi.errors import RateLimitExceeded
-from slowapi import _rate_limit_exceeded_handler
-from fastapi.responses import JSONResponse
+from app.routes import audio, intake, live, narrative
 
 logging.basicConfig(
     level=logging.INFO,

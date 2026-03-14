@@ -1,8 +1,10 @@
 import asyncio
 import base64
 import logging
+
 from google import genai
 from google.genai.types import GenerateContentConfig, GoogleSearch, Modality, Tool
+
 from app.config import settings
 from app.models.schemas import NarrativeSegment
 
@@ -168,7 +170,7 @@ def _generate_text_sync(prompt: str, model: str, grounded: bool = False) -> str:
     # Log grounding metadata if available
     if grounded and hasattr(response.candidates[0], 'grounding_metadata') and response.candidates[0].grounding_metadata:
         gm = response.candidates[0].grounding_metadata
-        logger.info("[gemini] Grounding metadata: %s search queries used", 
+        logger.info("[gemini] Grounding metadata: %s search queries used",
                      len(gm.web_search_queries) if hasattr(gm, 'web_search_queries') and gm.web_search_queries else 0)
 
     logger.info("[gemini] Gemini text model returned successfully")
@@ -177,7 +179,7 @@ def _generate_text_sync(prompt: str, model: str, grounded: bool = False) -> str:
 
 async def generate_text(prompt: str, model: str | None = None, grounded: bool = False) -> str:
     """Generate text-only content from Gemini (non-blocking).
-    
+
     When grounded=True, uses Google Search to ground responses in real-world data.
     """
     target_model = model or settings.GEMINI_PLANNING_MODEL
