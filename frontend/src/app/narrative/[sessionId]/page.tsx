@@ -34,6 +34,7 @@ export default function NarrativePage() {
   const [sessionInvalid, setSessionInvalid] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [showLiveGriot, setShowLiveGriot] = useState(false);
+  const [griotMode, setGriotMode] = useState<"unselected" | "text" | "voice">("unselected");
 
   useEffect(() => {
     if (!sessionId) return;
@@ -177,6 +178,7 @@ export default function NarrativePage() {
             setFollowUpError(err?.message || "Connection lost during follow-up");
             setIsLoadingFollowUp(false);
             setFollowUpThinking(null);
+            throw err; // prevent fetchEventSource from retrying
           },
           onclose() {
             setIsLoadingFollowUp(false);
@@ -252,15 +254,89 @@ export default function NarrativePage() {
                   <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]">
                     Ready to weave your narrative.
                   </p>
-                  <label className="mt-6 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableAudio}
-                      onChange={(e) => setEnableAudio(e.target.checked)}
-                      className="w-4 h-4 accent-[var(--gold)]"
-                    />
-                    Include audio narration
-                  </label>
+
+                  {/* Choose Your Griot */}
+                  <h3 className="mt-8 font-[family-name:var(--font-display)] text-xs tracking-[0.3em] text-[var(--gold)] uppercase">
+                    Choose Your Griot
+                  </h3>
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setGriotMode("text")}
+                      className={`p-5 border rounded-sm text-left transition-all cursor-pointer ${
+                        griotMode === "text"
+                          ? "bg-[var(--gold)]/10 border-[var(--gold)]"
+                          : "border-[var(--ochre)]/20 hover:border-[var(--gold)]/50"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)] mb-3">
+                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        <path d="m15 5 4 4" />
+                      </svg>
+                      <h4 className="font-[family-name:var(--font-display)] text-sm text-[var(--ivory)] mb-1">
+                        Written Word
+                      </h4>
+                      <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+                        Read a crafted narrative with images and audio
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGriotMode("voice");
+                        setShowLiveGriot(true);
+                      }}
+                      className={`p-5 border rounded-sm text-left transition-all cursor-pointer ${
+                        griotMode === "voice"
+                          ? "bg-[var(--gold)]/10 border-[var(--gold)]"
+                          : "border-[var(--ochre)]/20 hover:border-[var(--gold)]/50"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)] mb-3">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                        <line x1="12" x2="12" y1="19" y2="22" />
+                      </svg>
+                      <h4 className="font-[family-name:var(--font-display)] text-sm text-[var(--ivory)] mb-1">
+                        Living Voice
+                      </h4>
+                      <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+                        Speak with the Griot live
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Written Word options — audio toggle + Begin */}
+                  <AnimatePresence>
+                    {griotMode === "text" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden flex flex-col items-center"
+                      >
+                        <label className="mt-6 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={enableAudio}
+                            onChange={(e) => setEnableAudio(e.target.checked)}
+                            className="w-4 h-4 accent-[var(--gold)]"
+                          />
+                          Include audio narration
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleBeginStream}
+                          className="mt-6 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
+                        >
+                          Begin
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <div className="mt-6 flex flex-col items-center gap-2">
                     <button
                       type="button"
@@ -281,13 +357,6 @@ export default function NarrativePage() {
                       </p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleBeginStream}
-                    className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
-                  >
-                    Begin
-                  </button>
                 </>
               )
             ) : error ? (

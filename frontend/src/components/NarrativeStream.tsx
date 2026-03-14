@@ -174,7 +174,6 @@ export default function NarrativeStream({
   const [activeSequence, setActiveSequence] = useState<number | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [griotMode, setGriotMode] = useState<"unselected" | "text" | "voice">("unselected");
   const [ambientMuted, setAmbientMuted] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -505,125 +504,63 @@ export default function NarrativeStream({
                 Your story continues&hellip;
               </motion.p>
 
-              {/* Choose Your Griot */}
-              <motion.h3
-                className="font-[family-name:var(--font-display)] text-xs tracking-[0.3em] text-[var(--gold)] uppercase mb-6"
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-              >
-                Choose Your Griot
-              </motion.h3>
-
-              <motion.div
-                className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto mb-8"
-                initial={{ opacity: 0, y: 8 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: 0.5 }}
-              >
-                {/* Written Word card */}
-                <button
-                  onClick={() => setGriotMode("text")}
-                  className={`p-5 border rounded-sm text-left transition-all cursor-pointer ${
-                    griotMode === "text"
-                      ? "bg-[var(--gold)]/10 border-[var(--gold)]"
-                      : "border-[var(--ochre)]/20 hover:border-[var(--gold)]/50"
-                  }`}
+              {/* Talk to the Griot button */}
+              {onTalkToGriot && (
+                <motion.button
+                  onClick={onTalkToGriot}
+                  initial={{ opacity: 0, y: 8 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: 0.5 }}
+                  className="mb-8 px-6 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer flex items-center gap-3 mx-auto"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)] mb-3">
-                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                    <path d="m15 5 4 4" />
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
                   </svg>
-                  <h4 className="font-[family-name:var(--font-display)] text-sm text-[var(--umber)] mb-1">
-                    Written Word
-                  </h4>
-                  <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
-                    Ask follow-up questions by text
-                  </p>
-                </button>
-
-                {/* Living Voice card */}
-                {onTalkToGriot && (
+                  Talk to the Griot
+                </motion.button>
+              )}
+              <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
+                <input
+                  type="text"
+                  value={followUpInput}
+                  onChange={(e) => {
+                    setFollowUpInput(e.target.value);
+                    setFollowUpValidationError(null);
+                  }}
+                  onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
+                  placeholder={isListening ? "Listening…" : "Tell me about the music of that era…"}
+                  maxLength={FOLLOW_UP_MAX_LENGTH}
+                  className="flex-1 bg-transparent border-b-2 border-[var(--ochre)]/40 text-[var(--umber)] font-[family-name:var(--font-body)] text-base pb-2 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
+                />
+                {hasSpeechRecognition && (
                   <button
-                    onClick={() => {
-                      setGriotMode("voice");
-                      onTalkToGriot();
-                    }}
-                    className={`p-5 border rounded-sm text-left transition-all cursor-pointer ${
-                      griotMode === "voice"
-                        ? "bg-[var(--gold)]/10 border-[var(--gold)]"
-                        : "border-[var(--ochre)]/20 hover:border-[var(--gold)]/50"
+                    onClick={toggleVoiceInput}
+                    disabled={isStreaming}
+                    className={`w-10 h-10 flex items-center justify-center border rounded-full transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                      isListening
+                        ? "border-[var(--terracotta)] text-[var(--terracotta)] bg-[var(--terracotta)]/10 animate-gentle-pulse"
+                        : "border-[var(--ochre)]/40 text-[var(--ochre)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
                     }`}
+                    title={isListening ? "Stop listening" : "Speak your question"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)] mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                       <line x1="12" x2="12" y1="19" y2="22" />
                     </svg>
-                    <h4 className="font-[family-name:var(--font-display)] text-sm text-[var(--umber)] mb-1">
-                      Living Voice
-                    </h4>
-                    <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
-                      Speak with the Griot live
-                    </p>
                   </button>
                 )}
-              </motion.div>
-
-              {/* Text follow-up input (revealed when "Written Word" selected) */}
-              <AnimatePresence>
-                {griotMode === "text" && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className="overflow-hidden"
-                  >
-                    <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
-                      <input
-                        type="text"
-                        value={followUpInput}
-                        onChange={(e) => {
-                          setFollowUpInput(e.target.value);
-                          setFollowUpValidationError(null);
-                        }}
-                        onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
-                        placeholder={isListening ? "Listening…" : "Tell me about the music of that era…"}
-                        maxLength={FOLLOW_UP_MAX_LENGTH}
-                        className="flex-1 bg-transparent border-b-2 border-[var(--ochre)]/40 text-[var(--umber)] font-[family-name:var(--font-body)] text-base pb-2 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
-                      />
-                      {hasSpeechRecognition && (
-                        <button
-                          onClick={toggleVoiceInput}
-                          disabled={isStreaming}
-                          className={`w-10 h-10 flex items-center justify-center border rounded-full transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isListening
-                              ? "border-[var(--terracotta)] text-[var(--terracotta)] bg-[var(--terracotta)]/10 animate-gentle-pulse"
-                              : "border-[var(--ochre)]/40 text-[var(--ochre)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
-                          }`}
-                          title={isListening ? "Stop listening" : "Speak your question"}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                            <line x1="12" x2="12" y1="19" y2="22" />
-                          </svg>
-                        </button>
-                      )}
-                      <button
-                        onClick={handleFollowUp}
-                        disabled={isStreaming}
-                        className="px-5 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Ask
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                <button
+                  onClick={handleFollowUp}
+                  disabled={isStreaming}
+                  className="px-5 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ask
+                </button>
+              </div>
               {(followUpError || followUpValidationError) && (
                 <p className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--terracotta)]" role="alert">
                   {followUpError ?? followUpValidationError}
