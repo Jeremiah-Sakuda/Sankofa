@@ -141,6 +141,7 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
           } else if (msg.type === "transcript_in") {
             setUserTranscript(msg.text || "");
           } else if (msg.type === "transcript_out") {
+            setIsGriotSpeaking(true);
             setGriotTranscript((prev) => (prev ? prev + " " : "") + (msg.text || ""));
           } else if (msg.type === "tool_call") {
             setToolMessage(msg.message || null);
@@ -215,7 +216,9 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
 
   const statusText =
     connectionState === "connected"
-      ? "Listening\u2026 speak naturally"
+      ? isGriotSpeaking
+        ? "Griot is speaking\u2026"
+        : "Listening\u2026 speak naturally"
       : connectionState === "connecting"
         ? "Connecting\u2026"
         : "Start a voice conversation about your heritage";
