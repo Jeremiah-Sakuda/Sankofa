@@ -10,9 +10,6 @@ from app.knowledge.west_africa import (
     get_decade_data,
 )
 from app.knowledge.west_africa import (
-    REGIONS as WA_REGIONS,
-)
-from app.knowledge.west_africa import (
     get_region_data as wa_get_region,
 )
 from app.models.schemas import UserInput
@@ -88,19 +85,19 @@ def build_grounding_context(user_input: UserInput) -> str:
         context_parts.append(f"Daily life: {decade_data.get('daily_life', '')}")
         context_parts.append(f"Cultural practices: {decade_data.get('cultural_practices', '')}")
 
-    context_parts.append(f"\n=== BROADER CONTEXT ===")
+    context_parts.append("\n=== BROADER CONTEXT ===")
     context_parts.append(f"Shared cultural elements: {'; '.join(GENERAL_WEST_AFRICA['shared_cultural_elements'])}")
 
     if user_input.known_fragments:
-        context_parts.append(f"\n=== USER-PROVIDED FRAGMENTS ===")
+        context_parts.append("\n=== USER-PROVIDED FRAGMENTS ===")
         context_parts.append(user_input.known_fragments)
 
     if user_input.language_or_ethnicity:
-        context_parts.append(f"\n=== SPECIFIED LANGUAGE/ETHNICITY ===")
+        context_parts.append("\n=== SPECIFIED LANGUAGE/ETHNICITY ===")
         context_parts.append(user_input.language_or_ethnicity)
 
     if user_input.specific_interests:
-        context_parts.append(f"\n=== AREAS OF INTEREST ===")
+        context_parts.append("\n=== AREAS OF INTEREST ===")
         context_parts.append(user_input.specific_interests)
 
     return "\n".join(context_parts)

@@ -16,7 +16,6 @@ import logging
 import uuid
 
 from google.adk import Agent
-from google.adk.tools import FunctionTool
 
 from app.config import settings
 from app.knowledge.loader import build_grounding_context
@@ -155,27 +154,27 @@ The previous plan failed validation for these reasons:
 {feedback}
 Please revise the arc to specifically address these issues.\n"""
 
-    prompt += f"""\n=== TASK ===
+    prompt += """\n=== TASK ===
 Output a JSON object with this structure:
-{{
-  "act1_setting": {{
+{
+  "act1_setting": {
     "title": "A short evocative title",
     "focus": "What aspect of landscape/environment to describe",
     "key_facts": ["2-3 historical facts to weave in"]
-  }},
-  "act2_people": {{
+  },
+  "act2_people": {
     "title": "A short evocative title",
     "focus": "What aspect of daily life/culture to center",
     "key_facts": ["2-3 cultural/historical facts"]
-  }},
-  "act3_thread": {{
+  },
+  "act3_thread": {
     "title": "A short evocative title",
     "focus": "What thread connects past to present",
     "key_facts": ["2-3 facts about diaspora/cultural survival"]
-  }},
+  },
   "tone": "The specific emotional register",
   "narrative_voice": "How the griot narrator should speak"
-}}
+}
 
 Output ONLY the JSON, no other text."""
 
@@ -284,7 +283,7 @@ West African griot. Generate a rich, immersive narrative for ACT {act_number} of
 Follow seamlessly from this existing narrative:
 {previous_narrative[-3000:]}\n"""
 
-    prompt += f"""
+    prompt += """
 === TASK ===
 Generate 3–4 paragraphs of narrative text for ACT {act_number}, {density_instruction}
 Use warm earth tones, gold accents, and period-appropriate details for any images.
