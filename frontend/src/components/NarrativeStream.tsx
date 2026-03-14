@@ -180,6 +180,8 @@ export default function NarrativeStream({
   const seenSequences = useRef<Set<number>>(new Set());
   const prevSegmentCountRef = useRef(0);
 
+  const [audioDuration, setAudioDuration] = useState<number | null>(null);
+
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
   const totalActs = useMemo(() => {
@@ -310,6 +312,10 @@ export default function NarrativeStream({
     setIsAudioPlaying(playing);
   }, []);
 
+  const handleDurationChange = useCallback((dur: number) => {
+    setAudioDuration(dur);
+  }, []);
+
   let lastAct = 0;
 
   const handleFollowUp = () => {
@@ -423,7 +429,9 @@ export default function NarrativeStream({
                   segment={segment}
                   index={i}
                   isFirstInAct={isFirstInAct || false}
-                  isNarrating={activeSequence === segment.sequence}
+                  isNarrating={isAudioPlaying && activeSequence === segment.sequence}
+                  isNarrationPaused={!isAudioPlaying && activeSequence === segment.sequence}
+                  audioDuration={activeSequence === segment.sequence ? audioDuration ?? undefined : undefined}
                   spotlightActive={isAudioPlaying && activeSequence !== null}
                   isNew={isNew}
                 />
@@ -599,6 +607,8 @@ export default function NarrativeStream({
             tracks={audioTracks}
             onTrackChange={handleTrackChange}
             onPlayStateChange={handlePlayStateChange}
+            onDurationChange={handleDurationChange}
+            onTalkToGriot={onTalkToGriot}
             autoPlay
           />
         )}

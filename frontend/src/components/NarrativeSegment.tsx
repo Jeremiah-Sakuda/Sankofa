@@ -28,7 +28,7 @@ const wordVariants: Variants = {
   },
 };
 
-function RevealWords({ text, isNarrating, totalWordsInSegment, cumulativeWordOffset }: { text: string; isNarrating: boolean; totalWordsInSegment: number; cumulativeWordOffset: number }) {
+function RevealWords({ text, isNarrating, isNarrationPaused, totalWordsInSegment, cumulativeWordOffset }: { text: string; isNarrating: boolean; isNarrationPaused?: boolean; totalWordsInSegment: number; cumulativeWordOffset: number }) {
   const words = text.split(/(\s+)/);
   let localWordIdx = 0;
   
@@ -49,8 +49,8 @@ function RevealWords({ text, isNarrating, totalWordsInSegment, cumulativeWordOff
           <motion.span
             key={i}
             variants={wordVariants}
-            className={`inline ${isNarrating ? "sync-highlight" : ""}`}
-            style={isNarrating ? { "--sync-delay": syncDelayPct } as React.CSSProperties : undefined}
+            className={`inline ${isNarrating || isNarrationPaused ? "sync-highlight" : ""}`}
+            style={isNarrating || isNarrationPaused ? { "--sync-delay": syncDelayPct } as React.CSSProperties : undefined}
           >
             {token}
           </motion.span>
@@ -85,7 +85,7 @@ function parseNodes(content: string) {
   return nodes;
 }
 
-function SegmentContent({ content, isFirstInAct, animate, isNarrating }: { content: string; isFirstInAct: boolean; animate: boolean; isNarrating: boolean }) {
+function SegmentContent({ content, isFirstInAct, animate, isNarrating, isNarrationPaused }: { content: string; isFirstInAct: boolean; animate: boolean; isNarrating: boolean; isNarrationPaused?: boolean }) {
   const nodes = parseNodes(content);
 
   // Calculate total words for audio sync timing
@@ -116,21 +116,21 @@ function SegmentContent({ content, isFirstInAct, animate, isNarrating }: { conte
 
         const renderText = () => {
           if (animate) {
-             return <RevealWords 
-                text={node.text} 
-                isNarrating={isNarrating} 
+             return <RevealWords
+                text={node.text}
+                isNarrating={isNarrating}
+                isNarrationPaused={isNarrationPaused}
                 totalWordsInSegment={totalWordsInSegment}
-                cumulativeWordOffset={currentCumulative} 
+                cumulativeWordOffset={currentCumulative}
               />;
           }
-          // If not animating (e.g. old segments), still render words individually if narrating
-          // so the sync highlight works when they play audio later
-          if (isNarrating) {
-            return <RevealWords 
-              text={node.text} 
-              isNarrating={true} 
+          if (isNarrating || isNarrationPaused) {
+            return <RevealWords
+              text={node.text}
+              isNarrating={isNarrating}
+              isNarrationPaused={isNarrationPaused}
               totalWordsInSegment={totalWordsInSegment}
-              cumulativeWordOffset={currentCumulative} 
+              cumulativeWordOffset={currentCumulative}
             />;
           }
           return node.text;
@@ -165,6 +165,8 @@ interface Props {
   index: number;
   isFirstInAct?: boolean;
   isNarrating?: boolean;
+  isNarrationPaused?: boolean;
+  audioDuration?: number;
   spotlightActive?: boolean;
   isNew?: boolean;
 }
@@ -228,6 +230,8 @@ export default function NarrativeSegment({
   index,
   isFirstInAct = false,
   isNarrating = false,
+  isNarrationPaused = false,
+  audioDuration,
   spotlightActive = false,
   isNew = false,
 }: Props) {
@@ -243,6 +247,13 @@ export default function NarrativeSegment({
   if (segment.type === "text" && segment.content) {
     const wordCount = segment.content.split(/\s+/).length;
     const estimatedDuration = Math.max(8, wordCount / 2.5);
+    const narrateDuration = audioDuration && (isNarrating || isNarrationPaused) ? audioDuration : estimatedDuration;
+
+    const segmentClasses = [
+      "relative mb-8 group",
+      isNarrating ? "narrating-segment" : "",
+      isNarrationPaused ? "narrating-segment narrating-paused" : "",
+    ].filter(Boolean).join(" ");
 
     return (
       <motion.div
@@ -254,11 +265,9 @@ export default function NarrativeSegment({
           filter: isDimmed ? "blur(0.5px)" : "blur(0px)",
         } : undefined}
         transition={revealTransition}
-        className={`relative mb-8 group ${
-          isNarrating ? "narrating-segment" : ""
-        }`}
+        className={segmentClasses}
         style={{
-          "--narrate-duration": `${estimatedDuration}s`,
+          "--narrate-duration": `${narrateDuration}s`,
         } as React.CSSProperties}
         data-sequence={segment.sequence}
       >
@@ -269,6 +278,7 @@ export default function NarrativeSegment({
             isFirstInAct={isFirstInAct}
             animate={isNew}
             isNarrating={isNarrating}
+            isNarrationPaused={isNarrationPaused}
           />
         </div>
       </motion.div>

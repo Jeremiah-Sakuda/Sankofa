@@ -210,6 +210,15 @@ html {
   animation-delay: calc(var(--sync-delay, 0) * var(--narrate-duration, 30s) + 0.1s);
 }
 
+/* Pause narrating animations when audio is paused */
+.narrating-paused::before,
+.narrating-paused::after {
+  animation-play-state: paused !important;
+}
+.narrating-paused .sync-highlight {
+  animation-play-state: paused !important;
+}
+
 @keyframes word-sync {
   0% {
     color: inherit;
