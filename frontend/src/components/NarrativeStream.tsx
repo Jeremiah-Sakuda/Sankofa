@@ -174,6 +174,8 @@ export default function NarrativeStream({
   const [activeSequence, setActiveSequence] = useState<number | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [griotMode, setGriotMode] = useState<"unselected" | "text" | "voice">("unselected");
+  const [ambientMuted, setAmbientMuted] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const seenSequences = useRef<Set<number>>(new Set());
@@ -199,11 +201,83 @@ export default function NarrativeStream({
   }, [arcOutline, currentAct]);
 
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
+  const ambientTargetVolume = 0.15;
+  const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Crossfade ambient audio when track changes
+  useEffect(() => {
+    const audio = ambientAudioRef.current;
+    if (!audio) return;
+
+    // Clear any running fade
+    if (fadeTimerRef.current) {
+      clearInterval(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+
+    if (!currentAmbientTrack) {
+      // Fade out and pause
+      fadeTimerRef.current = setInterval(() => {
+        if (audio.volume > 0.01) {
+          audio.volume = Math.max(0, audio.volume - 0.015);
+        } else {
+          audio.pause();
+          audio.volume = 0;
+          if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+          fadeTimerRef.current = null;
+        }
+      }, 50);
+      return;
+    }
+
+    const newSrc = `/audio/${currentAmbientTrack}`;
+    const needsSwitch = !audio.src.endsWith(newSrc);
+
+    if (needsSwitch && audio.currentTime > 0) {
+      // Fade out, switch, fade in
+      fadeTimerRef.current = setInterval(() => {
+        if (audio.volume > 0.01) {
+          audio.volume = Math.max(0, audio.volume - 0.015);
+        } else {
+          if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+          fadeTimerRef.current = null;
+          audio.src = newSrc;
+          audio.volume = 0;
+          audio.play().catch(() => {});
+          // Fade in
+          fadeTimerRef.current = setInterval(() => {
+            const target = ambientMuted ? 0 : ambientTargetVolume;
+            if (audio.volume < target - 0.01) {
+              audio.volume = Math.min(target, audio.volume + 0.01);
+            } else {
+              audio.volume = target;
+              if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+              fadeTimerRef.current = null;
+            }
+          }, 50);
+        }
+      }, 50);
+    } else if (needsSwitch) {
+      // First load — just set and play
+      audio.src = newSrc;
+      audio.volume = ambientMuted ? 0 : ambientTargetVolume;
+      audio.play().catch(() => {});
+    }
+
+    return () => {
+      if (fadeTimerRef.current) {
+        clearInterval(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
+    };
+  }, [currentAmbientTrack]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle mute/unmute
   useEffect(() => {
     if (ambientAudioRef.current) {
-      ambientAudioRef.current.volume = 0.15; // Background ambient volume
+      ambientAudioRef.current.volume = ambientMuted ? 0 : ambientTargetVolume;
     }
-  }, [currentAmbientTrack]);
+  }, [ambientMuted]);
 
   // Auto-scroll only during active streaming when the user is near the bottom
   useEffect(() => {
@@ -431,63 +505,125 @@ export default function NarrativeStream({
                 Your story continues&hellip;
               </motion.p>
 
-              {/* Talk to the Griot button */}
-              {onTalkToGriot && (
-                <motion.button
-                  onClick={onTalkToGriot}
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: 0.5 }}
-                  className="mb-8 px-6 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer flex items-center gap-3 mx-auto"
+              {/* Choose Your Griot */}
+              <motion.h3
+                className="font-[family-name:var(--font-display)] text-xs tracking-[0.3em] text-[var(--gold)] uppercase mb-6"
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
+                Choose Your Griot
+              </motion.h3>
+
+              <motion.div
+                className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto mb-8"
+                initial={{ opacity: 0, y: 8 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+              >
+                {/* Written Word card */}
+                <button
+                  onClick={() => setGriotMode("text")}
+                  className={`p-5 border rounded-sm text-left transition-all cursor-pointer ${
+                    griotMode === "text"
+                      ? "bg-[var(--gold)]/10 border-[var(--gold)]"
+                      : "border-[var(--ochre)]/20 hover:border-[var(--gold)]/50"
+                  }`}
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" x2="12" y1="19" y2="22" />
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)] mb-3">
+                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                    <path d="m15 5 4 4" />
                   </svg>
-                  Talk to the Griot
-                </motion.button>
-              )}
-              <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
-                <input
-                  type="text"
-                  value={followUpInput}
-                  onChange={(e) => {
-                    setFollowUpInput(e.target.value);
-                    setFollowUpValidationError(null);
-                  }}
-                  onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
-                  placeholder={isListening ? "Listening…" : "Tell me about the music of that era…"}
-                  maxLength={FOLLOW_UP_MAX_LENGTH}
-                  className="flex-1 bg-transparent border-b-2 border-[var(--ochre)]/40 text-[var(--umber)] font-[family-name:var(--font-body)] text-base pb-2 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
-                />
-                {hasSpeechRecognition && (
+                  <h4 className="font-[family-name:var(--font-display)] text-sm text-[var(--umber)] mb-1">
+                    Written Word
+                  </h4>
+                  <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+                    Ask follow-up questions by text
+                  </p>
+                </button>
+
+                {/* Living Voice card */}
+                {onTalkToGriot && (
                   <button
-                    onClick={toggleVoiceInput}
-                    disabled={isStreaming}
-                    className={`w-10 h-10 flex items-center justify-center border rounded-full transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isListening
-                        ? "border-[var(--terracotta)] text-[var(--terracotta)] bg-[var(--terracotta)]/10 animate-gentle-pulse"
-                        : "border-[var(--ochre)]/40 text-[var(--ochre)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
+                    onClick={() => {
+                      setGriotMode("voice");
+                      onTalkToGriot();
+                    }}
+                    className={`p-5 border rounded-sm text-left transition-all cursor-pointer ${
+                      griotMode === "voice"
+                        ? "bg-[var(--gold)]/10 border-[var(--gold)]"
+                        : "border-[var(--ochre)]/20 hover:border-[var(--gold)]/50"
                     }`}
-                    title={isListening ? "Stop listening" : "Speak your question"}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--gold)] mb-3">
                       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                       <line x1="12" x2="12" y1="19" y2="22" />
                     </svg>
+                    <h4 className="font-[family-name:var(--font-display)] text-sm text-[var(--umber)] mb-1">
+                      Living Voice
+                    </h4>
+                    <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+                      Speak with the Griot live
+                    </p>
                   </button>
                 )}
-                <button
-                  onClick={handleFollowUp}
-                  disabled={isStreaming}
-                  className="px-5 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Ask
-                </button>
-              </div>
+              </motion.div>
+
+              {/* Text follow-up input (revealed when "Written Word" selected) */}
+              <AnimatePresence>
+                {griotMode === "text" && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
+                      <input
+                        type="text"
+                        value={followUpInput}
+                        onChange={(e) => {
+                          setFollowUpInput(e.target.value);
+                          setFollowUpValidationError(null);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
+                        placeholder={isListening ? "Listening…" : "Tell me about the music of that era…"}
+                        maxLength={FOLLOW_UP_MAX_LENGTH}
+                        className="flex-1 bg-transparent border-b-2 border-[var(--ochre)]/40 text-[var(--umber)] font-[family-name:var(--font-body)] text-base pb-2 transition-colors focus:border-[var(--gold)] caret-[var(--gold)]"
+                      />
+                      {hasSpeechRecognition && (
+                        <button
+                          onClick={toggleVoiceInput}
+                          disabled={isStreaming}
+                          className={`w-10 h-10 flex items-center justify-center border rounded-full transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                            isListening
+                              ? "border-[var(--terracotta)] text-[var(--terracotta)] bg-[var(--terracotta)]/10 animate-gentle-pulse"
+                              : "border-[var(--ochre)]/40 text-[var(--ochre)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
+                          }`}
+                          title={isListening ? "Stop listening" : "Speak your question"}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" x2="12" y1="19" y2="22" />
+                          </svg>
+                        </button>
+                      )}
+                      <button
+                        onClick={handleFollowUp}
+                        disabled={isStreaming}
+                        className="px-5 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Ask
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               {(followUpError || followUpValidationError) && (
                 <p className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--terracotta)]" role="alert">
                   {followUpError ?? followUpValidationError}
@@ -527,6 +663,38 @@ export default function NarrativeStream({
           />
         )}
       </AnimatePresence>
+
+      {/* Ambient background audio */}
+      {currentAmbientTrack && (
+        <audio
+          ref={ambientAudioRef}
+          src={`/audio/${currentAmbientTrack}`}
+          loop
+          autoPlay
+        />
+      )}
+
+      {/* Ambient mute toggle */}
+      {currentAmbientTrack && (
+        <button
+          onClick={() => setAmbientMuted((m) => !m)}
+          className="fixed bottom-4 right-4 z-40 w-9 h-9 flex items-center justify-center rounded-full border border-[var(--ochre)]/30 bg-[var(--night)]/80 backdrop-blur text-[var(--gold)] hover:border-[var(--gold)] transition-all cursor-pointer"
+          title={ambientMuted ? "Unmute ambient sound" : "Mute ambient sound"}
+        >
+          {ambientMuted ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+              <line x1="23" x2="17" y1="9" y2="15" />
+              <line x1="17" x2="23" y1="9" y2="15" />
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            </svg>
+          )}
+        </button>
+      )}
     </motion.div>
   );
 }
