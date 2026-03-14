@@ -38,6 +38,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 )
         except (ValueError, TypeError):
             pass  # Invalid Content-Length: ignore and let request proceed
+
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"

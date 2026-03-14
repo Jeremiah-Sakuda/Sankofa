@@ -35,9 +35,27 @@ export function useSSEStream(): UseSSEStreamReturn {
   const [thinkingMessage, setThinkingMessage] = useState<string | null>(null);
   const [arcOutline, setArcOutline] = useState<ArcOutline | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearInactivityTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  const resetInactivityTimeout = useCallback(() => {
+    clearInactivityTimeout();
+    timeoutRef.current = setTimeout(() => {
+      setError("Request timed out");
+      setIsStreaming(false);
+      abortRef.current?.abort();
+    }, 120000); // 120 seconds timeout
+  }, [clearInactivityTimeout]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
+    clearInactivityTimeout();
     setSegments([]);
     setIsStreaming(false);
     setIsComplete(false);
@@ -45,17 +63,20 @@ export function useSSEStream(): UseSSEStreamReturn {
     setProgressStep(null);
     setThinkingMessage(null);
     setArcOutline(null);
-  }, []);
+  }, [clearInactivityTimeout]);
 
   const abort = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
-  }, []);
+    clearInactivityTimeout();
+  }, [clearInactivityTimeout]);
 
   const startStream = useCallback((sessionId: string, enableAudio: boolean = false) => {
     abortRef.current?.abort();
+    clearInactivityTimeout();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    resetInactivityTimeout();
     setIsStreaming(true);
     setError(null);
     setSegments([]);
@@ -81,9 +102,11 @@ export function useSSEStream(): UseSSEStreamReturn {
         }
         setError(message);
         setIsStreaming(false);
+        clearInactivityTimeout();
         throw new Error(message); // stop fetchEventSource from retrying
       },
       onmessage(ev) {
+        resetInactivityTimeout();
         try {
           if (ev.event === "arc") {
             const data = JSON.parse(ev.data) as ArcOutline;
@@ -97,6 +120,7 @@ export function useSSEStream(): UseSSEStreamReturn {
               setIsComplete(true);
               setProgressStep(null);
               setThinkingMessage(null);
+              clearInactivityTimeout();
             } else if (
               data?.status === "planning_arc" ||
               data?.status === "generating_narrative" ||
@@ -113,6 +137,7 @@ export function useSSEStream(): UseSSEStreamReturn {
             setError(data?.error || "Generation failed");
             setIsStreaming(false);
             setProgressStep(null);
+            clearInactivityTimeout();
             return;
           }
           if (["text", "image", "audio", "map"].includes(ev.event)) {
@@ -123,6 +148,7 @@ export function useSSEStream(): UseSSEStreamReturn {
           setError("Received malformed stream data");
           setIsStreaming(false);
           setProgressStep(null);
+          clearInactivityTimeout();
         }
       },
       onerror(err) {
@@ -130,13 +156,15 @@ export function useSSEStream(): UseSSEStreamReturn {
         setError(err?.message || "Connection lost");
         setIsStreaming(false);
         setProgressStep(null);
+        clearInactivityTimeout();
         throw err; // prevent fetchEventSource from retrying
       },
       onclose() {
         setIsStreaming(false);
+        clearInactivityTimeout();
       },
     });
-  }, []);
+  }, [clearInactivityTimeout, resetInactivityTimeout]);
 
   return { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, reset, abort };
 }

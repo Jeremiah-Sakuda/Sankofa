@@ -45,9 +45,18 @@ async def stream_narrative(
                 logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
                 async for sse_event in run_adk_narrative(session, audio=audio):
                     yield sse_event
+            except Exception as e:
+                logger.error(f"ADK Narrative generation error: {e}", exc_info=True)
+                error_msg = "An unexpected error occurred during narrative generation. Please try again."
+                if isinstance(e, ValueError):
+                    error_msg = str(e)
+                yield {"event": "error", "data": json.dumps({"error": error_msg})}
             finally:
                 session.is_generating = False
-                session_store.update(session)
+                try:
+                    session_store.update(session)
+                except Exception as store_err:
+                    logger.error(f"Failed to update session store in stream finally: {store_err}", exc_info=True)
 
         return EventSourceResponse(adk_event_generator())
 
@@ -136,10 +145,16 @@ async def stream_narrative(
                 }))
             except Exception as e:
                 logger.error(f"Narrative generation error: {e}", exc_info=True)
-                await _emit("error", json.dumps({"error": str(e)}))
+                error_msg = "An unexpected error occurred during narrative generation. Please try again."
+                if isinstance(e, ValueError):
+                    error_msg = str(e)
+                await _emit("error", json.dumps({"error": error_msg}))
             finally:
                 session.is_generating = False
-                session_store.update(session)
+                try:
+                    session_store.update(session)
+                except Exception as store_err:
+                    logger.error(f"Failed to update session store in stream finally: {store_err}", exc_info=True)
                 await queue.put(None)  # EOF marker
 
         # Start orchestrator task
@@ -266,7 +281,14 @@ async def followup_stream(
 
     async def followup_event_generator():
         logger.info("[followup-stream] ADK follow-up stream for session %s: %s", session_id, question[:80])
-        async for sse_event in run_adk_followup(session, question, audio=audio):
-            yield sse_event
+        try:
+            async for sse_event in run_adk_followup(session, question, audio=audio):
+                yield sse_event
+        except Exception as e:
+            logger.error(f"ADK Followup generation error: {e}", exc_info=True)
+            error_msg = "An unexpected error occurred during follow-up generation. Please try again."
+            if isinstance(e, ValueError):
+                error_msg = str(e)
+            yield {"event": "error", "data": json.dumps({"error": error_msg})}
 
     return EventSourceResponse(followup_event_generator())
