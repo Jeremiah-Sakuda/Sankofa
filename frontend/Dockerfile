@@ -11,8 +11,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+# Hardcode the production API URL so Next.js inlines it into the client bundle.
+# The ARG approach does not work with Cloud Run source deploys.
+ENV NEXT_PUBLIC_API_URL=https://sankofa-api-stbvjbjf6a-uc.a.run.app
 
 RUN npm run build
 

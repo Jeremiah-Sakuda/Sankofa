@@ -11,15 +11,17 @@ import io
 import logging
 import re
 import wave
+
 from google.genai.types import (
     GenerateContentConfig,
     Modality,
+    PrebuiltVoiceConfig,
     SpeechConfig,
     VoiceConfig,
-    PrebuiltVoiceConfig,
 )
-from app.services.gemini_service import get_client
+
 from app.config import settings
+from app.services.gemini_service import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Sentence-level splitting
 # ---------------------------------------------------------------------------
 
-_SENTENCE_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z"\u201C])')
+_SENTENCE_RE = re.compile(r'(?<=[.!?])\s+(?=\[A-Z"\u201C])')
 
 def split_for_tts(text: str, max_sentences: int = 3) -> list[str]:
     """Split *text* on sentence boundaries into chunks of up to *max_sentences*.
@@ -137,7 +139,7 @@ async def generate_narration(text: str, voice_name: str = "Kore") -> tuple[str, 
                 return data  # Fallback if it's already raw PCM
 
         pcm_parts = [_extract_pcm(r) for r in api_results if r is not None]
-        
+
         if not pcm_parts:
             logger.warning("TTS: no chunks succeeded for '%s...'", text[:30])
             return None

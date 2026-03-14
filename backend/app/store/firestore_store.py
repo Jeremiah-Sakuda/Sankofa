@@ -6,8 +6,8 @@ from typing import Optional
 from google.cloud import firestore
 
 from app.config import settings
+from app.models.schemas import NarrativeSegment, UserInput
 from app.models.session import Session
-from app.models.schemas import UserInput, NarrativeSegment
 
 logger = logging.getLogger(__name__)
 

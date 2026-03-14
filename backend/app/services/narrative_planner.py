@@ -7,10 +7,11 @@ Narrative Planner — 3-step prompt chain:
 
 import json
 import logging
-from app.models.schemas import UserInput, NarrativeSegment
-from app.models.session import Session
+
 from app.knowledge.loader import build_grounding_context
-from app.services.gemini_service import generate_text, generate_interleaved
+from app.models.schemas import NarrativeSegment, UserInput
+from app.models.session import Session
+from app.services.gemini_service import generate_interleaved, generate_text
 from app.services.trust_classifier import apply_trust_tags
 
 logger = logging.getLogger(__name__)

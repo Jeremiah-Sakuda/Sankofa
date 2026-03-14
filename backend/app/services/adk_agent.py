@@ -14,13 +14,14 @@ FastAPI backend for structured agent orchestration.
 import json
 import logging
 import uuid
+
 from google.adk import Agent
 from google.adk.tools import FunctionTool
 
 from app.config import settings
 from app.knowledge.loader import build_grounding_context
 from app.models.schemas import UserInput
-from app.services.gemini_service import generate_text, generate_interleaved
+from app.services.gemini_service import generate_interleaved, generate_text
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration
 from app.store import session_store
@@ -61,7 +62,7 @@ def lookup_cultural_context(
     context = build_grounding_context(user_input)
     # Determine basic coverage metadata based on whether fallback was used
     is_fallback = "not in our detailed knowledge base" in context.lower()
-    
+
     metadata = {
         "region_match_confidence": "low" if is_fallback else "high",
         "decade_coverage_range": time_period,
@@ -69,20 +70,20 @@ def lookup_cultural_context(
         "content_length": len(context),
         "context_data": context
     }
-    
+
     logger.info("[adk] lookup_cultural_context: %d chars for %s / %s", len(context), region, time_period)
     return json.dumps(metadata, indent=2)
 
 
 def assess_context_quality(context_metadata_json: str) -> str:
     """Evaluate the quality and coverage of the culturally gathered context.
-    
-    Call this immediately after lookup_cultural_context to determine if the 
+
+    Call this immediately after lookup_cultural_context to determine if the
     knowledge base coverage is sufficient.
-    
+
     Args:
         context_metadata_json: The JSON string returned by lookup_cultural_context.
-        
+
     Returns:
         A string indicating 'rich', 'moderate', or 'sparse'. If 'sparse', you should
         call research_region_history before planning the narrative.
@@ -98,13 +99,13 @@ def assess_context_quality(context_metadata_json: str) -> str:
 
 async def research_region_history(region: str, time_period: str) -> str:
     """Use Google Search grounding to gather historical context for uncovered regions.
-    
+
     Call this ONLY if assess_context_quality returns 'sparse' or 'none'.
-    
+
     Args:
         region: The geographic region.
         time_period: The historical era.
-        
+
     Returns:
         A rich historical context string retrieved via web search.
     """
@@ -126,7 +127,7 @@ async def plan_narrative_arc(
     Call this after context is gathered to structure the narrative.
     Returns a JSON string with act1_setting, act2_people, act3_thread,
     tone, and narrative_voice.
-    
+
     If this fails, it recovers gracefully using a template.
 
     Args:
@@ -197,16 +198,16 @@ Output ONLY the JSON, no other text."""
 
 async def validate_narrative_arc(arc_json: str, cultural_context: str) -> str:
     """Validate a planned narrative arc against the gathered cultural context.
-    
+
     Call this after plan_narrative_arc to ensure the story is specific, grounded,
     and has a strong emotional progression.
-    
+
     Args:
         arc_json: The JSON string output from plan_narrative_arc.
         cultural_context: The historical and cultural context string.
-        
+
     Returns:
-        A validation report string. If it says 'PASS', you can proceed. 
+        A validation report string. If it says 'PASS', you can proceed.
         If it says 'FAIL' with reasons, you must call plan_narrative_arc again
         with a modified prompt to address the feedback.
     """
@@ -267,8 +268,8 @@ async def generate_act_segments(
     elif image_density == "none":
         density_instruction = "using ONLY text, with NO images."
 
-    prompt = f"""You are Sankofa, an ancestral heritage narrator in the tradition of a 
-West African griot. Generate a rich, immersive narrative for ACT {act_number} of the 
+    prompt = f"""You are Sankofa, an ancestral heritage narrator in the tradition of a
+West African griot. Generate a rich, immersive narrative for ACT {act_number} of the
 {family_name} family heritage story from {region} during {time_period}.
 
 === CULTURAL/HISTORICAL GROUNDING ===
@@ -295,7 +296,7 @@ Use the warm, unhurried cadence of a West African griot."""
     except Exception as e:
         logger.warning(f"[adk] generate_act_segments failed ({e}). Retrying with text-only...")
         await notify_user(f"Encountered an issue generating Act {act_number} (possible content filter). Switching to text-only narration.")
-        
+
         # Fallback to text only
         prompt_text_only = prompt.replace(density_instruction, "using ONLY text, with NO images.")
         try:
@@ -313,7 +314,7 @@ Use the warm, unhurried cadence of a West African griot."""
         seg.act = act_number
         if act_number == 1 and seg.type == "image" and i == 0:
             seg.is_hero = True
-            
+
         dump = seg.model_dump()
         if dump.get("media_data"):
             media_ref = str(uuid.uuid4())
@@ -328,19 +329,19 @@ Use the warm, unhurried cadence of a West African griot."""
 
 async def enrich_segment(segment_text: str, context_query: str) -> str:
     """Run a targeted search to enrich a Reconstructed segment with real history.
-    
+
     Call this between acts if a generated segment is tagged [RECONSTRUCTED] but you
     suspect real historical details could be found to upgrade it to [HISTORICAL].
-    
+
     Args:
         segment_text: The generated text that needs more factual grounding.
         context_query: A specific search query (e.g. "Trade routes in Ghana 1700s").
-        
+
     Returns:
         A grounded, factually enriched version of the segment.
     """
-    prompt = f"""Rewrite and enrich the following narrative segment using specific 
-historical facts from a grounded search. Keep the warm, griot-style tone. 
+    prompt = f"""Rewrite and enrich the following narrative segment using specific
+historical facts from a grounded search. Keep the warm, griot-style tone.
 Tag it with [HISTORICAL] if you find solid facts, or [CULTURAL] if you find general practices.
 
 Original Segment:
@@ -375,19 +376,19 @@ async def generate_audio_narration(text: str) -> str:
     except Exception as e:
         logger.warning(f"[adk] TTS generation failed: {e}")
         await notify_user("Audio generation unavailable for this passage. Continuing with text.")
-        
+
     return json.dumps({"error": "TTS generation failed"})
 
 
 async def notify_user(message: str) -> str:
     """Send a status message to the user about generation progress or issues.
-    
+
     Call this when encountering errors, adapting the plan, or switching modes
     (e.g. falling back to text-only due to sensitive content).
-    
+
     Args:
         message: The status message to show to the user.
-        
+
     Returns:
         Confirmation string.
     """
@@ -398,50 +399,50 @@ async def notify_user(message: str) -> str:
 
 def recall_narrative_context(session_id: str) -> str:
     """Retrieve the previous narrative and its trust tags for follow-up explorations.
-    
+
     Call this when a user asks a follow-up question to recall what was already generated.
-    
+
     Args:
         session_id: The active session ID.
-        
+
     Returns:
         A formatted string of all previous text segments and their trust levels.
     """
     session = session_store.get(session_id)
     if not session:
         return "No previous narrative found for this session."
-        
+
     context_parts = []
     for seg in session.segments:
         if seg.type == "text" and seg.content:
             context_parts.append(f"[{seg.trust_level.upper()}] {seg.content}")
-            
+
     return "\n".join(context_parts)
-    
+
 
 async def deep_dive(topic: str, cultural_context: str) -> str:
     """Generate a focused mini-narrative (1 act) exploring a specific aspect in depth.
-    
+
     Call this when the user asks a follow-up question like 'tell me more about the trade routes.'
-    
+
     Args:
         topic: The specific aspect to explore.
         cultural_context: The gathered historical context.
-        
+
     Returns:
         A detailed, focused text/image segment explaining the topic.
     """
     prompt = f"""You are Sankofa, a West African griot. Deep dive into this specific topic: '{topic}'.
-    
+
 === HISTORICAL CONTEXT ===
 {cultural_context[:3000]}
 
 Write 1-2 rich paragraphs explaining this topic in detail within the context of the region.
 Prepend paragraphs with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
-    
+
     segments = await generate_interleaved(prompt)
     segments = apply_trust_tags(segments)
-    
+
     result = []
     for seg in segments:
         dump = seg.model_dump()
@@ -460,16 +461,14 @@ Prepend paragraphs with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
 # ADK Agent Definition
 # ---------------------------------------------------------------------------
 
-sankofa_agent = Agent(
-    model=settings.GEMINI_PLANNING_MODEL,
-    name="sankofa_heritage_narrator",
-    description=(
-        "Sankofa is an AI griot that transforms personal and familial inputs into "
-        "immersive, multimodal ancestral heritage narratives. It combines historical "
-        "research, cultural knowledge, and oral storytelling traditions to weave "
-        "together text, images, and audio narration."
-    ),
-    instruction="""You are Sankofa, an ancestral heritage narrator in the tradition of a
+sankofa_agent_description = (
+    "Sankofa is an AI griot that transforms personal and familial inputs into "
+    "immersive, multimodal ancestral heritage narratives. It combines historical "
+    "research, cultural knowledge, and oral storytelling traditions to weave "
+    "together text, images, and audio narration."
+)
+
+sankofa_agent_instruction = """You are Sankofa, an ancestral heritage narrator in the tradition of a
 West African griot. Your purpose is to help users discover and connect with their
 ancestral heritage through immersive storytelling.
 
@@ -491,7 +490,7 @@ FOLLOW-UP EXPLORATION:
 If the user asks a follow-up question:
 1. Use `recall_narrative_context` with their session_id to read the existing story.
 2. If the question requires a short narrative exploration, use `deep_dive` to generate a 1-act vignette.
-3. Suggest proactively: Analyze the recalled context, and if parts were [RECONSTRUCTED], 
+3. Suggest proactively: Analyze the recalled context, and if parts were [RECONSTRUCTED],
    you can ask the user if they have any family oral traditions to fill the gaps.
 
 Always maintain a warm, reverent tone. Clearly distinguish between historical facts,
@@ -506,18 +505,34 @@ The three acts should flow naturally:
 IMPORTANT: Always return the raw data from tool calls. Do NOT summarize or paraphrase
 the output of generate_act_segments or deep_dive — the orchestrator needs the full
 JSON segment arrays to stream them to the user. If the user message says to skip
-generate_audio_narration, respect that instruction.""",
-    tools=[
-        lookup_cultural_context,
-        assess_context_quality,
-        research_region_history,
-        plan_narrative_arc,
-        validate_narrative_arc,
-        generate_act_segments,
-        enrich_segment,
-        generate_audio_narration,
-        recall_narrative_context,
-        deep_dive,
-        notify_user,
-    ],
+generate_audio_narration, respect that instruction."""
+
+sankofa_agent_tools = [
+    lookup_cultural_context,
+    assess_context_quality,
+    research_region_history,
+    plan_narrative_arc,
+    validate_narrative_arc,
+    generate_act_segments,
+    enrich_segment,
+    generate_audio_narration,
+    recall_narrative_context,
+    deep_dive,
+    notify_user,
+]
+
+sankofa_agent = Agent(
+    model=settings.GEMINI_PLANNING_MODEL,
+    name="sankofa_heritage_narrator",
+    description=sankofa_agent_description,
+    instruction=sankofa_agent_instruction,
+    tools=sankofa_agent_tools,
+)
+
+sankofa_live_agent = Agent(
+    model=settings.GEMINI_LIVE_MODEL,
+    name="sankofa_heritage_live_narrator",
+    description=sankofa_agent_description,
+    instruction=sankofa_agent_instruction,
+    tools=sankofa_agent_tools,
 )
