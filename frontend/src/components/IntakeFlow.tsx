@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
 import { createSession, UserInput } from "../lib/api";
 import SankofaBird from "./SankofaBird";
+import GoldParticles from "./GoldParticles";
 
 const MAX_LENGTH_SHORT = 120;
 const MAX_LENGTH_LONG = 500;
@@ -56,6 +57,7 @@ export default function IntakeFlow() {
   const [inputValue, setInputValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [enableAudio, setEnableAudio] = useState(true);
 
   const step = STEPS[currentStep];
   const progress = (currentStep + 1) / STEPS.length;
@@ -90,7 +92,7 @@ export default function IntakeFlow() {
           specific_interests: newAnswers.specific_interests || undefined,
         };
         const { session_id } = await createSession(userInput);
-        router.push(`/narrative/${session_id}`);
+        router.push(`/narrative/${session_id}?audio=${enableAudio ? "1" : "0"}`);
       } catch (e) {
         setError("Failed to begin your journey. Please try again.");
         setIsSubmitting(false);
@@ -115,12 +117,44 @@ export default function IntakeFlow() {
 
   if (isSubmitting) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <SankofaBird className="w-20 h-20 text-[var(--gold)] animate-slow-rotate" />
-        <p className="mt-8 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)] animate-fade-pulse">
-          Preparing your narrative…
-        </p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6 }}
+        className="fixed inset-0 flex min-h-screen flex-col items-center justify-center px-6 bg-[var(--night)] overflow-hidden"
+      >
+        {/* Warm radial gradient */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
+            opacity: 0.4,
+          }}
+        />
+        <GoldParticles count={35} />
+
+        <div className="relative z-10 flex flex-col items-center">
+          <SankofaBird className="w-24 h-24 text-[var(--gold)] animate-slow-rotate" />
+          <motion.p
+            className="mt-8 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]"
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          >
+            Preparing your narrative…
+          </motion.p>
+
+          <label className="mt-8 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableAudio}
+              onChange={(e) => setEnableAudio(e.target.checked)}
+              className="w-4 h-4 accent-[var(--gold)]"
+            />
+            Include audio narration
+          </label>
+        </div>
+      </motion.div>
     );
   }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useSSEStream } from "../../../hooks/useSSEStream";
 import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
@@ -40,6 +40,7 @@ const HERITAGE_FACTS = [
 
 export default function NarrativePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
   const { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, abort, reset } = useSSEStream();
   const [followUpSegments, setFollowUpSegments] = useState<NarrativeSegment[]>([]);
@@ -48,7 +49,7 @@ export default function NarrativePage() {
   const followUpAbortRef = useRef<AbortController | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
-  const [enableAudio, setEnableAudio] = useState(true);
+  const [enableAudio, setEnableAudio] = useState(() => searchParams.get("audio") !== "0");
   const [showStuckMessage, setShowStuckMessage] = useState(false);
   const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [connectionTest, setConnectionTest] = useState<"idle" | "checking" | "ok" | "fail">("idle");
@@ -59,6 +60,7 @@ export default function NarrativePage() {
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [showLiveGriot, setShowLiveGriot] = useState(false);
   const [funFactIndex, setFunFactIndex] = useState(() => Math.floor(Math.random() * HERITAGE_FACTS.length));
+  const autoStartedRef = useRef(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -67,6 +69,20 @@ export default function NarrativePage() {
       else setSessionInfo(data.user_input);
     });
   }, [sessionId]);
+
+  // Auto-start stream on mount (skip "Ready to weave" step)
+  useEffect(() => {
+    if (!sessionId || hasStarted || sessionInvalid || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    getSession(sessionId).then((data) => {
+      if (data === null) {
+        setSessionInvalid(true);
+        return;
+      }
+      setHasStarted(true);
+      startStream(sessionId, enableAudio);
+    });
+  }, [sessionId, hasStarted, sessionInvalid, startStream, enableAudio]);
 
   const handleBeginStream = useCallback(async () => {
     if (!sessionId || hasStarted) return;
@@ -266,7 +282,7 @@ export default function NarrativePage() {
         />
       </div>
 
-      {/* Pre-start: audio option + Begin. Or loading overlay. */}
+      {/* Loading overlay */}
       <AnimatePresence>
         {!isReadyToShow && (
           <motion.div
@@ -276,70 +292,59 @@ export default function NarrativePage() {
             transition={{ duration: 0.8 }}
             className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--night)] overflow-hidden px-6"
           >
-            <GoldParticles count={hasStarted ? 35 : 20} />
+            {/* Ambient gradient drift */}
+            <motion.div
+              className="absolute inset-0"
+              animate={{
+                background: [
+                  "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
+                  "radial-gradient(ellipse at 45% 40%, #1c1210 0%, var(--night) 70%)",
+                  "radial-gradient(ellipse at 55% 35%, #1a1520 0%, var(--night) 70%)",
+                ],
+              }}
+              transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+              style={{ opacity: 0.4 }}
+            />
 
-            <SankofaBird className="w-24 h-24 text-[var(--gold)] animate-slow-rotate" />
-            {!hasStarted ? (
-              sessionInvalid ? (
-                <>
-                  <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)] text-center max-w-md">
-                    This session is no longer valid. The server may have been restarted.
-                  </p>
-                  <p className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--muted)] text-center">
-                    Please start over from the beginning.
-                  </p>
-                  <Link
-                    href="/"
-                    className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
-                  >
-                    Start over
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]">
-                    Ready to weave your narrative.
-                  </p>
+            <GoldParticles count={35} />
 
-                  <label className="mt-8 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableAudio}
-                      onChange={(e) => setEnableAudio(e.target.checked)}
-                      className="w-4 h-4 accent-[var(--gold)]"
-                    />
-                    Include audio narration
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleBeginStream}
-                    className="mt-6 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
-                  >
-                    Begin
-                  </button>
+            {/* Breathing bird with pulse rings */}
+            <div className="relative flex items-center justify-center">
+              {/* Concentric pulse rings */}
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="absolute w-24 h-24 rounded-full border border-[var(--gold)]/20"
+                  animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
+                  transition={{ duration: 3, delay: i * 1, repeat: Infinity, ease: "easeOut" }}
+                />
+              ))}
+              <motion.div
+                animate={{ scale: [1, 1.06, 1], rotate: 360 }}
+                transition={{
+                  scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
+                  rotate: { duration: 20, repeat: Infinity, ease: "linear" },
+                }}
+              >
+                <SankofaBird className="w-24 h-24 text-[var(--gold)]" />
+              </motion.div>
+            </div>
 
-                  <div className="mt-6 flex flex-col items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleTestConnection}
-                      disabled={connectionTest === "checking"}
-                      className="px-5 py-2 font-[family-name:var(--font-body)] text-sm text-[var(--muted)] border border-[var(--ochre)]/40 hover:border-[var(--ochre)] hover:text-[var(--ivory)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {connectionTest === "checking" ? "Checking…" : "Test API connection"}
-                    </button>
-                    {connectionTest === "ok" && (
-                      <p className="text-sm text-[var(--gold)]" role="status">
-                        {connectionMessage}
-                      </p>
-                    )}
-                    {connectionTest === "fail" && (
-                      <p className="text-sm text-[var(--terracotta)] max-w-xs text-center" role="alert">
-                        {connectionMessage}
-                      </p>
-                    )}
-                  </div>
-                </>
-              )
+            {sessionInvalid ? (
+              <>
+                <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)] text-center max-w-md">
+                  This session is no longer valid. The server may have been restarted.
+                </p>
+                <p className="mt-4 font-[family-name:var(--font-body)] text-sm text-[var(--muted)] text-center">
+                  Please start over from the beginning.
+                </p>
+                <Link
+                  href="/"
+                  className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
+                >
+                  Start over
+                </Link>
+              </>
             ) : error ? (
               <>
                 <p className="mt-10 font-[family-name:var(--font-display)] text-xl italic text-[var(--ivory)]">
@@ -351,6 +356,7 @@ export default function NarrativePage() {
                 <button
                   type="button"
                   onClick={() => {
+                    autoStartedRef.current = false;
                     reset();
                     setHasStarted(false);
                     setFollowUpSegments([]);
@@ -423,7 +429,7 @@ export default function NarrativePage() {
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 0.6, delay: 0.5 + i * 0.4 }}
-                            className="flex items-baseline gap-3 mb-3"
+                            className="flex items-baseline gap-3 mb-3 arc-card"
                           >
                             <span className="font-[family-name:var(--font-display)] text-xs text-[var(--gold)]/60 tracking-widest shrink-0">
                               {act.num}
@@ -473,6 +479,7 @@ export default function NarrativePage() {
                       type="button"
                       onClick={() => {
                         abort();
+                        autoStartedRef.current = false;
                         reset();
                         setHasStarted(false);
                         setFollowUpSegments([]);
@@ -484,6 +491,28 @@ export default function NarrativePage() {
                     </button>
                   </div>
                 )}
+
+                {/* Test API connection — small fallback link */}
+                <div className="mt-8 flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={connectionTest === "checking"}
+                    className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]/60 hover:text-[var(--muted)] transition-colors underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {connectionTest === "checking" ? "Checking…" : "Test API connection"}
+                  </button>
+                  {connectionTest === "ok" && (
+                    <p className="text-xs text-[var(--gold)]" role="status">
+                      {connectionMessage}
+                    </p>
+                  )}
+                  {connectionTest === "fail" && (
+                    <p className="text-xs text-[var(--terracotta)] max-w-xs text-center" role="alert">
+                      {connectionMessage}
+                    </p>
+                  )}
+                </div>
               </>
             )}
           </motion.div>
