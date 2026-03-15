@@ -8,58 +8,59 @@ on:
     branches: [main]
 
 jobs:
-  backend:
-    name: Backend
+  deploy:
+    name: Deploy to Cloud Run
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          python-version: "3.12"
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install dependencies
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Backend
+        id: deploy-backend
         run: |
-          cd backend
-          python -m venv .venv
-          .venv/bin/pip install -r requirements.txt
-          .venv/bin/pip install ruff
+          gcloud run deploy sankofa-api \
+            --source ./backend \
+            --region us-central1 \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --allow-unauthenticated \
+            --quiet \
+            --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=us-central1,GOOGLE_GENAI_USE_VERTEXAI=True,USE_FIRESTORE=True" \
+            --min-instances 1 \
+            --max-instances 5 \
+            --memory 1Gi \
+            --timeout 300
+          
+          echo "url=$(gcloud run services describe sankofa-api --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
 
-      - name: Lint (ruff)
+      - name: Deploy Frontend
+        id: deploy-frontend
         run: |
-          cd backend
-          .venv/bin/ruff check app --output-format=github
+          gcloud run deploy sankofa-frontend \
+            --source ./frontend \
+            --region us-central1 \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --allow-unauthenticated \
+            --quiet \
+            --set-env-vars "NEXT_PUBLIC_API_URL=${{ steps.deploy-backend.outputs.url }}" \
+            --set-build-env-vars "NEXT_PUBLIC_API_URL=${{ steps.deploy-backend.outputs.url }}" \
+            --min-instances 1 \
+            --max-instances 3 \
+            --memory 512Mi
+          
+          echo "url=$(gcloud run services describe sankofa-frontend --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
 
-      - name: Verify app starts
+      - name: Update Backend CORS
         run: |
-          cd backend
-          .venv/bin/python -c "from app.main import app; print('OK')"
-        env:
-          GOOGLE_API_KEY: placeholder-for-ci
-          ENVIRONMENT: development
-
-  frontend:
-    name: Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Build
-        run: |
-          cd frontend
-          npm run build
-        env:
-          NEXT_PUBLIC_API_URL: https://api.example.com
+          gcloud run services update sankofa-api \
+            --region us-central1 \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            --update-env-vars "FRONTEND_URL=${{ steps.deploy-frontend.outputs.url }}"

@@ -160,17 +160,20 @@ Output a JSON object with this structure:
   "act1_setting": {
     "title": "A short evocative title",
     "focus": "What aspect of landscape/environment to describe",
-    "key_facts": ["2-3 historical facts to weave in"]
+    "key_facts": ["2-3 historical facts to weave in"],
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection)"
   },
   "act2_people": {
     "title": "A short evocative title",
     "focus": "What aspect of daily life/culture to center",
-    "key_facts": ["2-3 cultural/historical facts"]
+    "key_facts": ["2-3 cultural/historical facts"],
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection)"
   },
   "act3_thread": {
     "title": "A short evocative title",
     "focus": "What thread connects past to present",
-    "key_facts": ["2-3 facts about diaspora/cultural survival"]
+    "key_facts": ["2-3 facts about diaspora/cultural survival"],
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection)"
   },
   "tone": "The specific emotional register",
   "narrative_voice": "How the griot narrator should speak"
@@ -186,9 +189,9 @@ Output ONLY the JSON, no other text."""
         logger.warning(f"[adk] plan_narrative_arc failed: {e}. Falling back to template.")
         await notify_user("I had trouble planning the story structure, so I will use a reliable traditional format.")
         fallback = {
-            "act1_setting": {"title": "The Land", "focus": "landscape", "key_facts": []},
-            "act2_people": {"title": "The People", "focus": "daily life", "key_facts": []},
-            "act3_thread": {"title": "Connection", "focus": "diaspora", "key_facts": []},
+            "act1_setting": {"title": "The Land", "focus": "landscape", "key_facts": [], "ambient_track": "wind.wav"},
+            "act2_people": {"title": "The People", "focus": "daily life", "key_facts": [], "ambient_track": "market.wav"},
+            "act3_thread": {"title": "Connection", "focus": "diaspora", "key_facts": [], "ambient_track": "drums.wav"},
             "tone": "warm and reverent",
             "narrative_voice": "West African griot"
         }

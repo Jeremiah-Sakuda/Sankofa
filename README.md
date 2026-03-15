@@ -25,7 +25,7 @@ A user provides a few seeds: a family surname, a country or region, a time perio
   - **Glassmorphism dock** — When a narrative is visible, the voice panel slides up as a frosted-glass bottom dock (`backdrop-blur-xl`), keeping the story and images visible behind it
   - **Ambient full-screen** — When no narrative exists yet, a warm radial gradient with floating gold particles and an optional Ken Burns background image replaces the old dark overlay
 - **Voice input** — Speak your follow-up questions using the mic button (Web Speech API) — no typing required
-- **Ambient background audio** — Each act plays a soft ambient soundscape (wind, market, drums, etc.) that crossfades between acts, with a mute toggle
+- **Ambient background audio** — Each act plays a soft ambient soundscape that crossfades between acts, with a mute toggle. Five 30-second loopable tracks are selected contextually by the arc planner: `wind.wav` (landscape, open air), `fire.wav` (hearth, campfire), `nature.wav` (forest, water, wildlife), `market.wav` (community, bustle), `drums.wav` (rhythm, ceremony)
 - **ADK-orchestrated generation** — The Gemini ADK agent actively decides tool order, validates the arc, and adapts on the fly (with a direct-pipeline fallback via `use_adk=false`)
 
 ### Experience & Immersion
@@ -36,7 +36,7 @@ The frontend is built for a **cinematic, fluid** reading experience rather than 
 - **Word-by-word text reveal** — New narrative text animates in word-by-word with a staggered fade, evoking the cadence of a griot speaking. The effect runs only on first appearance.
 - **Cinematic image reveals** — Images enter with a soft blur-to-sharp transition; hero images get a warm vignette and a sepia-to-full-color reveal. A subtle golden shimmer fades away as the image materializes.
 - **Act transitions** — Between acts, a full-width divider shows the Sankofa bird, act numeral, and title (from the arc outline), with floating gold particles and an expanding gold line.
-- **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird. Per-act ambient soundscapes (wind, market, drums) crossfade smoothly between acts at low volume, with a mute toggle in the corner.
+- **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird. Per-act ambient soundscapes (wind, fire, nature, market, drums) crossfade smoothly between acts at low volume, with a mute toggle in the corner. Track selection is driven by the arc planner — both the Gemini and fallback arcs include an `ambient_track` field per act, validated against the five available tracks.
 - **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text using the actual audio duration. Pausing the audio freezes all highlight animations in place; resuming continues them. Non-active segments dim for focus.
 - **Scroll progress** — A fixed vertical progress bar on the left shows how far you've scrolled through the story, with act markers that fill as you pass each act.
 - **Immersive LiveGriot UI** — The voice conversation panel adapts to context: a translucent bottom dock over the narrative (glassmorphism with `backdrop-blur-xl`) or an ambient full-screen mode with warm gradients, gold particles, and a slow Ken Burns zoom on the latest narrative image. Accessed via the mic button in the narration bar.
@@ -193,7 +193,7 @@ You should see `status: healthy` and `service: sankofa-api`. In the app, on the 
 The narrative pipeline is orchestrated by an ADK agent (`sankofa_heritage_narrator`) rather than hard-coded function calls. The agent decides tool order, validates its own output, and adapts dynamically:
 
 1. **Context gathering** — `lookup_cultural_context` → `assess_context_quality` → (if sparse) `research_region_history`
-2. **Arc planning with validation** — `plan_narrative_arc` → `validate_narrative_arc` → re-plan if FAIL
+2. **Arc planning with validation** — `plan_narrative_arc` (includes per-act `ambient_track` selection) → `validate_narrative_arc` → re-plan if FAIL
 3. **Per-act generation** — `generate_act_segments` called 3 times with continuity threading
 4. **Enrichment** — `enrich_segment` upgrades RECONSTRUCTED segments with real historical detail
 5. **Status updates** — `notify_user` surfaces progress to the frontend as "thinking aloud" messages
