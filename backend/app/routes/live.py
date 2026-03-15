@@ -248,7 +248,23 @@ async def live_griot(websocket: WebSocket, session_id: str):
     # Main loop: receive from client and feed to the LiveRequestQueue
     try:
         while True:
-            raw = await websocket.receive_text()
+            # Check if event processor has died — surface error to client
+            if event_task.done():
+                exc = event_task.exception() if not event_task.cancelled() else None
+                if exc:
+                    logger.error("[live] Event processor failed: %s", exc)
+                    try:
+                        await websocket.send_json({"type": "error", "message": str(exc)})
+                    except Exception:
+                        pass
+                break
+
+            # Wait for client message with a timeout so we can check event_task health
+            try:
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+
             msg = json.loads(raw)
             msg_type = msg.get("type", "")
 

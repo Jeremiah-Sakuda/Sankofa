@@ -259,12 +259,15 @@ async def run_adk_narrative(
                                 "[adk-orch] Could not parse segments from generate_act_segments"
                             )
 
-        # --- Collect remaining TTS results ---
+        # --- Collect remaining TTS results and yield in sequence order ---
         if tts_tasks:
             yield _sse_status("generating_audio")
             await asyncio.gather(*tts_tasks, return_exceptions=True)
+            audio_segments: list[NarrativeSegment] = []
             while not tts_queue.empty():
-                audio_seg = await tts_queue.get()
+                audio_segments.append(await tts_queue.get())
+            audio_segments.sort(key=lambda s: s.sequence)
+            for audio_seg in audio_segments:
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         # Persist session

@@ -30,9 +30,9 @@ class Settings:
     GEMINI_PLANNING_MODEL: str = os.getenv("GEMINI_PLANNING_MODEL", "gemini-2.5-flash")
     GEMINI_LIVE_MODEL: str = os.getenv(
         "GEMINI_LIVE_MODEL",
-        "gemini-2.0-flash-live-preview-04-09"
+        "gemini-live-2.5-flash-native-audio"
         if os.getenv("GOOGLE_GENAI_USE_VERTEXAI", "false").lower() == "true"
-        else "gemini-2.0-flash-live-001",
+        else "gemini-2.5-flash-native-audio-preview-12-2025",
     )
     GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")  # Nano Banana: image+text
     GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-pro-preview-tts")
