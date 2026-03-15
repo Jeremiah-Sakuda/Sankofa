@@ -9,7 +9,10 @@
       "Bash(git push:*)",
       "Bash(npx next lint)",
       "Bash(npx next build:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebSearch",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(gcloud run services logs read:*)"
     ]
   }
 }

@@ -69,6 +69,7 @@ No global exception handler is registered. Unhandled exceptions (e.g. from Fires
 #### 1.1.7 Narrative Planner
 
 - Arc JSON parsing: on `json.JSONDecodeError` or `IndexError`, falls back to `_fallback_arc(user_input)` and logs a warning. Generation continues with the template arc.
+- Ambient track validation: after a successful arc parse, `_validate_ambient_tracks` checks each act's `ambient_track` against the five valid filenames (`fire.wav`, `wind.wav`, `nature.wav`, `market.wav`, `drums.wav`). Invalid or missing values are silently replaced with per-act defaults (`wind.wav`, `market.wav`, `drums.wav` for acts 1–3). The fallback arc already includes valid defaults.
 
 #### 1.1.8 Session Store
 

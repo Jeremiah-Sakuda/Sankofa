@@ -16,6 +16,9 @@ from app.services.trust_classifier import apply_trust_tags
 
 logger = logging.getLogger(__name__)
 
+_VALID_AMBIENT_TRACKS = {"fire.wav", "wind.wav", "nature.wav", "market.wav", "drums.wav"}
+_DEFAULT_AMBIENT = {"act1_setting": "wind.wav", "act2_people": "market.wav", "act3_thread": "drums.wav"}
+
 
 async def plan_and_generate(session: Session) -> list[NarrativeSegment]:
     """Execute the full 3-step narrative pipeline."""
@@ -93,21 +96,21 @@ Output a JSON object with this exact structure:
     "focus": "What specific aspect of the landscape/environment to describe",
     "image_prompt": "A detailed prompt for a watercolor-style landscape image",
     "key_facts": ["2-3 historical facts to weave in"],
-    "ambient_track": "Must be exactly one of: fire.wav, wind.wav, nature.wav, market.wav, drums.wav"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony)"
   }},
   "act2_people": {{
     "title": "A short evocative title for the people section",
     "focus": "What aspect of daily life/culture to center",
     "image_prompt": "A detailed prompt for a portrait-style image of people",
     "key_facts": ["2-3 cultural/historical facts to weave in"],
-    "ambient_track": "Must be exactly one of: fire.wav, wind.wav, nature.wav, market.wav, drums.wav"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony)"
   }},
   "act3_thread": {{
     "title": "A short evocative title for the connection section",
     "focus": "What thread connects past to present",
     "image_prompt": "A detailed prompt for an image bridging past and present",
     "key_facts": ["2-3 facts about diaspora/migration/cultural survival"],
-    "ambient_track": "Must be exactly one of: fire.wav, wind.wav, nature.wav, market.wav, drums.wav"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony)"
   }},
   "tone": "The specific emotional register (e.g., 'reverent and warm', 'bittersweet but hopeful')",
   "narrative_voice": "How the griot narrator should speak to this specific listener"
@@ -122,10 +125,20 @@ Output ONLY the JSON, no other text."""
         if cleaned.startswith("```"):
             cleaned = cleaned.split("\n", 1)[1]
             cleaned = cleaned.rsplit("```", 1)[0]
-        return json.loads(cleaned)
+        arc = json.loads(cleaned)
+        _validate_ambient_tracks(arc)
+        return arc
     except (json.JSONDecodeError, IndexError):
         logger.warning("Failed to parse arc outline, using fallback")
         return _fallback_arc(user_input)
+
+
+def _validate_ambient_tracks(arc: dict) -> None:
+    """Validate and sanitize ambient_track fields in the arc, applying defaults for invalid values."""
+    for act_key in ["act1_setting", "act2_people", "act3_thread"]:
+        act = arc.get(act_key, {})
+        if act.get("ambient_track") not in _VALID_AMBIENT_TRACKS:
+            act["ambient_track"] = _DEFAULT_AMBIENT[act_key]
 
 
 def _fallback_arc(user_input: UserInput) -> dict:
