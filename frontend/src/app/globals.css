@@ -62,7 +62,8 @@ input:focus {
   .animate-slow-rotate,
   .animate-gentle-pulse,
   .animate-fade-pulse,
-  .animate-gradient-drift {
+  .animate-gradient-drift,
+  .arc-card::after {
     animation: none;
   }
 }
@@ -106,6 +107,31 @@ input:focus {
 @keyframes progress-fill {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }
+}
+
+@keyframes shimmer-sweep {
+  0% { background-position: 200% 0%; }
+  100% { background-position: -100% 0%; }
+}
+
+.arc-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.arc-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(212, 168, 67, 0.12) 50%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  animation: shimmer-sweep 3s ease-in-out 2s 1 forwards;
+  pointer-events: none;
 }
 
 .animate-slow-rotate {

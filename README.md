@@ -32,12 +32,13 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 
 The frontend is built for a **cinematic, fluid** reading experience rather than a static page:
 
+- **Seamless intake-to-generation transition** — After completing the intake questions, users see an immersive "Preparing your narrative…" screen with gold particles, warm gradient, and audio toggle. The narrative page auto-starts streaming on arrival — no intermediate "Ready to weave" step. The visual language is consistent across the transition.
 - **Progressive streaming** — The narrative arc (act titles) is sent as soon as it's planned, so users see chapter teasers while the full story is still generating. The loading screen holds until both text and audio are ready (when audio is enabled), so the narrative reveals fully formed rather than piece-by-piece. Rotating heritage fun facts keep users engaged during generation.
 - **Heritage fun facts** — During the loading screen, rotating "Did you know?" facts about African history, diaspora culture, and oral traditions cycle every 8 seconds, keeping users engaged while the narrative generates.
 - **Word-by-word text reveal** — New narrative text animates in word-by-word with a staggered fade, evoking the cadence of a griot speaking. The effect runs only on first appearance.
 - **Cinematic image reveals** — Images enter with a soft blur-to-sharp transition; hero images get a warm vignette and a sepia-to-full-color reveal. A subtle golden shimmer fades away as the image materializes.
 - **Act transitions** — Between acts, a full-width divider shows the Sankofa bird, act numeral, and title (from the arc outline), with floating gold particles and an expanding gold line.
-- **Ambient atmosphere** — Floating gold particles drift on the landing and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The landing page includes a radial glow behind the Sankofa bird. Per-act ambient soundscapes (wind, fire, nature, market, drums) crossfade smoothly between acts at low volume, with a mute toggle in the corner. Track selection is driven by the arc planner — both the Gemini and fallback arcs include an `ambient_track` field per act, validated against the five available tracks.
+- **Ambient atmosphere** — Floating gold particles drift on the landing, intake submitting, and narrative loading screens; the narrative page background gradient shifts subtly by act (earth tones → deeper warmth → dawn). The loading screen features a breathing bird animation (composite scale + rotation), concentric pulse rings that expand outward like a heartbeat, an ambient gradient drift ("breathing light" effect), and a golden shimmer sweep across arc chapter cards. The landing page includes a radial glow behind the Sankofa bird. Per-act ambient soundscapes (wind, fire, nature, market, drums) crossfade smoothly between acts at low volume, with a mute toggle in the corner. Track selection is driven by the arc planner — both the Gemini and fallback arcs include an `ambient_track` field per act, validated against the five available tracks.
 - **Audio-synced reading** — When narration is playing, the active segment gets a warm sidebar glow, a soft background tint, and a reading-sweep highlight that progresses through the text using the actual audio duration. Pausing the audio freezes all highlight animations in place; resuming continues them. Non-active segments dim for focus.
 - **Scroll progress** — A fixed vertical progress bar on the left shows how far you've scrolled through the story, with act markers that fill as you pass each act.
 - **Immersive LiveGriot UI** — The voice conversation panel adapts to context: a translucent bottom dock over the narrative (glassmorphism with `backdrop-blur-xl`) or an ambient full-screen mode with warm gradients, gold particles, and a slow Ken Burns zoom on the latest narrative image. Accessed via the mic button in the narration bar.
@@ -187,7 +188,7 @@ With the backend running, verify it’s reachable:
 Invoke-RestMethod -Uri "http://localhost:8000/api/health" -Method Get
 ```
 
-You should see `status: healthy` and `service: sankofa-api`. In the app, on the narrative “Ready to weave your narrative” screen, use **Test API connection** to check from the browser before clicking Begin.
+You should see `status: healthy` and `service: sankofa-api`. In the app, a small "Test API connection" link appears at the bottom of the loading screen as a diagnostic fallback.
 
 ## ADK Agent Orchestration
 
