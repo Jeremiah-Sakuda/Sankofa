@@ -12,8 +12,6 @@ import logging
 import re
 import wave
 
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
-
 from google.genai.types import (
     GenerateContentConfig,
     Modality,
@@ -21,8 +19,10 @@ from google.genai.types import (
     SpeechConfig,
     VoiceConfig,
 )
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.config import settings
+from app.models.schemas import NarrativeSegment
 from app.services.gemini_service import _is_transient, get_client
 
 logger = logging.getLogger(__name__)
@@ -168,7 +168,7 @@ async def generate_narration(text: str, voice_name: str = "Kore") -> tuple[str, 
 
 
 def spawn_tts_task(
-    seg: "NarrativeSegment",
+    seg: NarrativeSegment,
     tts_queue: asyncio.Queue,
 ) -> "asyncio.Task[None]":
     """Spawn a background TTS task that places an audio NarrativeSegment into *tts_queue*.
@@ -176,8 +176,6 @@ def spawn_tts_task(
     The caller is responsible for appending the returned task to a tracking list and
     draining *tts_queue* on subsequent event loop iterations.
     """
-    from app.models.schemas import NarrativeSegment  # local import to avoid circular
-
     async def _do_tts() -> None:
         try:
             result = await generate_narration(seg.content)
