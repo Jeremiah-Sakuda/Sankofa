@@ -21,11 +21,18 @@ from app.config import settings
 from app.knowledge.loader import build_grounding_context
 from app.models.schemas import UserInput
 from app.services.gemini_service import generate_interleaved, generate_text
-from app.services.trust_classifier import apply_trust_tags
+from app.services.trust_classifier import apply_trust_tags, reclassify_untagged
 from app.services.tts_service import generate_narration
 from app.store import session_store
 
 logger = logging.getLogger(__name__)
+
+# Context window limits for prompt truncation (characters)
+_CTX_PLAN = 2000
+_CTX_VALIDATE = 3000
+_CTX_GENERATE = 4000
+_CTX_PREV_NARRATIVE = 3000
+_CTX_DEEP_DIVE = 3000
 
 
 # ---------------------------------------------------------------------------
@@ -33,6 +40,17 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 media_store: dict[str, str] = {}
+
+_MEDIA_STORE_MAX = 200  # Max entries before eviction; refs are session-scoped so clearing is safe
+
+
+def _media_store_put(ref: str, data: str) -> None:
+    """Insert *data* into media_store, evicting all entries when the cap is reached."""
+    if len(media_store) >= _MEDIA_STORE_MAX:
+        logger.warning("[adk] media_store hit cap (%d); clearing stale entries", _MEDIA_STORE_MAX)
+        media_store.clear()
+    media_store[ref] = data
+
 
 def lookup_cultural_context(
     region: str,
@@ -146,7 +164,7 @@ during {time_period}, plan a three-act narrative structure for the
 {family_name} family heritage story.
 
 === GROUNDING CONTEXT ===
-{cultural_context[:2000]}\n"""
+{cultural_context[:_CTX_PLAN]}\n"""
 
     if feedback:
         prompt += f"""\n=== FEEDBACK TO ADDRESS ===
@@ -217,10 +235,10 @@ async def validate_narrative_arc(arc_json: str, cultural_context: str) -> str:
 Review the proposed arc against the provided historical context.
 
 === HISTORICAL CONTEXT ===
-{cultural_context[:3000]}
+{cultural_context[:_CTX_VALIDATE]}
 
 === NARRATIVE ARC ===
-{arc_json[:2000]}
+{arc_json[:_CTX_PLAN]}
 
 Evaluate based on:
 1. Specificity: Does it use real historical facts/names/practices, or is it generic?
@@ -275,16 +293,16 @@ West African griot. Generate a rich, immersive narrative for ACT {act_number} of
 {family_name} family heritage story from {region} during {time_period}.
 
 === CULTURAL/HISTORICAL GROUNDING ===
-{cultural_context[:4000]}
+{cultural_context[:_CTX_GENERATE]}
 
 === NARRATIVE ARC ===
-{arc_json[:2000]}
+{arc_json[:_CTX_PLAN]}
 """
 
     if previous_narrative:
         prompt += f"""\n=== PREVIOUS ACTS (For Continuity) ===
 Follow seamlessly from this existing narrative:
-{previous_narrative[-3000:]}\n"""
+{previous_narrative[-_CTX_PREV_NARRATIVE:]}\n"""
 
     prompt += """
 === TASK ===
@@ -309,6 +327,7 @@ Use the warm, unhurried cadence of a West African griot."""
 
     if segments:
         segments = apply_trust_tags(segments)
+        segments = await reclassify_untagged(segments)
 
     # Assign act number and mark first image as hero for act 1
     result = []
@@ -320,7 +339,7 @@ Use the warm, unhurried cadence of a West African griot."""
         dump = seg.model_dump()
         if dump.get("media_data"):
             media_ref = str(uuid.uuid4())
-            media_store[media_ref] = dump["media_data"]
+            _media_store_put(media_ref, dump["media_data"])
             dump["media_data"] = None  # Remove from LLM context!
             dump["media_reference"] = media_ref
         result.append(dump)
@@ -437,20 +456,21 @@ async def deep_dive(topic: str, cultural_context: str) -> str:
     prompt = f"""You are Sankofa, a West African griot. Deep dive into this specific topic: '{topic}'.
 
 === HISTORICAL CONTEXT ===
-{cultural_context[:3000]}
+{cultural_context[:_CTX_DEEP_DIVE]}
 
 Write 1-2 rich paragraphs explaining this topic in detail within the context of the region.
 Prepend paragraphs with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
 
     segments = await generate_interleaved(prompt)
     segments = apply_trust_tags(segments)
+    segments = await reclassify_untagged(segments)
 
     result = []
     for seg in segments:
         dump = seg.model_dump()
         if dump.get("media_data"):
             media_ref = str(uuid.uuid4())
-            media_store[media_ref] = dump["media_data"]
+            _media_store_put(media_ref, dump["media_data"])
             dump["media_data"] = None  # Remove from LLM context!
             dump["media_reference"] = media_ref
         result.append(dump)
