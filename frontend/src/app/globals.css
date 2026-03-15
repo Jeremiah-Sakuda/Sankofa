@@ -98,14 +98,11 @@ input:focus {
   will-change: transform, opacity;
 }
 
-/* Slow Ken Burns zoom for atmospheric intro images */
-@keyframes griot-ken-burns {
-  0% { transform: scale(1) translate(0, 0); }
-  100% { transform: scale(1.08) translate(-1%, -1%); }
-}
-.griot-ken-burns {
-  animation: griot-ken-burns 20s ease-in-out forwards;
-  will-change: transform;
+/* Fire spark particles — warmer colors, brighter, slightly elongated */
+.griot-sparks > div {
+  border-radius: 50% 50% 20% 50%;
+  background: var(--gold);
+  box-shadow: 0 0 3px rgba(212, 168, 67, 0.6), 0 0 6px rgba(199, 91, 57, 0.3);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -119,8 +116,7 @@ input:focus {
   .griot-text-enter,
   .griot-text-exit,
   .griot-bg-pulse,
-  .griot-divider-expand,
-  .griot-ken-burns {
+  .griot-divider-expand {
     animation: none;
   }
 }

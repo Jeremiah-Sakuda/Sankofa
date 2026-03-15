@@ -34,22 +34,6 @@ const HERITAGE_FACTS = [
 
 const STUCK_TIMEOUT_MS = 90_000;
 
-/** Map beat index ranges to atmospheric background images. */
-const INTRO_IMAGES = [
-  { src: "/images/intro/baobab.png", startBeat: 0, endBeat: 2 },
-  { src: "/images/intro/griot.png", startBeat: 3, endBeat: 5 },
-  { src: "/images/intro/ocean.png", startBeat: 6, endBeat: 8 },
-  { src: "/images/intro/village.png", startBeat: 9, endBeat: 10 },
-  { src: "/images/intro/threads.png", startBeat: 11, endBeat: 11 },
-];
-
-function getIntroImage(beatIndex: number): string | null {
-  for (const img of INTRO_IMAGES) {
-    if (beatIndex >= img.startBeat && beatIndex <= img.endBeat) return img.src;
-  }
-  return null;
-}
-
 interface GriotIntroProps {
   isStoryReady: boolean;
   onComplete: () => void;
@@ -245,20 +229,24 @@ export default function GriotIntro({
     }
   }, []);
 
-  // Auto-play intro + ambient audio on mount
+  // Auto-play ambient immediately, delay griot voiceover by 3s so the
+  // fire crackling has a moment alone before the narration begins.
   useEffect(() => {
     const audio = introAudioRef.current;
     const ambient = ambientAudioRef.current;
-    if (audio && phase === "playing") {
-      audio.play().catch(() => {
-        handleSkipIntro();
-      });
-    }
     if (ambient) {
       ambient.volume = 0.15;
       ambient.play().catch(() => {});
     }
+    const voiceDelay = setTimeout(() => {
+      if (audio && phase === "playing") {
+        audio.play().catch(() => {
+          handleSkipIntro();
+        });
+      }
+    }, 3000);
     return () => {
+      clearTimeout(voiceDelay);
       if (ambientFadeRef.current) {
         clearInterval(ambientFadeRef.current);
         ambientFadeRef.current = null;
@@ -267,7 +255,6 @@ export default function GriotIntro({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeBeat = activeBeatIndex >= 0 ? GRIOT_BEATS[activeBeatIndex] : null;
-  const activeImage = activeBeatIndex >= 0 ? getIntroImage(activeBeatIndex) : null;
 
   return (
     <motion.div
@@ -292,7 +279,7 @@ export default function GriotIntro({
       />
       <audio
         ref={ambientAudioRef}
-        src="/audio/nature.wav"
+        src="/audio/fire.wav"
         preload="auto"
         loop
       />
@@ -306,27 +293,7 @@ export default function GriotIntro({
         }}
       />
 
-      {/* Atmospheric background image during playing phase */}
-      <AnimatePresence mode="wait">
-        {phase === "playing" && activeImage && (
-          <motion.div
-            key={activeImage}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.25 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 2, ease: "easeInOut" }}
-            className="absolute inset-0 z-0 overflow-hidden"
-          >
-            <img
-              src={activeImage}
-              alt=""
-              className="w-full h-full object-cover griot-ken-burns"
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <GoldParticles count={50} />
+      <GoldParticles count={60} className="griot-sparks" />
 
       {/* === PLAYING PHASE === */}
       <AnimatePresence mode="wait">
