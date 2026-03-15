@@ -92,7 +92,13 @@ class FirestoreSessionStore:
             for seg_doc in seg_coll.stream():
                 seg_doc.reference.delete()
             for seg in session.segments:
-                seg_coll.document(str(seg.sequence)).set(seg.model_dump())
+                seg_dict = seg.model_dump()
+                # Strip media_data that exceeds Firestore's 1 MiB field limit.
+                # Audio/image blobs are already streamed to the client via SSE,
+                # so Firestore only needs the metadata for session recovery.
+                if seg_dict.get("media_data") and len(seg_dict["media_data"]) > 900_000:
+                    seg_dict["media_data"] = None
+                seg_coll.document(str(seg.sequence)).set(seg_dict)
             logger.debug("Firestore: updated session %s (%d segments)", session.session_id, len(session.segments))
         except Exception as e:
             logger.error("Firestore update error: %s", e, exc_info=True)
