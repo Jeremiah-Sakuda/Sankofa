@@ -50,7 +50,7 @@ export function useSSEStream(): UseSSEStreamReturn {
       setError("Request timed out");
       setIsStreaming(false);
       abortRef.current?.abort();
-    }, 120000); // 120 seconds timeout
+    }, 300_000); // 5 minutes — audio generation can take a while
   }, [clearInactivityTimeout]);
 
   const reset = useCallback(() => {

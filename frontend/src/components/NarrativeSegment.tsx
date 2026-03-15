@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, memo } from "react";
 import { motion, useScroll, useTransform, useInView, Variants } from "motion/react";
 import { NarrativeSegment as SegmentType } from "../lib/api";
 import TrustBadge from "./TrustBadge";
@@ -225,7 +225,7 @@ function CinematicImage({ src, alt, isHero, isNew }: { src: string; alt: string;
   );
 }
 
-export default function NarrativeSegment({
+export default memo(function NarrativeSegment({
   segment,
   index,
   isFirstInAct = false,
@@ -268,6 +268,7 @@ export default function NarrativeSegment({
         className={segmentClasses}
         style={{
           "--narrate-duration": `${narrateDuration}s`,
+          willChange: isNew ? "transform, opacity" : "auto",
         } as React.CSSProperties}
         data-sequence={segment.sequence}
       >
@@ -303,7 +304,7 @@ export default function NarrativeSegment({
           ease: [0.22, 1, 0.36, 1],
         }}
         className={`my-10 ${isHero ? "-mx-8 md:-mx-16 lg:-mx-24" : "mx-auto"}`}
-        style={{ maxWidth: isHero ? "none" : "85%" }}
+        style={{ maxWidth: isHero ? "none" : "85%", willChange: isNew ? "transform, opacity, filter" : "auto" }}
         data-sequence={segment.sequence}
       >
         <div
@@ -335,4 +336,4 @@ export default function NarrativeSegment({
   }
 
   return null;
-}
+})

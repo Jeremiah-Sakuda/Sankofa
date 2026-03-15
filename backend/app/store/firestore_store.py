@@ -22,6 +22,7 @@ def _session_to_doc(session: Session) -> dict:
         "user_input": session.user_input.model_dump(),
         "narrative_context": session.narrative_context,
         "is_generating": session.is_generating,
+        "generating_started_at": session.generating_started_at,
         "arc_outline": session.arc_outline,
     }
 
@@ -33,6 +34,7 @@ def _doc_to_session(session_id: str, data: dict, segments: list[NarrativeSegment
         segments=segments,
         narrative_context=data.get("narrative_context") or "",
         is_generating=data.get("is_generating") or False,
+        generating_started_at=data.get("generating_started_at") or 0.0,
         arc_outline=data.get("arc_outline"),
     )
 
