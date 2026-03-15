@@ -34,6 +34,7 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
 
   const wsRef = useRef<WebSocket | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const captureContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const nextPlayTimeRef = useRef(0);
@@ -68,6 +69,10 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
       wsRef.current.close();
       wsRef.current = null;
     }
+    if (captureContextRef.current) {
+      captureContextRef.current.close().catch(() => {});
+      captureContextRef.current = null;
+    }
     if (audioContextRef.current) {
       audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
@@ -98,6 +103,10 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
 
       const audioCtx = new AudioContext({ sampleRate: 24000 });
       audioContextRef.current = audioCtx;
+      // Eagerly resume — browsers may create contexts in suspended state
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume().catch(() => {});
+      }
       nextPlayTimeRef.current = audioCtx.currentTime;
 
       const wsUrl = `${API_BASE.replace(/^http/, "ws")}/api/narrative/${sessionId}/live`;
@@ -108,12 +117,25 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
         setConnectionState("connected");
 
         const captureCtx = new AudioContext({ sampleRate: 16000 });
+        captureContextRef.current = captureCtx;
+
+        // Ensure capture context is running (browsers may suspend until user gesture)
+        if (captureCtx.state === "suspended") {
+          captureCtx.resume().catch(() => {});
+        }
+
         const source = captureCtx.createMediaStreamSource(stream);
         const processor = captureCtx.createScriptProcessor(4096, 1, 1);
         processorRef.current = processor;
 
         processor.onaudioprocess = (e) => {
           if (ws.readyState !== WebSocket.OPEN) return;
+
+          // Resume capture context if it got suspended
+          if (captureCtx.state === "suspended") {
+            captureCtx.resume().catch(() => {});
+            return;
+          }
 
           const float32 = e.inputBuffer.getChannelData(0);
           const int16 = new Int16Array(float32.length);
@@ -122,9 +144,15 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
             int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
           }
 
+          // Chunked base64 encoding to avoid stack overflow with large buffers
           const bytes = new Uint8Array(int16.buffer);
-          const b64 = btoa(String.fromCharCode(...bytes));
-          ws.send(JSON.stringify({ type: "audio", data: b64 }));
+          let b64 = "";
+          const CHUNK = 8192;
+          for (let i = 0; i < bytes.length; i += CHUNK) {
+            const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
+            b64 += String.fromCharCode.apply(null, slice as unknown as number[]);
+          }
+          ws.send(JSON.stringify({ type: "audio", data: btoa(b64) }));
         };
 
         source.connect(processor);

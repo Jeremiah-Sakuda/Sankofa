@@ -304,10 +304,17 @@ West African griot. Generate a rich, immersive narrative for ACT {act_number} of
 Follow seamlessly from this existing narrative:
 {previous_narrative[-_CTX_PREV_NARRATIVE:]}\n"""
 
-    prompt += """
+    prompt += f"""
 === TASK ===
 Generate 3–4 paragraphs of narrative text for ACT {act_number}, {density_instruction}
-Use warm earth tones, gold accents, and period-appropriate details for any images.
+
+IMAGE STYLE (mandatory for every image):
+Paint in a WATERCOLOR illustration style — visible brushstrokes, soft wet-on-wet
+edges, transparent washes of pigment with white paper showing through. Use a warm
+palette of burnt sienna, raw umber, yellow ochre, and gold leaf accents. No
+photorealism, no digital art, no sharp vector edges. Every image must look like a
+hand-painted watercolor on textured paper. Period-appropriate details only.
+
 Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED].
 Use the warm, unhurried cadence of a West African griot."""
 
