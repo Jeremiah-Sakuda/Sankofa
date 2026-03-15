@@ -58,8 +58,8 @@ async def reclassify_untagged(segments: list[NarrativeSegment]) -> list[Narrativ
     This is an async function so it should be awaited after apply_trust_tags().
     """
     # Import here to avoid circular dependency at module load time
-    from app.services.gemini_service import generate_text  # noqa: PLC0415
     from app.config import settings  # noqa: PLC0415
+    from app.services.gemini_service import generate_text  # noqa: PLC0415
 
     # Only reclassify segments where the regex found NO tag (content is unchanged from raw)
     # We detect "no tag was present" by checking if the original content still has
