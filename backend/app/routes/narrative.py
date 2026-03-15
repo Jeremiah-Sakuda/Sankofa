@@ -13,11 +13,20 @@ from app.services.adk_orchestrator import run_adk_followup, run_adk_narrative
 from app.services.gemini_service import generate_interleaved, validate_followup_question
 from app.services.narrative_planner import generate_narrative_only, get_fast_arc, plan_arc_only
 from app.services.trust_classifier import apply_trust_tags
-from app.services.tts_service import generate_narration
+from app.services.tts_service import generate_narration, spawn_tts_task
 from app.store import session_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["narrative"])
+
+# Context window limits for prompt truncation (characters)
+_CTX_GROUNDING = 2000
+_CTX_EXISTING = 3000
+
+# Streaming delays (seconds) for natural pacing
+_DELAY_IMAGE = 1.2
+_DELAY_FIRST_TEXT = 0.6
+_DELAY_TEXT = 0.35
 
 
 @router.get("/narrative/{session_id}/stream")
@@ -105,36 +114,23 @@ async def stream_narrative(
 
                 # Stream segments immediately to queue, kick off TTS tasks in background
                 tts_tasks = []
+                tts_queue: asyncio.Queue = asyncio.Queue()
                 for i, seg in enumerate(segments):
                     session.segments.append(seg)
                     await _emit(seg.type, seg.model_dump_json())
 
                     if audio and seg.type == "text" and seg.content and not seg.media_data:
-                        async def _do_tts(s=seg):
-                            try:
-                                result = await generate_narration(s.content)
-                                if result:
-                                    audio_data, media_type = result
-                                    audio_seg = NarrativeSegment(
-                                        type="audio",
-                                        content=s.content[:100] if s.content else "",
-                                        media_data=audio_data,
-                                        media_type=media_type,
-                                        trust_level=s.trust_level,
-                                        sequence=s.sequence,
-                                        act=s.act,
-                                    )
-                                    await _emit("audio", audio_seg.model_dump_json())
-                            except Exception as e:
-                                logger.warning("TTS task failed: %s", e, exc_info=True)
-                        tts_tasks.append(asyncio.create_task(_do_tts()))
+                        tts_tasks.append(spawn_tts_task(seg, tts_queue))
 
-                    delay = 1.2 if seg.type == "image" else 0.6 if i == 0 else 0.35
+                    delay = _DELAY_IMAGE if seg.type == "image" else _DELAY_FIRST_TEXT if i == 0 else _DELAY_TEXT
                     await asyncio.sleep(delay)
 
-                # Wait for all background TTS to finish before completing stream
+                # Wait for all background TTS to finish, then emit audio segments
                 if tts_tasks:
                     await asyncio.gather(*tts_tasks)
+                    while not tts_queue.empty():
+                        audio_seg = await tts_queue.get()
+                        await _emit("audio", audio_seg.model_dump_json())
 
                 await _emit("status", json.dumps({"status": "complete"}))
 
@@ -205,10 +201,10 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
 from {ui.region_of_origin} during {ui.time_period}.
 
 === CULTURAL/HISTORICAL GROUNDING ===
-{grounding[:2000]}
+{grounding[:_CTX_GROUNDING]}
 
 === PREVIOUS NARRATIVE ===
-{existing_context[:3000]}
+{existing_context[:_CTX_EXISTING]}
 
 The listener asks: "{question}"
 

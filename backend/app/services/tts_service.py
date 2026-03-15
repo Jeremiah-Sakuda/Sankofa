@@ -19,9 +19,11 @@ from google.genai.types import (
     SpeechConfig,
     VoiceConfig,
 )
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from app.config import settings
-from app.services.gemini_service import get_client
+from app.models.schemas import NarrativeSegment
+from app.services.gemini_service import _is_transient, get_client
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,12 @@ def split_for_tts(text: str, max_sentences: int = 3) -> list[str]:
 # Low-level TTS: single chunk → raw PCM bytes
 # ---------------------------------------------------------------------------
 
+@retry(
+    retry=retry_if_exception(_is_transient),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
 def _generate_pcm_sync(text: str, voice_name: str) -> bytes | None:
     """Call Gemini TTS for a single text chunk and return raw PCM bytes."""
     client = get_client()
@@ -157,6 +165,37 @@ async def generate_narration(text: str, voice_name: str = "Kore") -> tuple[str, 
     except Exception as e:
         logger.warning("TTS generation failed: %s", e, exc_info=True)
         return None
+
+
+def spawn_tts_task(
+    seg: NarrativeSegment,
+    tts_queue: asyncio.Queue,
+) -> "asyncio.Task[None]":
+    """Spawn a background TTS task that places an audio NarrativeSegment into *tts_queue*.
+
+    The caller is responsible for appending the returned task to a tracking list and
+    draining *tts_queue* on subsequent event loop iterations.
+    """
+    async def _do_tts() -> None:
+        try:
+            result = await generate_narration(seg.content)
+            if result:
+                audio_data, mime = result
+                await tts_queue.put(
+                    NarrativeSegment(
+                        type="audio",
+                        content=(seg.content[:100] if seg.content else ""),
+                        media_data=audio_data,
+                        media_type=mime,
+                        trust_level=seg.trust_level,
+                        sequence=seg.sequence,
+                        act=seg.act,
+                    )
+                )
+        except Exception as exc:
+            logger.warning("[tts] TTS task failed: %s", exc)
+
+    return asyncio.create_task(_do_tts())
 
 
 async def generate_narration_for_segments(segments: list, voice_name: str = "Kore") -> list:

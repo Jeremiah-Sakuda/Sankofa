@@ -21,10 +21,15 @@ from google.genai.types import Content, Part
 from app.models.schemas import NarrativeSegment
 from app.models.session import Session
 from app.services.adk_agent import media_store, sankofa_agent
-from app.services.tts_service import generate_narration
+from app.services.tts_service import spawn_tts_task
 from app.store import session_store
 
 logger = logging.getLogger(__name__)
+
+# Streaming delays (seconds) for natural pacing
+_DELAY_IMAGE = 1.2
+_DELAY_FIRST_TEXT = 0.6
+_DELAY_TEXT = 0.35
 
 # ---------------------------------------------------------------------------
 # ADK Runner setup (separate from the app's session store)
@@ -244,27 +249,10 @@ async def run_adk_narrative(
                                     and seg.content
                                     and not seg.media_data
                                 ):
-                                    async def _do_tts(s=seg, q=tts_queue):
-                                        try:
-                                            result = await generate_narration(s.content)
-                                            if result:
-                                                audio_data, mime = result
-                                                await q.put(NarrativeSegment(
-                                                    type="audio",
-                                                    content=(s.content[:100] if s.content else ""),
-                                                    media_data=audio_data,
-                                                    media_type=mime,
-                                                    trust_level=s.trust_level,
-                                                    sequence=s.sequence,
-                                                    act=s.act,
-                                                ))
-                                        except Exception as e:
-                                            logger.warning("[adk-orch] TTS failed: %s", e)
-
-                                    tts_tasks.append(asyncio.create_task(_do_tts()))
+                                    tts_tasks.append(spawn_tts_task(seg, tts_queue))
 
                                 # Stagger delivery for natural feel
-                                delay = 1.2 if seg.type == "image" else (0.6 if i == 0 else 0.35)
+                                delay = _DELAY_IMAGE if seg.type == "image" else (_DELAY_FIRST_TEXT if i == 0 else _DELAY_TEXT)
                                 await asyncio.sleep(delay)
                         else:
                             logger.warning(
@@ -370,26 +358,9 @@ async def run_adk_followup(
                                 yield {"event": seg.type, "data": seg.model_dump_json()}
 
                                 if audio and seg.type == "text" and seg.content:
-                                    async def _do_tts(s=seg, q=tts_queue):
-                                        try:
-                                            result = await generate_narration(s.content)
-                                            if result:
-                                                audio_data, mime = result
-                                                await q.put(NarrativeSegment(
-                                                    type="audio",
-                                                    content=s.content[:100],
-                                                    media_data=audio_data,
-                                                    media_type=mime,
-                                                    trust_level=s.trust_level,
-                                                    sequence=s.sequence,
-                                                    act=s.act,
-                                                ))
-                                        except Exception as e:
-                                            logger.warning("[adk-orch] TTS followup failed: %s", e)
+                                    tts_tasks.append(spawn_tts_task(seg, tts_queue))
 
-                                    tts_tasks.append(asyncio.create_task(_do_tts()))
-
-                                await asyncio.sleep(0.35)
+                                await asyncio.sleep(_DELAY_TEXT)
 
                             # Drain any TTS that finished during this batch
                             done = [t for t in tts_tasks if t.done()]
