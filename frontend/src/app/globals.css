@@ -63,6 +63,8 @@ input:focus {
   .animate-gentle-pulse,
   .animate-fade-pulse,
   .animate-gradient-drift,
+  .animate-gradient-breathe,
+  .particle-float,
   .arc-card::after {
     animation: none;
   }
@@ -83,9 +85,45 @@ input:focus {
   background-size: 256px 256px;
 }
 
+@keyframes particle-float {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--p-peak-opacity, 0.2);
+  }
+  80% {
+    opacity: var(--p-peak-opacity, 0.2);
+  }
+  100% {
+    transform: translateY(-110vh) translateX(var(--p-drift, 0px));
+    opacity: 0;
+  }
+}
+
+.particle-float {
+  animation: particle-float linear infinite;
+}
+
 @keyframes slow-rotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes gradient-breathe {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+.animate-gradient-breathe {
+  animation: gradient-breathe 12s ease-in-out infinite;
 }
 
 @keyframes gentle-pulse {
