@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Griot Intro Beat Timer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Georgia, serif;
+      background: #0d0d0d;
+      color: #f5edda;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 { color: #d4a843; margin-bottom: 0.5rem; }
+    .instructions {
+      color: #8b7d6b;
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    button {
+      padding: 0.6rem 1.2rem;
+      background: transparent;
+      border: 1px solid #d4a843;
+      color: #d4a843;
+      font-family: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    button:hover { background: #d4a843; color: #0d0d0d; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .timer {
+      font-size: 2rem;
+      color: #d4a843;
+      font-variant-numeric: tabular-nums;
+      min-width: 6ch;
+    }
+    .beat-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .beat {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 0.75rem 1rem;
+      border-left: 3px solid #3b2314;
+      transition: all 0.3s;
+    }
+    .beat.current {
+      border-left-color: #d4a843;
+      background: rgba(212, 168, 67, 0.08);
+    }
+    .beat.marked {
+      border-left-color: #c8963e;
+    }
+    .beat-num {
+      color: #8b7d6b;
+      font-size: 0.8rem;
+      min-width: 2ch;
+      padding-top: 0.15rem;
+    }
+    .beat-text {
+      flex: 1;
+      line-height: 1.5;
+      white-space: pre-line;
+    }
+    .beat-time {
+      color: #d4a843;
+      font-size: 0.85rem;
+      min-width: 6ch;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .output-section {
+      margin-top: 2rem;
+      border-top: 1px solid #3b2314;
+      padding-top: 1.5rem;
+    }
+    .output-section h2 { color: #d4a843; margin-bottom: 1rem; font-size: 1.2rem; }
+    textarea {
+      width: 100%;
+      min-height: 400px;
+      background: #1a1520;
+      color: #f5edda;
+      border: 1px solid #3b2314;
+      padding: 1rem;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+    }
+    .copy-btn { margin-top: 0.5rem; }
+    .status {
+      color: #c8963e;
+      font-size: 0.85rem;
+      margin-left: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Griot Intro Beat Timer</h1>
+  <p class="instructions">
+    Press <strong>Play</strong> then press <strong>Space</strong> (or click <strong>Mark</strong>) each time
+    the griot starts speaking the next highlighted line.<br />
+    When all beats are marked, the output JSON will appear below — copy it into <code>griotBeats.ts</code>.
+  </p>
+
+  <div class="controls">
+    <button id="playBtn">Play</button>
+    <button id="markBtn" disabled>Mark Beat (Space)</button>
+    <button id="resetBtn">Reset</button>
+    <span class="timer" id="timer">0.00s</span>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="beat-list" id="beatList"></div>
+
+  <div class="output-section" id="outputSection" style="display:none">
+    <h2>Output — paste into griotBeats.ts</h2>
+    <textarea id="output" readonly></textarea>
+    <button class="copy-btn" id="copyBtn">Copy to Clipboard</button>
+  </div>
+
+  <audio id="audio" src="/audio/griot-intro.wav" preload="auto"></audio>
+
+  <script>
+    const BEAT_TEXTS = [
+      "Come. Sit with me.",
+      "I am a griot \u2014 a keeper of the stories\nthat time tries to scatter.",
+      "For generations, my kind have held the memories\nof families, of kingdoms, of journeys\nno map could ever trace.",
+      "Tonight, I reach back for you.",
+      "The Akan people have a word \u2014 Sankofa.\nIt means: go back and get it.",
+      "It teaches us that the past is not behind us.\nIt walks beside us, whispering in the language\nof our grandmothers.",
+      "Every family has a thread that stretches back \u2014\nthrough oceans crossed and borders redrawn.",
+      "Some of those threads are written in books.\nOthers live only in the land itself,\nin the rhythm of a song,\nin the way a name is spoken.",
+      "Your ancestors lived. They loved.\nThey built. They endured.",
+      "And their story did not end \u2014\nit has been waiting, patient as the baobab,\nfor someone to come and listen.",
+      "So let me gather the threads now.\nLet me listen to what the land remembers,\nwhat the old songs still carry.",
+      "I will weave it all together \u2014\nand you will hear your heritage,\nas it was meant to be told.",
+    ];
+
+    const audio = document.getElementById("audio");
+    const playBtn = document.getElementById("playBtn");
+    const markBtn = document.getElementById("markBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const timerEl = document.getElementById("timer");
+    const statusEl = document.getElementById("status");
+    const beatList = document.getElementById("beatList");
+    const outputSection = document.getElementById("outputSection");
+    const outputEl = document.getElementById("output");
+    const copyBtn = document.getElementById("copyBtn");
+
+    let currentBeat = 0;
+    let markedTimes = [];
+    let isPlaying = false;
+
+    function renderBeats() {
+      beatList.innerHTML = "";
+      BEAT_TEXTS.forEach((text, i) => {
+        const div = document.createElement("div");
+        div.className = "beat" + (i === currentBeat ? " current" : "") + (markedTimes[i] != null ? " marked" : "");
+        div.innerHTML = `
+          <span class="beat-num">${i + 1}.</span>
+          <span class="beat-text">${text.replace(/\n/g, "<br>")}</span>
+          <span class="beat-time">${markedTimes[i] != null ? markedTimes[i].toFixed(2) + "s" : "\u2014"}</span>
+        `;
+        beatList.appendChild(div);
+      });
+    }
+
+    function updateTimer() {
+      if (isPlaying) {
+        timerEl.textContent = audio.currentTime.toFixed(2) + "s";
+        requestAnimationFrame(updateTimer);
+      }
+    }
+
+    function markBeat() {
+      if (currentBeat >= BEAT_TEXTS.length) return;
+      markedTimes[currentBeat] = audio.currentTime;
+      currentBeat++;
+      renderBeats();
+
+      if (currentBeat >= BEAT_TEXTS.length) {
+        statusEl.textContent = "All beats marked! Check the output below.";
+        markBtn.disabled = true;
+        generateOutput();
+      } else {
+        statusEl.textContent = `Marked beat ${currentBeat} / ${BEAT_TEXTS.length}`;
+      }
+    }
+
+    function generateOutput() {
+      const beats = BEAT_TEXTS.map((text, i) => {
+        const time = Math.round((markedTimes[i] || 0) * 10) / 10;
+        let duration;
+        if (i < BEAT_TEXTS.length - 1 && markedTimes[i + 1] != null) {
+          duration = Math.round((markedTimes[i + 1] - markedTimes[i]) * 10) / 10;
+        } else {
+          // Last beat: use remaining audio duration
+          duration = Math.round((audio.duration - markedTimes[i]) * 10) / 10;
+        }
+        return { time, text, duration };
+      });
+
+      const lines = beats.map(b => {
+        const textEscaped = b.text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+        return `  { time: ${b.time}, text: "${textEscaped}", duration: ${b.duration} },`;
+      });
+
+      outputEl.value = `export const GRIOT_BEATS: GriotBeat[] = [\n${lines.join("\n")}\n];`;
+      outputSection.style.display = "block";
+      outputSection.scrollIntoView({ behavior: "smooth" });
+    }
+
+    playBtn.addEventListener("click", () => {
+      if (audio.paused) {
+        audio.play();
+        isPlaying = true;
+        playBtn.textContent = "Pause";
+        markBtn.disabled = currentBeat >= BEAT_TEXTS.length;
+        updateTimer();
+      } else {
+        audio.pause();
+        isPlaying = false;
+        playBtn.textContent = "Play";
+      }
+    });
+
+    markBtn.addEventListener("click", markBeat);
+
+    resetBtn.addEventListener("click", () => {
+      audio.pause();
+      audio.currentTime = 0;
+      isPlaying = false;
+      currentBeat = 0;
+      markedTimes = [];
+      playBtn.textContent = "Play";
+      markBtn.disabled = true;
+      statusEl.textContent = "";
+      timerEl.textContent = "0.00s";
+      outputSection.style.display = "none";
+      renderBeats();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && isPlaying && !e.target.matches("textarea, input")) {
+        e.preventDefault();
+        markBeat();
+      }
+    });
+
+    audio.addEventListener("ended", () => {
+      isPlaying = false;
+      playBtn.textContent = "Play";
+      if (currentBeat < BEAT_TEXTS.length) {
+        statusEl.textContent = "Audio ended. Replay and continue marking remaining beats.";
+      }
+    });
+
+    copyBtn.addEventListener("click", () => {
+      outputEl.select();
+      navigator.clipboard.writeText(outputEl.value).then(() => {
+        copyBtn.textContent = "Copied!";
+        setTimeout(() => { copyBtn.textContent = "Copy to Clipboard"; }, 2000);
+      });
+    });
+
+    renderBeats();
+  </script>
+</body>
+</html>

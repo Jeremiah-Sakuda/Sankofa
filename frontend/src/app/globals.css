@@ -98,6 +98,16 @@ input:focus {
   will-change: transform, opacity;
 }
 
+/* Slow Ken Burns zoom for atmospheric intro images */
+@keyframes griot-ken-burns {
+  0% { transform: scale(1) translate(0, 0); }
+  100% { transform: scale(1.08) translate(-1%, -1%); }
+}
+.griot-ken-burns {
+  animation: griot-ken-burns 20s ease-in-out forwards;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-slow-rotate,
   .animate-gentle-pulse,
@@ -109,7 +119,8 @@ input:focus {
   .griot-text-enter,
   .griot-text-exit,
   .griot-bg-pulse,
-  .griot-divider-expand {
+  .griot-divider-expand,
+  .griot-ken-burns {
     animation: none;
   }
 }

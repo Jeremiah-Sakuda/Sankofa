@@ -34,6 +34,22 @@ const HERITAGE_FACTS = [
 
 const STUCK_TIMEOUT_MS = 90_000;
 
+/** Map beat index ranges to atmospheric background images. */
+const INTRO_IMAGES = [
+  { src: "/images/intro/baobab.png", startBeat: 0, endBeat: 2 },
+  { src: "/images/intro/griot.png", startBeat: 3, endBeat: 5 },
+  { src: "/images/intro/ocean.png", startBeat: 6, endBeat: 8 },
+  { src: "/images/intro/village.png", startBeat: 9, endBeat: 10 },
+  { src: "/images/intro/threads.png", startBeat: 11, endBeat: 11 },
+];
+
+function getIntroImage(beatIndex: number): string | null {
+  for (const img of INTRO_IMAGES) {
+    if (beatIndex >= img.startBeat && beatIndex <= img.endBeat) return img.src;
+  }
+  return null;
+}
+
 interface GriotIntroProps {
   isStoryReady: boolean;
   onComplete: () => void;
@@ -62,6 +78,7 @@ export default function GriotIntro({
   const [prevBeatIndex, setPrevBeatIndex] = useState(-1);
   const introAudioRef = useRef<HTMLAudioElement | null>(null);
   const readyAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ambientAudioRef = useRef<HTMLAudioElement | null>(null);
   const [funFactIndex, setFunFactIndex] = useState(() => Math.floor(Math.random() * HERITAGE_FACTS.length));
   const [showStuckMessage, setShowStuckMessage] = useState(false);
   const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,23 +87,52 @@ export default function GriotIntro({
   const [stepElapsed, setStepElapsed] = useState(0);
   const stepStartRef = useRef<number | null>(null);
   const readyAudioPlayed = useRef(false);
+  const ambientFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  /** Stop all audio cleanly. */
+  const stopAllAudio = useCallback(() => {
+    introAudioRef.current?.pause();
+    readyAudioRef.current?.pause();
+    if (ambientFadeRef.current) {
+      clearInterval(ambientFadeRef.current);
+      ambientFadeRef.current = null;
+    }
+    ambientAudioRef.current?.pause();
+  }, []);
+
+  /** Fade out ambient audio over ~1s then pause. */
+  const fadeOutAmbient = useCallback(() => {
+    const ambient = ambientAudioRef.current;
+    if (!ambient || ambient.paused) return;
+    if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
+    ambientFadeRef.current = setInterval(() => {
+      if (ambient.volume > 0.02) {
+        ambient.volume = Math.max(0, ambient.volume - 0.02);
+      } else {
+        ambient.pause();
+        if (ambientFadeRef.current) {
+          clearInterval(ambientFadeRef.current);
+          ambientFadeRef.current = null;
+        }
+      }
+    }, 100);
+  }, []);
 
   // Transition to ready when story is ready and we're not playing the intro
   useEffect(() => {
     if (isStoryReady && phase === "waiting") {
       setPhase("ready");
-    } else if (isStoryReady && phase === "playing") {
-      // Don't interrupt the intro — we'll check again when audio ends
     }
   }, [isStoryReady, phase]);
 
-  // Play ready audio when entering ready phase
+  // Play ready audio and fade ambient when entering ready phase
   useEffect(() => {
     if (phase === "ready" && !readyAudioPlayed.current) {
       readyAudioPlayed.current = true;
       readyAudioRef.current?.play().catch(() => {});
+      fadeOutAmbient();
     }
-  }, [phase]);
+  }, [phase, fadeOutAmbient]);
 
   // Rotate fun facts during waiting phase
   useEffect(() => {
@@ -141,7 +187,6 @@ export default function GriotIntro({
     if (!audio) return;
     const t = audio.currentTime;
 
-    // Find the active beat
     let newIndex = -1;
     for (let i = GRIOT_BEATS.length - 1; i >= 0; i--) {
       const beat = GRIOT_BEATS[i];
@@ -166,17 +211,20 @@ export default function GriotIntro({
   }, [isStoryReady]);
 
   const handleSkipIntro = useCallback(() => {
-    const audio = introAudioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-    }
+    introAudioRef.current?.pause();
+    fadeOutAmbient();
     if (isStoryReady) {
       setPhase("ready");
     } else {
       setPhase("waiting");
     }
-  }, [isStoryReady]);
+  }, [isStoryReady, fadeOutAmbient]);
+
+  /** Stop all audio before revealing the narrative. */
+  const handleBegin = useCallback(() => {
+    stopAllAudio();
+    onComplete();
+  }, [onComplete, stopAllAudio]);
 
   const handleTestConnection = useCallback(async () => {
     setConnectionTest("checking");
@@ -197,18 +245,29 @@ export default function GriotIntro({
     }
   }, []);
 
-  // Auto-play intro audio on mount
+  // Auto-play intro + ambient audio on mount
   useEffect(() => {
     const audio = introAudioRef.current;
+    const ambient = ambientAudioRef.current;
     if (audio && phase === "playing") {
       audio.play().catch(() => {
-        // If autoplay blocked, skip to waiting
         handleSkipIntro();
       });
     }
+    if (ambient) {
+      ambient.volume = 0.15;
+      ambient.play().catch(() => {});
+    }
+    return () => {
+      if (ambientFadeRef.current) {
+        clearInterval(ambientFadeRef.current);
+        ambientFadeRef.current = null;
+      }
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeBeat = activeBeatIndex >= 0 ? GRIOT_BEATS[activeBeatIndex] : null;
+  const activeImage = activeBeatIndex >= 0 ? getIntroImage(activeBeatIndex) : null;
 
   return (
     <motion.div
@@ -231,6 +290,12 @@ export default function GriotIntro({
         src="/audio/griot-ready.wav"
         preload="auto"
       />
+      <audio
+        ref={ambientAudioRef}
+        src="/audio/nature.wav"
+        preload="auto"
+        loop
+      />
 
       {/* Ambient gradient — CSS animated */}
       <div
@@ -240,6 +305,26 @@ export default function GriotIntro({
             "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
         }}
       />
+
+      {/* Atmospheric background image during playing phase */}
+      <AnimatePresence mode="wait">
+        {phase === "playing" && activeImage && (
+          <motion.div
+            key={activeImage}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.25 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2, ease: "easeInOut" }}
+            className="absolute inset-0 z-0 overflow-hidden"
+          >
+            <img
+              src={activeImage}
+              alt=""
+              className="w-full h-full object-cover griot-ken-burns"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <GoldParticles count={50} />
 
@@ -339,7 +424,7 @@ export default function GriotIntro({
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  Sankofa is reaching back…
+                  Sankofa is reaching back\u2026
                 </motion.p>
 
                 {/* Thinking/progress message */}
@@ -519,7 +604,7 @@ export default function GriotIntro({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 1.4 }}
-              onClick={onComplete}
+              onClick={handleBegin}
               className="mt-10 px-10 py-4 bg-[var(--gold)] text-[var(--night)] font-[family-name:var(--font-display)] text-lg tracking-[0.1em] uppercase hover:bg-[var(--ochre)] transition-colors cursor-pointer"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
