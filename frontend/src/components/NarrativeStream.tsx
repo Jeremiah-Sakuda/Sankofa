@@ -29,6 +29,8 @@ interface Props {
   region?: string;
   era?: string;
   arcOutline?: ArcOutline | null;
+  /** Gate narration and ambient audio behind user action (e.g. "Begin" click). */
+  autoPlay?: boolean;
   onFollowUp?: (question: string) => void;
   onTalkToGriot?: () => void;
   onRetry?: () => void;
@@ -165,6 +167,7 @@ export default function NarrativeStream({
   followUpThinking,
   progressStep,
   arcOutline,
+  autoPlay = true,
   onFollowUp,
   onTalkToGriot,
   onRetry,
@@ -195,17 +198,17 @@ export default function NarrativeStream({
   }, [segments]);
 
   const currentAmbientTrack = useMemo(() => {
-    if (!arcOutline) return null;
+    if (!arcOutline) return "fire.wav"; // default to fire until arc arrives
     const actKey = currentAct === 1 ? "act1_setting" : currentAct === 2 ? "act2_people" : "act3_thread";
     // @ts-ignore
-    return arcOutline[actKey]?.ambient_track || null;
+    return arcOutline[actKey]?.ambient_track || "fire.wav";
   }, [arcOutline, currentAct]);
 
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
   const ambientTargetVolume = 0.15;
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Crossfade ambient audio when track changes
+  // Crossfade ambient audio when track changes or autoPlay becomes true
   useEffect(() => {
     const audio = ambientAudioRef.current;
     if (!audio) return;
@@ -215,6 +218,9 @@ export default function NarrativeStream({
       clearInterval(fadeTimerRef.current);
       fadeTimerRef.current = null;
     }
+
+    // Don't play ambient until user has clicked Begin
+    if (!autoPlay) return;
 
     if (!currentAmbientTrack) {
       // Fade out and pause
@@ -259,10 +265,20 @@ export default function NarrativeStream({
         }
       }, 50);
     } else if (needsSwitch) {
-      // First load — just set and play
+      // First load — fade in from 0 for smooth transition from intro
       audio.src = newSrc;
-      audio.volume = ambientMuted ? 0 : ambientTargetVolume;
+      audio.volume = 0;
       audio.play().catch(() => {});
+      fadeTimerRef.current = setInterval(() => {
+        const target = ambientMuted ? 0 : ambientTargetVolume;
+        if (audio.volume < target - 0.01) {
+          audio.volume = Math.min(target, audio.volume + 0.01);
+        } else {
+          audio.volume = target;
+          if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+          fadeTimerRef.current = null;
+        }
+      }, 50);
     }
 
     return () => {
@@ -271,7 +287,7 @@ export default function NarrativeStream({
         fadeTimerRef.current = null;
       }
     };
-  }, [currentAmbientTrack]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentAmbientTrack, autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle mute/unmute
   useEffect(() => {
@@ -609,7 +625,7 @@ export default function NarrativeStream({
             onPlayStateChange={handlePlayStateChange}
             onDurationChange={handleDurationChange}
             onTalkToGriot={onTalkToGriot}
-            autoPlay
+            autoPlay={autoPlay}
           />
         )}
       </AnimatePresence>
