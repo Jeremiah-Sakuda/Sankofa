@@ -217,6 +217,7 @@ export default function NarrativePage() {
             region={sessionInfo?.region_of_origin}
             era={sessionInfo?.time_period}
             arcOutline={arcOutline}
+            autoPlay={userDismissedIntro}
             onFollowUp={handleFollowUp}
             onTalkToGriot={() => setShowLiveGriot(true)}
             onRetry={() => {

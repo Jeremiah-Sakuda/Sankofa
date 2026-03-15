@@ -179,6 +179,16 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
     }
   }, [tracks.length, currentIndex, hasUserPaused, autoPlay]);
 
+  // Start playback when autoPlay transitions to true and audio is ready
+  const prevAutoPlayRef = useRef(autoPlay);
+  useEffect(() => {
+    const wasOff = !prevAutoPlayRef.current;
+    prevAutoPlayRef.current = autoPlay;
+    if (wasOff && autoPlay && !hasUserPaused && src && audioRef.current) {
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  }, [autoPlay, hasUserPaused, src]);
+
   // When src changes (track change), reset state
   useEffect(() => {
     setProgress(0);

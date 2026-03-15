@@ -102,34 +102,66 @@ def generate_wind():
 
 
 def generate_fire():
-    """Brownian noise base + random crackle pops (campfire/hearth)."""
+    """Warm campfire with prominent crackle pops and soft low rumble."""
     t = np.linspace(0, DURATION, NUM_SAMPLES, endpoint=False)
 
-    base = brown_noise(NUM_SAMPLES)
-    base = lowpass_filter(base, 400)
+    # Subtle low rumble (replaces the old broad brown noise that sounded like static)
+    rumble = brown_noise(NUM_SAMPLES)
+    rumble = lowpass_filter(rumble, 120)  # much lower cutoff — just the warm low hum
+    breath = 0.5 + 0.5 * np.sin(2 * np.pi * 0.07 * t)
+    rumble *= breath * 0.25  # very quiet — just warmth
 
-    breath = 0.6 + 0.4 * np.sin(2 * np.pi * 0.1 * t)
-    base *= breath
-
-    # Crackle layer
+    # Crackle layer — many more pops, louder, more varied
     crackle = np.zeros(NUM_SAMPLES)
     np.random.seed(42)
-    crackle_positions = np.random.randint(0, NUM_SAMPLES - 500, 200)
-    for pos in crackle_positions:
-        length = np.random.randint(50, 400)
-        amplitude = np.random.uniform(0.3, 1.0)
+
+    # Dense small crackles (the continuous texture)
+    small_positions = np.random.randint(0, NUM_SAMPLES - 600, 600)
+    for pos in small_positions:
+        length = np.random.randint(30, 200)
+        amplitude = np.random.uniform(0.2, 0.7)
         c = np.random.randn(length) * amplitude
-        env = np.exp(-np.linspace(0, 8, length))
+        env = np.exp(-np.linspace(0, 10, length))
         c *= env
         end = min(pos + length, NUM_SAMPLES)
         actual = end - pos
         crackle[pos:end] += c[:actual]
 
-    crackle = bandpass_filter(crackle, 500, 6000) * 0.5
+    # Medium pops
+    med_positions = np.random.randint(0, NUM_SAMPLES - 800, 150)
+    for pos in med_positions:
+        length = np.random.randint(150, 500)
+        amplitude = np.random.uniform(0.5, 1.0)
+        c = np.random.randn(length) * amplitude
+        env = np.exp(-np.linspace(0, 6, length))
+        c *= env
+        end = min(pos + length, NUM_SAMPLES)
+        actual = end - pos
+        crackle[pos:end] += c[:actual]
 
-    signal = base * 0.7 + crackle
+    # Large occasional snaps
+    snap_positions = np.random.randint(0, NUM_SAMPLES - 1000, 30)
+    for pos in snap_positions:
+        length = np.random.randint(400, 900)
+        amplitude = np.random.uniform(0.8, 1.5)
+        c = np.random.randn(length) * amplitude
+        env = np.exp(-np.linspace(0, 4, length))
+        c *= env
+        end = min(pos + length, NUM_SAMPLES)
+        actual = end - pos
+        crackle[pos:end] += c[:actual]
+
+    crackle = bandpass_filter(crackle, 300, 8000) * 0.7
+
+    # Warm mid-range hiss (very gentle fire roar)
+    hiss = pink_noise(NUM_SAMPLES)
+    hiss = bandpass_filter(hiss, 150, 600) * 0.1
+    hiss_mod = 0.4 + 0.6 * np.sin(2 * np.pi * 0.05 * t)
+    hiss *= hiss_mod
+
+    signal = rumble + crackle + hiss
     signal = apply_loop_crossfade(signal)
-    return normalize_and_convert(signal, volume=0.25)
+    return normalize_and_convert(signal, volume=0.3)
 
 
 def generate_nature():

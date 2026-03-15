@@ -204,11 +204,21 @@ export default function GriotIntro({
     }
   }, [isStoryReady, fadeOutAmbient]);
 
-  /** Stop all audio before revealing the narrative. */
+  /** Fade out intro ambient and stop narration before revealing the narrative. */
   const handleBegin = useCallback(() => {
-    stopAllAudio();
+    introAudioRef.current?.pause();
+    readyAudioRef.current?.pause();
+    fadeOutAmbient(); // smooth fade — NarrativeStream takes over ambient
     onComplete();
-  }, [onComplete, stopAllAudio]);
+  }, [onComplete, fadeOutAmbient]);
+
+  /** Retry: clear stuck message and local state before calling parent retry. */
+  const handleRetry = useCallback(() => {
+    setShowStuckMessage(false);
+    setConnectionTest("idle");
+    setConnectionMessage(null);
+    onRetry();
+  }, [onRetry]);
 
   const handleTestConnection = useCallback(async () => {
     setConnectionTest("checking");
@@ -229,8 +239,7 @@ export default function GriotIntro({
     }
   }, []);
 
-  // Auto-play ambient immediately, delay griot voiceover by 3s so the
-  // fire crackling has a moment alone before the narration begins.
+  // Auto-play ambient fire and griot voiceover simultaneously on mount.
   useEffect(() => {
     const audio = introAudioRef.current;
     const ambient = ambientAudioRef.current;
@@ -238,15 +247,12 @@ export default function GriotIntro({
       ambient.volume = 0.15;
       ambient.play().catch(() => {});
     }
-    const voiceDelay = setTimeout(() => {
-      if (audio && phase === "playing") {
-        audio.play().catch(() => {
-          handleSkipIntro();
-        });
-      }
-    }, 3000);
+    if (audio) {
+      audio.play().catch(() => {
+        handleSkipIntro();
+      });
+    }
     return () => {
-      clearTimeout(voiceDelay);
       if (ambientFadeRef.current) {
         clearInterval(ambientFadeRef.current);
         ambientFadeRef.current = null;
@@ -378,7 +384,7 @@ export default function GriotIntro({
                 </p>
                 <button
                   type="button"
-                  onClick={onRetry}
+                  onClick={handleRetry}
                   className="mt-8 px-8 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
                 >
                   Try again
@@ -391,7 +397,7 @@ export default function GriotIntro({
                   animate={{ opacity: [0.5, 1, 0.5] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  Sankofa is reaching back\u2026
+                  Sankofa is reaching back…
                 </motion.p>
 
                 {/* Thinking/progress message */}
@@ -495,7 +501,7 @@ export default function GriotIntro({
                     </p>
                     <button
                       type="button"
-                      onClick={onRetry}
+                      onClick={handleRetry}
                       className="mt-4 px-6 py-2 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer"
                     >
                       Try again
