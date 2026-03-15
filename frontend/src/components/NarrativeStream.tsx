@@ -620,7 +620,7 @@ export default function NarrativeStream({
           ref={ambientAudioRef}
           src={`/audio/${currentAmbientTrack}`}
           loop
-          autoPlay
+          preload="none"
         />
       )}
 

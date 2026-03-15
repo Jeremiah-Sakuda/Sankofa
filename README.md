@@ -25,7 +25,7 @@ A user provides a few seeds: a family surname, a country or region, a time perio
   - **Glassmorphism dock** — When a narrative is visible, the voice panel slides up as a frosted-glass bottom dock (`backdrop-blur-xl`), keeping the story and images visible behind it
   - **Ambient full-screen** — When no narrative exists yet, a warm radial gradient with floating gold particles and an optional Ken Burns background image replaces the old dark overlay
 - **Voice input** — Speak your follow-up questions using the mic button (Web Speech API) — no typing required
-- **Ambient background audio** — Each act plays a soft ambient soundscape that crossfades between acts, with a mute toggle. Five 30-second loopable tracks are selected contextually by the arc planner: `wind.wav` (landscape, open air), `fire.wav` (hearth, campfire), `nature.wav` (forest, water, wildlife), `market.wav` (community, bustle), `drums.wav` (rhythm, ceremony)
+- **Ambient background audio** — Each act plays a soft ambient soundscape that crossfades between acts, with a mute toggle. Five 30-second loopable tracks (mono, 22kHz, ~1.3MB each) are selected contextually by the arc planner: `wind.wav` (landscape, open air), `fire.wav` (hearth, campfire), `nature.wav` (forest, water, wildlife), `market.wav` (community, bustle), `drums.wav` (rhythm, ceremony). Files are lazy-loaded (`preload="none"`) to avoid competing with page resources
 - **ADK-orchestrated generation** — The Gemini ADK agent actively decides tool order, validates the arc, and adapts on the fly (with a direct-pipeline fallback via `use_adk=false`)
 
 ### Experience & Immersion
