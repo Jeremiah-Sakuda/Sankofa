@@ -114,11 +114,11 @@ export default function NarrativePage() {
 
   const allSegments = [...segments, ...followUpSegments];
 
-  // Reveal narrative as soon as the first text segment arrives.
-  // Audio plays when TTS completes (narration bar handles late-arriving audio).
-  // This lets Act 1 appear immediately while Acts 2-3 still generate.
+  // Don't reveal narrative until ready: need at least 1 text segment,
+  // and (if audio enabled) at least 1 audio segment
   const hasTextSegment = segments.some((s) => s.type === "text");
-  const isReadyToShow = hasTextSegment;
+  const hasAudioSegment = segments.some((s) => s.type === "audio");
+  const isReadyToShow = hasTextSegment && (!enableAudio || hasAudioSegment);
 
   // Rotate fun facts every 8 seconds during loading
   useEffect(() => {
