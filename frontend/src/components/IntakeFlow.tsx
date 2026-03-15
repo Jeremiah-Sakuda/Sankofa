@@ -57,7 +57,6 @@ export default function IntakeFlow() {
   const [inputValue, setInputValue] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [enableAudio, setEnableAudio] = useState(true);
 
   const step = STEPS[currentStep];
   const progress = (currentStep + 1) / STEPS.length;
@@ -92,7 +91,7 @@ export default function IntakeFlow() {
           specific_interests: newAnswers.specific_interests || undefined,
         };
         const { session_id } = await createSession(userInput);
-        router.push(`/narrative/${session_id}?audio=${enableAudio ? "1" : "0"}`);
+        router.push(`/narrative/${session_id}`);
       } catch (e) {
         setError("Failed to begin your journey. Please try again.");
         setIsSubmitting(false);
@@ -142,16 +141,6 @@ export default function IntakeFlow() {
           >
             Preparing your narrative…
           </motion.p>
-
-          <label className="mt-8 flex items-center gap-3 font-[family-name:var(--font-body)] text-[var(--ivory)] cursor-pointer">
-            <input
-              type="checkbox"
-              checked={enableAudio}
-              onChange={(e) => setEnableAudio(e.target.checked)}
-              className="w-4 h-4 accent-[var(--gold)]"
-            />
-            Include audio narration
-          </label>
         </div>
       </motion.div>
     );
