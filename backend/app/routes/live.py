@@ -28,6 +28,9 @@ from google.genai.types import (
 from app.services.adk_agent import sankofa_live_agent
 from app.store import session_store
 
+# Context window limit for prompt truncation (characters)
+_CTX_EXISTING_NARRATIVE = 3000
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["live"])
 
@@ -107,7 +110,7 @@ async def live_griot(websocket: WebSocket, session_id: str):
     if existing_narrative:
         context_primer += (
             f"You have already told this narrative:\n"
-            f"{existing_narrative[:3000]}\n\n"
+            f"{existing_narrative[:_CTX_EXISTING_NARRATIVE]}\n\n"
         )
     context_primer += (
         "Speak warmly and conversationally. Keep responses concise (2-3 sentences) "
