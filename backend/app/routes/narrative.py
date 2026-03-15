@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -42,13 +43,18 @@ async def stream_narrative(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if session.is_generating:
+    if session.is_generating and not session.is_generating_stale:
         raise HTTPException(status_code=409, detail="Narrative already generating")
+    if session.is_generating_stale:
+        logger.warning("[stream] Clearing stale is_generating flag for session %s", str(session_id))
+        session.is_generating = False
+        session_store.update(session)
 
     # --- ADK-orchestrated path ---
     if use_adk:
         async def adk_event_generator():
             session.is_generating = True
+            session.generating_started_at = time.time()
             session_store.update(session)
             try:
                 logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
@@ -75,6 +81,7 @@ async def stream_narrative(
 
     async def event_generator():
         session.is_generating = True
+        session.generating_started_at = time.time()
         session_store.update(session)
         queue = asyncio.Queue()
 

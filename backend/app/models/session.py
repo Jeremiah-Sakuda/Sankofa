@@ -1,7 +1,11 @@
+import time
 from dataclasses import dataclass, field
 from typing import Optional
 
 from app.models.schemas import NarrativeSegment, UserInput
+
+# If is_generating has been True for longer than this, treat it as stale
+_GENERATING_STALE_SECONDS = 300  # 5 minutes
 
 
 @dataclass
@@ -11,7 +15,15 @@ class Session:
     segments: list[NarrativeSegment] = field(default_factory=list)
     narrative_context: str = ""
     is_generating: bool = False
+    generating_started_at: float = 0.0
     arc_outline: Optional[dict] = None
+
+    @property
+    def is_generating_stale(self) -> bool:
+        """True if is_generating has been set for too long (stale lock)."""
+        if not self.is_generating:
+            return False
+        return (time.time() - self.generating_started_at) > _GENERATING_STALE_SECONDS
 
 
 class InMemorySessionStore:

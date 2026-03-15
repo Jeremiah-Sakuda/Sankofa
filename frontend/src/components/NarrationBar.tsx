@@ -35,19 +35,26 @@ function useBlobUrl(audioData: string | undefined, mediaType: string): string | 
       setSrc(null);
       return;
     }
-    try {
-      const binary = atob(trimmed);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: mime });
-      const url = URL.createObjectURL(blob);
-      if (revokeRef.current) URL.revokeObjectURL(revokeRef.current);
-      revokeRef.current = url;
-      setSrc(url);
-    } catch {
-      setSrc(null);
-    }
+    // Defer heavy base64 decode off the animation frame to avoid stutter
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      if (cancelled) return;
+      try {
+        const binary = atob(trimmed);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: mime });
+        const url = URL.createObjectURL(blob);
+        if (revokeRef.current) URL.revokeObjectURL(revokeRef.current);
+        revokeRef.current = url;
+        setSrc(url);
+      } catch {
+        setSrc(null);
+      }
+    });
     return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
       if (revokeRef.current) {
         URL.revokeObjectURL(revokeRef.current);
         revokeRef.current = null;
