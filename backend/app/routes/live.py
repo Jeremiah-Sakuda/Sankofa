@@ -127,6 +127,10 @@ async def live_griot(websocket: WebSocket, session_id: str):
 
     # Task to process events from the ADK agent and send to client
     async def _process_events():
+        # Track last-sent transcripts to deduplicate cumulative updates
+        last_in_transcript = ""
+        last_out_transcript = ""
+
         try:
             async for event in _live_runner.run_live(
                 user_id=session_id,
@@ -137,20 +141,32 @@ async def live_griot(websocket: WebSocket, session_id: str):
                 if not event.content or not event.content.parts:
                     # Check for transcriptions
                     if event.input_transcription:
-                        await websocket.send_json({
-                            "type": "transcript_in",
-                            "text": event.input_transcription.text
+                        text = (
+                            event.input_transcription.text
                             if hasattr(event.input_transcription, "text")
-                            else str(event.input_transcription),
-                        })
+                            else str(event.input_transcription)
+                        )
+                        if text and text != last_in_transcript:
+                            last_in_transcript = text
+                            await websocket.send_json({
+                                "type": "transcript_in",
+                                "text": text,
+                            })
                     if event.output_transcription:
-                        await websocket.send_json({
-                            "type": "transcript_out",
-                            "text": event.output_transcription.text
+                        text = (
+                            event.output_transcription.text
                             if hasattr(event.output_transcription, "text")
-                            else str(event.output_transcription),
-                        })
+                            else str(event.output_transcription)
+                        )
+                        if text and text != last_out_transcript:
+                            last_out_transcript = text
+                            await websocket.send_json({
+                                "type": "transcript_out",
+                                "text": text,
+                            })
                     if event.turn_complete:
+                        last_in_transcript = ""
+                        last_out_transcript = ""
                         await websocket.send_json({"type": "turn_complete"})
                     continue
 
@@ -178,14 +194,15 @@ async def live_griot(websocket: WebSocket, session_id: str):
                             "message": f"Looking up: {part.function_call.name}...",
                         })
 
-                # Check event-level transcriptions
+                # Check event-level transcriptions (deduplicated)
                 if hasattr(event, "input_transcription") and event.input_transcription:
                     text = (
                         event.input_transcription.text
                         if hasattr(event.input_transcription, "text")
                         else str(event.input_transcription)
                     )
-                    if text:
+                    if text and text != last_in_transcript:
+                        last_in_transcript = text
                         await websocket.send_json({"type": "transcript_in", "text": text})
 
                 # Prefer output_transcription (canonical); fall back to part.text
@@ -196,13 +213,15 @@ async def live_griot(websocket: WebSocket, session_id: str):
                         if hasattr(event.output_transcription, "text")
                         else str(event.output_transcription)
                     )
-                    if text:
+                    if text and text != last_out_transcript:
+                        last_out_transcript = text
                         await websocket.send_json({"type": "transcript_out", "text": text})
                         transcript_sent = True
 
                 if not transcript_sent and has_text_part:
                     for part in event.content.parts:
-                        if part.text:
+                        if part.text and part.text != last_out_transcript:
+                            last_out_transcript = part.text
                             await websocket.send_json({
                                 "type": "transcript_out",
                                 "text": part.text,
@@ -210,6 +229,8 @@ async def live_griot(websocket: WebSocket, session_id: str):
                             break
 
                 if event.turn_complete:
+                    last_in_transcript = ""
+                    last_out_transcript = ""
                     await websocket.send_json({"type": "turn_complete"})
 
         except WebSocketDisconnect:
