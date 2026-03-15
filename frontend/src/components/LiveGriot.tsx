@@ -142,7 +142,8 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
             setUserTranscript(msg.text || "");
           } else if (msg.type === "transcript_out") {
             setIsGriotSpeaking(true);
-            setGriotTranscript((prev) => (prev ? prev + " " : "") + (msg.text || ""));
+            // Replace (not append) — Gemini Live API sends cumulative transcriptions
+            setGriotTranscript(msg.text || "");
           } else if (msg.type === "tool_call") {
             setToolMessage(msg.message || null);
           } else if (msg.type === "turn_complete") {
@@ -179,6 +180,11 @@ export default function LiveGriot({ sessionId, onClose, hasNarrative = false, la
   const playAudioChunk = useCallback((b64Data: string, mimeType: string) => {
     const audioCtx = audioContextRef.current;
     if (!audioCtx) return;
+
+    // Resume AudioContext if suspended (browsers require user gesture)
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
 
     try {
       const raw = atob(b64Data);

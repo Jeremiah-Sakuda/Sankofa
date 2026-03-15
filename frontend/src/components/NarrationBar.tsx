@@ -68,6 +68,7 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
   const [hasUserPaused, setHasUserPaused] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const autoPlayedRef = useRef<Set<string>>(new Set());
+  const stalledAtEndRef = useRef(false);
 
   const currentTrack = tracks[currentIndex] ?? null;
   const src = useBlobUrl(currentTrack?.audioData, currentTrack?.mediaType ?? "audio/wav");
@@ -115,8 +116,12 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
       setProgress(0);
       // Auto-advance to next track
       if (currentIndex < tracks.length - 1) {
+        stalledAtEndRef.current = false;
         setCurrentIndex((i) => i + 1);
         setHasUserPaused(false);
+      } else {
+        // No more tracks yet — mark as stalled so we resume when new tracks arrive
+        stalledAtEndRef.current = true;
       }
     };
     const onError = () => setLoadError(true);
@@ -156,15 +161,16 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
   // (e.g. Act 1 finished but Act 2 TTS hadn't arrived yet)
   useEffect(() => {
     if (
-      !isPlaying &&
+      stalledAtEndRef.current &&
       !hasUserPaused &&
       autoPlay &&
       tracks.length > 0 &&
       currentIndex < tracks.length - 1
     ) {
+      stalledAtEndRef.current = false;
       setCurrentIndex((i) => i + 1);
     }
-  }, [tracks.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tracks.length, currentIndex, hasUserPaused, autoPlay]);
 
   // When src changes (track change), reset state
   useEffect(() => {

@@ -14,6 +14,30 @@ import GoldParticles from "../../../components/GoldParticles";
 
 const STUCK_TIMEOUT_MS = 90_000; // show "taking longer" after 90s with no segments
 
+/** Heritage fun facts shown on the loading screen to keep users engaged. */
+const HERITAGE_FACTS = [
+  "The Akan word \"Sankofa\" literally means \"go back and get it\" — wisdom is never left behind.",
+  "West African griots are living libraries — some can recite genealogies spanning 800 years.",
+  "The Djembe drum was originally carved from a single piece of lenke wood and goatskin.",
+  "Timbuktu's Sankore University had the largest library in Africa by the 14th century, with over 700,000 manuscripts.",
+  "The Kingdom of Ghana (not modern Ghana) flourished from the 6th to 13th century as the \"Land of Gold.\"",
+  "Kente cloth patterns each carry specific meanings — \"Sika Futuro\" (gold dust) represents wealth and royalty.",
+  "The Yoruba people have one of the world's highest rates of twin births — twins are considered sacred.",
+  "Ancient Benin City had walls four times longer than the Great Wall of China before the British invasion of 1897.",
+  "The Haitian Revolution (1791–1804) was the only successful large-scale slave revolt in history.",
+  "Caribbean Junkanoo festivals preserve West African masquerade traditions brought across the Atlantic.",
+  "The Adinkra symbol \"Gye Nyame\" — meaning \"except for God\" — represents the omnipotence of the divine.",
+  "Mansa Musa of Mali gave away so much gold during his 1324 pilgrimage that he crashed the Egyptian economy.",
+  "The Swahili coast traded with China, India, and Persia as early as the 1st century CE.",
+  "Oral storytelling traditions across Africa use call-and-response to keep listeners engaged across generations.",
+  "The baobab tree, called the \"Tree of Life,\" can store up to 32,000 gallons of water in its trunk.",
+  "The Great Zimbabwe ruins were built without mortar — the stones fit together with remarkable precision.",
+  "Anansi the spider, a West African trickster figure, traveled with enslaved people to become a Caribbean folk hero.",
+  "Indigo dyeing in West Africa dates back over 1,000 years — the Tuareg are called \"Blue People\" for their dyed robes.",
+  "The Ashanti Golden Stool is believed to house the spirit of the entire Ashanti nation.",
+  "Trinidad's steelpan is the only acoustic musical instrument invented in the 20th century.",
+];
+
 export default function NarrativePage() {
   const params = useParams();
   const sessionId = params.sessionId as string;
@@ -34,6 +58,7 @@ export default function NarrativePage() {
   const [sessionInvalid, setSessionInvalid] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [showLiveGriot, setShowLiveGriot] = useState(false);
+  const [funFactIndex, setFunFactIndex] = useState(() => Math.floor(Math.random() * HERITAGE_FACTS.length));
 
   useEffect(() => {
     if (!sessionId) return;
@@ -73,6 +98,21 @@ export default function NarrativePage() {
 
   const allSegments = [...segments, ...followUpSegments];
 
+  // Don't reveal narrative until ready: need at least 1 text segment,
+  // and (if audio enabled) at least 1 audio segment
+  const hasTextSegment = segments.some((s) => s.type === "text");
+  const hasAudioSegment = segments.some((s) => s.type === "audio");
+  const isReadyToShow = hasTextSegment && (!enableAudio || hasAudioSegment);
+
+  // Rotate fun facts every 8 seconds during loading
+  useEffect(() => {
+    if (!hasStarted || isReadyToShow) return;
+    const interval = setInterval(() => {
+      setFunFactIndex((prev) => (prev + 1) % HERITAGE_FACTS.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [hasStarted, isReadyToShow]);
+
   const latestImageSrc = useMemo(() => {
     const imgs = allSegments.filter(s => s.type === "image" && s.media_data);
     if (imgs.length === 0) return null;
@@ -82,7 +122,7 @@ export default function NarrativePage() {
 
   // If we're waiting for the first segment for too long, show "taking longer" + retry
   useEffect(() => {
-    if (hasStarted && allSegments.length === 0 && !error) {
+    if (hasStarted && !isReadyToShow && !error) {
       setShowStuckMessage(false);
       stuckTimerRef.current = setTimeout(() => {
         setShowStuckMessage(true);
@@ -100,7 +140,7 @@ export default function NarrativePage() {
         stuckTimerRef.current = null;
       }
     };
-  }, [hasStarted, allSegments.length, error]);
+  }, [hasStarted, isReadyToShow, error]);
 
   // Show elapsed seconds while on planning_arc or generating_narrative
   useEffect(() => {
@@ -228,7 +268,7 @@ export default function NarrativePage() {
 
       {/* Pre-start: audio option + Begin. Or loading overlay. */}
       <AnimatePresence>
-        {allSegments.length === 0 && (
+        {!isReadyToShow && (
           <motion.div
             key="loader"
             initial={{ opacity: 1 }}
@@ -404,6 +444,25 @@ export default function NarrativePage() {
                   )}
                 </AnimatePresence>
 
+                {/* Rotating heritage fun facts */}
+                <div className="mt-10 max-w-sm text-center">
+                  <p className="font-[family-name:var(--font-body)] text-[10px] text-[var(--gold)]/50 uppercase tracking-[0.2em] mb-2">
+                    Did you know?
+                  </p>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={funFactIndex}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] italic leading-relaxed"
+                    >
+                      {HERITAGE_FACTS[funFactIndex]}
+                    </motion.p>
+                  </AnimatePresence>
+                </div>
+
                 {showStuckMessage && (
                   <div className="mt-8 text-center">
                     <p className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] max-w-sm">
@@ -436,8 +495,8 @@ export default function NarrativePage() {
         className="relative z-10 mx-auto w-full max-w-[min(1280px,94vw)] min-h-screen px-3 sm:px-4"
         initial={{ opacity: 0, y: 30 }}
         animate={{
-          opacity: allSegments.length > 0 ? 1 : 0,
-          y: allSegments.length > 0 ? 0 : 30,
+          opacity: isReadyToShow ? 1 : 0,
+          y: isReadyToShow ? 0 : 30,
         }}
         transition={{ duration: 0.8, delay: 0.2 }}
       >

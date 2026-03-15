@@ -32,7 +32,8 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 
 The frontend is built for a **cinematic, fluid** reading experience rather than a static page:
 
-- **Progressive streaming** — The narrative arc (act titles) is sent as soon as it’s planned, so users see chapter teasers while the full story is still generating. Segments stream in with staggered timing (longer pauses after images) for a natural reveal.
+- **Progressive streaming** — The narrative arc (act titles) is sent as soon as it's planned, so users see chapter teasers while the full story is still generating. The loading screen holds until both text and audio are ready (when audio is enabled), so the narrative reveals fully formed rather than piece-by-piece. Rotating heritage fun facts keep users engaged during generation.
+- **Heritage fun facts** — During the loading screen, rotating "Did you know?" facts about African history, diaspora culture, and oral traditions cycle every 8 seconds, keeping users engaged while the narrative generates.
 - **Word-by-word text reveal** — New narrative text animates in word-by-word with a staggered fade, evoking the cadence of a griot speaking. The effect runs only on first appearance.
 - **Cinematic image reveals** — Images enter with a soft blur-to-sharp transition; hero images get a warm vignette and a sepia-to-full-color reveal. A subtle golden shimmer fades away as the image materializes.
 - **Act transitions** — Between acts, a full-width divider shows the Sankofa bird, act numeral, and title (from the arc outline), with floating gold particles and an expanding gold line.
