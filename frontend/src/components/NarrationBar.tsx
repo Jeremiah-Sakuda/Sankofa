@@ -152,6 +152,20 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
     };
   }, [src, autoPlay, hasUserPaused, currentIndex, tracks.length, onDurationChange]);
 
+  // Resume playback when new tracks arrive after a stall
+  // (e.g. Act 1 finished but Act 2 TTS hadn't arrived yet)
+  useEffect(() => {
+    if (
+      !isPlaying &&
+      !hasUserPaused &&
+      autoPlay &&
+      tracks.length > 0 &&
+      currentIndex < tracks.length - 1
+    ) {
+      setCurrentIndex((i) => i + 1);
+    }
+  }, [tracks.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // When src changes (track change), reset state
   useEffect(() => {
     setProgress(0);
