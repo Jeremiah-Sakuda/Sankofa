@@ -123,16 +123,15 @@ export default function IntakeFlow() {
         transition={{ duration: 0.6 }}
         className="fixed inset-0 flex min-h-screen flex-col items-center justify-center px-6 bg-[var(--night)] overflow-hidden"
       >
-        {/* Warm radial gradient */}
+        {/* Warm radial gradient — CSS-animated for GPU compositing */}
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 animate-gradient-breathe"
           style={{
             background:
               "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
-            opacity: 0.4,
           }}
         />
-        <GoldParticles count={35} />
+        <GoldParticles count={50} />
 
         <div className="relative z-10 flex flex-col items-center">
           <SankofaBird className="w-24 h-24 text-[var(--gold)] animate-slow-rotate" />

@@ -292,43 +292,18 @@ export default function NarrativePage() {
             transition={{ duration: 0.8 }}
             className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[var(--night)] overflow-hidden px-6"
           >
-            {/* Ambient gradient drift */}
-            <motion.div
-              className="absolute inset-0"
-              animate={{
-                background: [
+            {/* Ambient gradient — CSS-animated for GPU compositing */}
+            <div
+              className="absolute inset-0 animate-gradient-breathe"
+              style={{
+                background:
                   "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
-                  "radial-gradient(ellipse at 45% 40%, #1c1210 0%, var(--night) 70%)",
-                  "radial-gradient(ellipse at 55% 35%, #1a1520 0%, var(--night) 70%)",
-                ],
               }}
-              transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-              style={{ opacity: 0.4 }}
             />
 
-            <GoldParticles count={35} />
+            <GoldParticles count={50} />
 
-            {/* Breathing bird with pulse rings */}
-            <div className="relative flex items-center justify-center">
-              {/* Concentric pulse rings */}
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  className="absolute w-24 h-24 rounded-full border border-[var(--gold)]/20"
-                  animate={{ scale: [1, 2.5], opacity: [0.4, 0] }}
-                  transition={{ duration: 3, delay: i * 1, repeat: Infinity, ease: "easeOut" }}
-                />
-              ))}
-              <motion.div
-                animate={{ scale: [1, 1.06, 1], rotate: 360 }}
-                transition={{
-                  scale: { duration: 4, repeat: Infinity, ease: "easeInOut" },
-                  rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                }}
-              >
-                <SankofaBird className="w-24 h-24 text-[var(--gold)]" />
-              </motion.div>
-            </div>
+            <SankofaBird className="w-24 h-24 text-[var(--gold)] animate-slow-rotate" />
 
             {sessionInvalid ? (
               <>
