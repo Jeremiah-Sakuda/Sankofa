@@ -4,6 +4,8 @@ Assembles grounding context from the cultural knowledge base.
 """
 
 from app.knowledge.caribbean import REGIONS as CARIB_REGIONS
+from app.knowledge.east_africa import GENERAL_EAST_AFRICA
+from app.knowledge.east_africa import REGIONS as EA_REGIONS
 from app.knowledge.south_asia import REGIONS as SA_REGIONS
 from app.knowledge.west_africa import (
     GENERAL_WEST_AFRICA,
@@ -24,6 +26,34 @@ CARIBBEAN_KEYWORDS = {
     "caribbean": "jamaica",
 }
 
+EAST_AFRICA_KEYWORDS = {
+    "kenya": "kenya",
+    "kenyan": "kenya",
+    "kikuyu": "kenya",
+    "luo": "kenya",
+    "maasai": "kenya",
+    "mombasa": "kenya",
+    "nairobi": "kenya",
+    "tanzania": "tanzania",
+    "tanzanian": "tanzania",
+    "tanganyika": "tanzania",
+    "zanzibar": "tanzania",
+    "swahili": "tanzania",
+    "nyerere": "tanzania",
+    "kilimanjaro": "tanzania",
+    "ethiopia": "ethiopia",
+    "ethiopian": "ethiopia",
+    "amhara": "ethiopia",
+    "oromo": "ethiopia",
+    "tigray": "ethiopia",
+    "haile selassie": "ethiopia",
+    "addis ababa": "ethiopia",
+    "rastafari": "ethiopia",
+    "abyssinia": "ethiopia",
+    "east africa": "kenya",
+    "east african": "kenya",
+}
+
 SOUTH_ASIA_KEYWORDS = {
     "punjab": "india_punjab",
     "punjabi": "india_punjab",
@@ -35,6 +65,23 @@ SOUTH_ASIA_KEYWORDS = {
     "kolkata": "india_bengal",
 }
 
+# Map region keys to their general context dicts (if available)
+_REGION_GENERAL_CONTEXT = {}
+for _key in ("ghana", "nigeria", "senegambia", "dahomey", "sierra_leone"):
+    _REGION_GENERAL_CONTEXT[_key] = GENERAL_WEST_AFRICA
+for _key in ("kenya", "tanzania", "ethiopia"):
+    _REGION_GENERAL_CONTEXT[_key] = GENERAL_EAST_AFRICA
+
+
+def _get_general_context(region_data: dict) -> dict | None:
+    """Return the general context dict for a matched region, or None."""
+    region_group = region_data.get("_region_group")
+    if region_group == "west_africa":
+        return GENERAL_WEST_AFRICA
+    if region_group == "east_africa":
+        return GENERAL_EAST_AFRICA
+    return None
+
 
 def _find_region(query: str) -> dict | None:
     """Search all knowledge bases for matching region."""
@@ -43,7 +90,16 @@ def _find_region(query: str) -> dict | None:
     # Try West Africa first
     wa = wa_get_region(q)
     if wa:
+        wa["_region_group"] = "west_africa"
         return wa
+
+    # Try East Africa
+    for keyword, key in EAST_AFRICA_KEYWORDS.items():
+        if keyword in q:
+            region = EA_REGIONS.get(key)
+            if region:
+                region["_region_group"] = "east_africa"
+                return region
 
     # Try Caribbean
     for keyword, key in CARIBBEAN_KEYWORDS.items():
@@ -85,8 +141,10 @@ def build_grounding_context(user_input: UserInput) -> str:
         context_parts.append(f"Daily life: {decade_data.get('daily_life', '')}")
         context_parts.append(f"Cultural practices: {decade_data.get('cultural_practices', '')}")
 
-    context_parts.append("\n=== BROADER CONTEXT ===")
-    context_parts.append(f"Shared cultural elements: {'; '.join(GENERAL_WEST_AFRICA['shared_cultural_elements'])}")
+    general = _get_general_context(region_data)
+    if general:
+        context_parts.append("\n=== BROADER CONTEXT ===")
+        context_parts.append(f"Shared cultural elements: {'; '.join(general['shared_cultural_elements'])}")
 
     if user_input.known_fragments:
         context_parts.append("\n=== USER-PROVIDED FRAGMENTS ===")

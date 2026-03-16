@@ -132,6 +132,7 @@ flowchart TB
 
 ### Deep Coverage (detailed decade-by-decade data)
 - **West Africa:** Ghana (Gold Coast), Nigeria (Yorubaland), Senegambia, Dahomey (Benin), Sierra Leone
+- **East Africa:** Kenya, Tanzania (including Zanzibar), Ethiopia
 - **Caribbean:** Jamaica, Haiti, Trinidad and Tobago
 - **South Asia:** Punjab (India/Pakistan), Bengal (India/Bangladesh)
 
