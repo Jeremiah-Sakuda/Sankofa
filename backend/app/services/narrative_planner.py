@@ -16,7 +16,7 @@ from app.services.trust_classifier import apply_trust_tags
 
 logger = logging.getLogger(__name__)
 
-_VALID_AMBIENT_TRACKS = {"fire.wav", "wind.wav", "nature.wav", "market.wav", "drums.wav"}
+_VALID_AMBIENT_TRACKS = {"fire.wav", "wind.wav", "nature.wav", "market.wav", "drums.wav", "rain.wav", "ocean.wav", "river.wav", "crickets.wav", "village.wav"}
 _DEFAULT_AMBIENT = {"act1_setting": "wind.wav", "act2_people": "market.wav", "act3_thread": "drums.wav"}
 
 
@@ -96,21 +96,21 @@ Output a JSON object with this exact structure:
     "focus": "What specific aspect of the landscape/environment to describe",
     "image_prompt": "A detailed prompt for a watercolor-style landscape image",
     "key_facts": ["2-3 historical facts to weave in"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony)"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
   }},
   "act2_people": {{
     "title": "A short evocative title for the people section",
     "focus": "What aspect of daily life/culture to center",
     "image_prompt": "A detailed prompt for a portrait-style image of people",
     "key_facts": ["2-3 cultural/historical facts to weave in"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony)"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
   }},
   "act3_thread": {{
     "title": "A short evocative title for the connection section",
     "focus": "What thread connects past to present",
     "image_prompt": "A detailed prompt for an image bridging past and present",
     "key_facts": ["2-3 facts about diaspora/migration/cultural survival"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony)"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.wav (rhythm, ceremony), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
   }},
   "tone": "The specific emotional register (e.g., 'reverent and warm', 'bittersweet but hopeful')",
   "narrative_voice": "How the griot narrator should speak to this specific listener"

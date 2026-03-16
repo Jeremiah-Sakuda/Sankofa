@@ -83,7 +83,7 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
   const waveformBars = useMemo(
     () =>
       Array.from({ length: 24 }, (_, i) => ({
-        height: [3, 6 + (i * 7) % 14, 3],
+        scaleY: [1, (6 + (i * 7) % 14) / 3, 1],
         duration: 0.35 + (i % 6) * 0.06,
         delay: i * 0.035,
         opacity: 0.4 + (i % 5) * 0.1,
@@ -365,8 +365,8 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
               aria-valuemax={100}
             >
               <div
-                className="absolute inset-y-0 left-0 bg-[var(--gold)] rounded-full transition-[width] duration-100"
-                style={{ width: `${progress * 100}%` }}
+                className="absolute inset-y-0 left-0 right-0 bg-[var(--gold)] rounded-full"
+                style={{ transform: `scaleX(${progress})`, transformOrigin: "left", willChange: "transform" }}
               />
               <div
                 className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-[var(--gold)] opacity-0 group-hover/seek:opacity-100 transition-opacity shadow-[0_0_6px_rgba(212,168,67,0.4)]"
@@ -390,12 +390,14 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
             {waveformBars.map((bar, i) => (
               <motion.div
                 key={i}
-                className="w-[2px] rounded-full"
+                className="w-[2px] h-[3px] rounded-full"
                 style={{
                   backgroundColor: isPlaying ? "var(--gold)" : "var(--muted)",
                   opacity: isPlaying ? bar.opacity : 0.2,
+                  transformOrigin: "center",
+                  willChange: "transform",
                 }}
-                animate={isPlaying ? { height: bar.height } : { height: 3 }}
+                animate={isPlaying ? { scaleY: bar.scaleY } : { scaleY: 1 }}
                 transition={
                   isPlaying
                     ? { duration: bar.duration, repeat: Infinity, delay: bar.delay }

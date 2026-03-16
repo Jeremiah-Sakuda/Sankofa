@@ -179,19 +179,19 @@ Output a JSON object with this structure:
     "title": "A short evocative title",
     "focus": "What aspect of landscape/environment to describe",
     "key_facts": ["2-3 historical facts to weave in"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection)"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
   },
   "act2_people": {
     "title": "A short evocative title",
     "focus": "What aspect of daily life/culture to center",
     "key_facts": ["2-3 cultural/historical facts"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection)"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
   },
   "act3_thread": {
     "title": "A short evocative title",
     "focus": "What thread connects past to present",
     "key_facts": ["2-3 facts about diaspora/cultural survival"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection)"
+    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire, warmth), nature.wav (forest, water, wildlife), market.wav (community, commerce, bustle), drums.wav (cultural rhythm, ceremony, connection), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
   },
   "tone": "The specific emotional register",
   "narrative_voice": "How the griot narrator should speak"

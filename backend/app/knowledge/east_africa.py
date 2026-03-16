@@ -19,7 +19,7 @@ REGIONS = {
                     "Large-scale alienation of Kikuyu and Maasai lands for white settler farms in the 'White Highlands'",
                 ],
                 "daily_life": "Kikuyu families farm millet, sweet potatoes, and beans on shamba plots in the Central Highlands. Maasai pastoralists move cattle across the Rift Valley following seasonal grazing. Swahili traders in Mombasa operate within centuries-old Indian Ocean commerce. The railway brings Indian laborers whose descendants form a permanent community.",
-                "cultural_practices": "Kikuyu age-set initiation (irua) marks the transition to adulthood. Maasai warriors (moran) undergo elaborate ceremonies — the eunoto graduation from junior to senior warrior. Swahili coastal culture blends African, Arab, and Persian traditions in architecture (coral stone houses), cuisine (pilau, biryani), and the taarab music tradition.",
+                "cultural_practices": "Kikuyu age-set initiation (irua) marks the transition to adulthood. Maasai warriors (moran) live in separate warrior villages (manyatta), enduring years of rigorous training in combat, endurance, and cattle herding. The alamal lenkaiyio — the collective lion hunt — is the supreme test of moran courage: a group of warriors tracks a lion across the savanna, encircles it with shields and spears, and the warrior who first spears the lion wins the mane headdress and lifelong honor. Swahili coastal culture blends African, Arab, and Persian traditions in architecture (coral stone houses), cuisine (pilau, biryani), and the taarab music tradition.",
             },
             "1910s": {
                 "events": [
@@ -38,7 +38,7 @@ REGIONS = {
                     "Forced labor and the kipande (identity pass) system tighten colonial control",
                 ],
                 "daily_life": "The kipande system requires African men to carry an identity document at all times — humiliating searches are routine. Squatter labor on settler farms grows. Mission schools offer education but demand cultural assimilation. Urban Nairobi develops an African quarter but under strict segregation.",
-                "cultural_practices": "Controversy over Kikuyu female initiation practices becomes a political flashpoint — missionaries demand abolition, the Kikuyu defend cultural sovereignty. Independent schools movement begins. Beadwork and body decoration mark Maasai social status and age-set membership.",
+                "cultural_practices": "Controversy over Kikuyu female initiation practices becomes a political flashpoint — missionaries demand abolition, the Kikuyu defend cultural sovereignty. Independent schools movement begins. Maasai beadwork tells a visual language — specific colors carry meaning: red for bravery and blood, blue for sky and water, green for the land, white for purity and health. Moran warriors wear distinctive red shúkà cloaks, ochre-painted hair braids, and beaded ornaments crafted by their mothers and girlfriends. The enkipaata ceremony gathers boys from across the region for circumcision and initiation into a new age-set that will bond them for life.",
             },
             "1930s": {
                 "events": [
@@ -47,7 +47,7 @@ REGIONS = {
                     "Growing tensions between settlers, colonial government, and African communities",
                 ],
                 "daily_life": "Economic hardship drives more Africans into wage labor on settler farms and in Nairobi. The 'squatter' system deepens — families live on European farms in exchange for labor. Tea and coffee picking become major occupations for women. Markets in towns like Nyeri, Kisumu, and Mombasa bustle with trade.",
-                "cultural_practices": "Kenyatta publishes 'Facing Mount Kenya' (1938) — an ethnography defending Kikuyu culture. Gospel music blends with traditional harmonies in mission churches. Luo benga guitar style begins to emerge. Coastal Swahili weddings feature elaborate henna, taarab music, and multi-day celebrations.",
+                "cultural_practices": "Kenyatta publishes 'Facing Mount Kenya' (1938) — an ethnography defending Kikuyu culture and Maasai traditions. Maasai moran continue the olamayio cattle raids between clans, testing warrior skill and building reputations. The eunoto ceremony — the great graduation from junior to senior warrior — sees mothers shave the long ochre-braided hair of their sons, marking the end of their most active warrior years. Gospel music blends with traditional harmonies in mission churches. Luo benga guitar style begins to emerge. Coastal Swahili weddings feature elaborate henna, taarab music, and multi-day celebrations.",
             },
             "1940s": {
                 "events": [
@@ -63,11 +63,14 @@ REGIONS = {
                 "events": [
                     "Mau Mau uprising (1952–1960) — armed resistance against colonial rule and land theft",
                     "State of Emergency declared — mass detention, villagization, brutal repression",
-                    "Jomo Kenyatta imprisoned (1953)",
-                    "Lancaster House conferences begin path to independence (achieved 1963)",
+                    "Jomo Kenyatta imprisoned (1953) along with the Kapenguria Six",
+                    "Dedan Kimathi, Mau Mau field marshal, captured and executed (1957) — becomes a national martyr",
+                    "Over 1.5 million Kikuyu forcibly resettled into 'protected villages' behind barbed wire",
+                    "Lancaster House conferences (1960–1962) begin path to independence",
+                    "Kenya achieves independence December 12, 1963 — Kenyatta becomes first Prime Minister",
                 ],
-                "daily_life": "The Emergency transforms daily life — Kikuyu communities forcibly relocated into guarded villages. Screening, detention camps, and curfews. Despite repression, spirit of resistance strengthens. In non-Kikuyu areas and cities, life continues with growing political consciousness across ethnic lines.",
-                "cultural_practices": "Mau Mau oath-taking ceremonies draw on traditional spiritual practices. Songs of resistance circulate in detention camps. The struggle creates shared martyrology and national consciousness. Benga music and Swahili rumba emerge in Nairobi's clubs. Independence celebrations will blend all Kenya's cultures.",
+                "daily_life": "The Emergency transforms daily life — Kikuyu communities forcibly relocated into guarded villages surrounded by trenches and barbed wire. Screening, detention camps, and curfews. Women sustain families while men are detained or in the forests fighting. Despite repression, spirit of resistance strengthens. In non-Kikuyu areas and cities, life continues with growing political consciousness across ethnic lines. Maasai communities, largely uninvolved in the Mau Mau movement, observe the upheaval from their pastoralist lands in the Rift Valley.",
+                "cultural_practices": "Mau Mau oath-taking ceremonies draw on Kikuyu spiritual practices — binding fighters to secrecy and solidarity through powerful rituals involving soil, blood, and sacred objects. Songs of resistance (nyimbo cia mau mau) circulate in detention camps and forest hideouts, preserving fighters' stories. The struggle creates shared martyrology and national consciousness that transcends ethnic lines. Benga music and Swahili rumba emerge in Nairobi's clubs. At independence, celebrations blend Kikuyu, Luo, Maasai, Kamba, and coastal cultures into a new national identity under the Harambee motto.",
             },
         },
         "occupations": ["Farming (coffee, tea, maize, beans)", "Pastoralism (cattle, goats)", "Fishing (Lake Victoria)", "Dock work (Mombasa)", "Domestic service", "Market trading", "Teaching", "Railway work", "Carpentry"],
@@ -109,7 +112,7 @@ REGIONS = {
                     "Zanzibar clove economy enriches Arab and Indian merchant classes",
                 ],
                 "daily_life": "British indirect rule works through appointed chiefs — less harsh than German direct rule but still exploitative. Chagga coffee farmers on Kilimanjaro become relatively prosperous. Sisal plantations expand using migrant labor. Dar es Salaam grows as the colonial capital. Zanzibar operates as a separate protectorate with its own Sultan.",
-                "cultural_practices": "Chagga initiation ceremonies and clan gatherings maintain social cohesion. Haya communities around Lake Victoria practice banana cultivation and ironworking. Maasai age-set ceremonies continue across the northern borderlands. Zanzibar's multicultural festivals blend Swahili, Arab, Indian, and Comorian traditions.",
+                "cultural_practices": "Chagga initiation ceremonies and clan gatherings maintain social cohesion. Haya communities around Lake Victoria practice banana cultivation and ironworking. Maasai moran in the northern Serengeti and Ngorongoro borderlands maintain the warrior tradition — living in manyatta camps, subsisting on milk, blood, and honey, and proving their courage through the alamal lenkaiyio (group lion hunt) where warriors armed only with spears and shields surround and kill a lion that threatens their cattle. Zanzibar's multicultural festivals blend Swahili, Arab, Indian, and Comorian traditions.",
             },
             "1930s": {
                 "events": [
@@ -133,13 +136,15 @@ REGIONS = {
             "1950s": {
                 "events": [
                     "Tanganyika African National Union (TANU) founded by Julius Nyerere (1954)",
-                    "TANU wins overwhelming electoral victories",
-                    "Nyerere's philosophy of African socialism (Ujamaa) takes shape",
-                    "Tanganyika gains independence peacefully (December 9, 1961)",
-                    "Zanzibar Revolution (1964) leads to union with Tanganyika, forming Tanzania",
+                    "TANU wins overwhelming electoral victories — sweeping 70 of 71 seats in 1960",
+                    "Nyerere addresses the UN Trusteeship Council, making the case for independence",
+                    "Nyerere's philosophy of African socialism (Ujamaa) takes shape — 'we are all one family'",
+                    "Tanganyika gains independence peacefully (December 9, 1961) — Nyerere lights the Uhuru Torch on Mount Kilimanjaro",
+                    "Zanzibar gains independence (December 1963), followed by the Zanzibar Revolution (January 1964) overthrowing the Arab sultanate",
+                    "Union of Tanganyika and Zanzibar forms the United Republic of Tanzania (April 1964)",
                 ],
-                "daily_life": "TANU organizes across ethnic lines, unifying the territory through Swahili. Independence fever builds — green, gold, and black everywhere. Nyerere's vision of ujamaa (familyhood) and self-reliance resonates. Schools expand rapidly. The peaceful transition to independence becomes a model for the continent.",
-                "cultural_practices": "TANU rallies feature ngoma dancing, freedom songs, and Nyerere's passionate oratory. Swahili poetry celebrates the coming of uhuru (freedom). Makonde sculpture gains international recognition. Zanzibar's music fuses into what will become the taarab-pop hybrid. National culture policy emphasizes unity across 120+ ethnic groups.",
+                "daily_life": "TANU organizes across ethnic lines, unifying the territory through Swahili — the deliberate choice of a lingua franca rather than any single ethnic language prevents the tribalism that plagues other nations. Independence fever builds — green, gold, and black everywhere. Nyerere's vision of ujamaa (familyhood) and self-reliance resonates with rural communities accustomed to communal labor. Schools expand rapidly. The peaceful transition to independence becomes a model for the continent. In Zanzibar, tensions between the Arab ruling class and the African majority explode in the revolution.",
+                "cultural_practices": "TANU rallies feature ngoma dancing, freedom songs, and Nyerere's passionate oratory — he is nicknamed Mwalimu (Teacher) for his patient, persuasive style. Swahili poetry celebrates the coming of uhuru (freedom) — the word itself becomes a rallying cry. The Uhuru Torch, lit atop Kilimanjaro at independence, symbolizes freedom shining across Africa. Makonde sculpture gains international recognition. Zanzibar's music fuses into what will become the taarab-pop hybrid. National culture policy emphasizes unity across 120+ ethnic groups — 'We are Tanzanians first.'",
             },
         },
         "occupations": ["Farming (coffee, sisal, cloves, bananas, millet)", "Pastoralism", "Fishing (Lake Victoria, Indian Ocean, Zanzibar)", "Caravan trading", "Clove picking (Zanzibar)", "Dock work (Dar es Salaam)", "Mining", "Wood carving"],
@@ -191,8 +196,8 @@ REGIONS = {
                     "Haile Selassie's address to the League of Nations (1936) — 'It is us today. It will be you tomorrow.'",
                     "Italian occupation (1936–1941) — fierce Ethiopian resistance continues",
                 ],
-                "daily_life": "The Italian invasion shatters the peace. Poison gas rains on soldiers and civilians. Cities are bombed. A brutal occupation follows — massacres, forced labor, racial segregation. Ethiopian patriots (arbegnoch) wage guerrilla resistance from the mountains. Italians build roads and buildings but at enormous human cost.",
-                "cultural_practices": "Resistance culture flourishes — patriotic songs, poetry, and oral histories celebrate the arbegnoch fighters. The Ethiopian Orthodox Church becomes a symbol of national identity and resistance. Despite the occupation, traditional practices — coffee ceremonies, church festivals, family gatherings — maintain cultural continuity in defiance of the occupiers.",
+                "daily_life": "The Italian invasion shatters the peace. Mustard gas dropped from planes rains on soldiers and civilians — a war crime the League of Nations fails to stop. Cities are bombed. The Yekatit 12 massacre (February 1937) sees Italian forces kill thousands of civilians in Addis Ababa in reprisal for an assassination attempt. A brutal occupation follows — forced labor, racial segregation, destruction of monasteries. Ethiopian patriots (arbegnoch) wage guerrilla resistance from the mountains, forests, and caves — entire communities support the fighters with food, intelligence, and shelter. Italians build roads and buildings but at enormous human cost.",
+                "cultural_practices": "Resistance culture flourishes — patriotic songs, poetry, and oral histories celebrate the arbegnoch fighters. Women serve as spies, couriers, and fighters alongside men. The Ethiopian Orthodox Church becomes a symbol of national identity and resistance — monks hide sacred manuscripts and church treasures from Italian looting. The Abune (head of the church) who collaborates is rejected; the people follow patriot priests. Despite the occupation, traditional practices — coffee ceremonies, church festivals, family gatherings — maintain cultural continuity in defiance of the occupiers.",
             },
             "1940s": {
                 "events": [
@@ -229,16 +234,18 @@ GENERAL_EAST_AFRICA = {
     "shared_cultural_elements": [
         "Swahili as a lingua franca and trade language across the region",
         "Indian Ocean trade networks connecting East Africa to Arabia, India, and Persia",
-        "Age-set systems organizing social life (Maasai, Kikuyu, Kalenjin, Oromo)",
-        "Cattle as wealth, status, and bride-price across pastoralist communities",
-        "Coffee culture — Ethiopia as the birthplace of coffee, the ceremony as sacred hospitality",
+        "Age-set systems organizing social life (Maasai, Kikuyu, Kalenjin, Oromo) — binding men of the same generation into lifelong solidarity",
+        "Maasai moran (warrior) tradition — years of training, communal living in manyatta warrior villages, the alamal lenkaiyio (group lion hunt) as the ultimate test of courage, and the eunoto graduation ceremony marking the transition from warrior to elder",
+        "Cattle as wealth, status, and bride-price across pastoralist communities — the Maasai believe all cattle on earth belong to them by divine gift from Enkai (God)",
+        "Coffee culture — Ethiopia as the birthplace of coffee, the three-round ceremony as sacred hospitality",
         "Long-distance caravan trade traditions (Nyamwezi, Kamba)",
         "Swahili architectural heritage — coral stone, carved doors, courtyard houses",
         "Ngoma drumming and dance traditions across diverse ethnic groups",
         "Respect for elders and elaborate age-based social hierarchies",
         "Religious diversity — Christianity (Ethiopian Orthodox, Protestant missions), Islam (coastal Swahili, Somali), and indigenous spiritual practices coexisting",
         "Communal farming and cooperative labor traditions",
-        "Beadwork and body adornment as markers of identity and status",
+        "Beadwork and body adornment as markers of identity and status — Maasai beadwork uses a color language (red for bravery, blue for sky, green for land, white for purity)",
+        "Independence movements ranging from armed struggle (Kenya's Mau Mau) to peaceful mobilization (Tanzania's TANU) to sovereign resistance (Ethiopia's defeat of Italy at Adwa)",
     ],
     "transatlantic_and_indian_ocean_slavery": "While the transatlantic slave trade primarily drew from West Africa, East Africa was the center of the Indian Ocean slave trade. Zanzibar was the largest slave market in East Africa, with enslaved people transported to Oman, the Persian Gulf, India, and the Indian Ocean islands (Mauritius, Réunion, Madagascar). This trade, which peaked in the 19th century, shaped the demography and culture of the entire Indian Ocean world. Ethiopian and Eritrean slaves (habshi) served in Indian courts and armies, and their descendants form communities across South Asia.",
 }

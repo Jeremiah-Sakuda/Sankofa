@@ -5,7 +5,7 @@ Each track uses layered noise synthesis with fade-in/out for seamless looping.
 Mono at 22kHz keeps files ~1.3MB (vs 5MB for stereo 44.1kHz) — indistinguishable
 for ambient background loops played at 15% volume.
 
-Output: frontend/public/audio/{wind,fire,nature,market,drums}.wav
+Output: frontend/public/audio/{wind,fire,nature,market,drums,rain,ocean,river,crickets,village}.wav
 """
 
 import os
@@ -295,6 +295,186 @@ def generate_drums():
     return normalize_and_convert(signal, volume=0.3)
 
 
+def generate_rain():
+    """Steady rain with occasional heavier drops — monsoon/tropical atmosphere."""
+    t = np.linspace(0, DURATION, NUM_SAMPLES, endpoint=False)
+
+    # Base rain: filtered pink noise
+    rain = pink_noise(NUM_SAMPLES)
+    rain = bandpass_filter(rain, 200, 6000) * 0.5
+
+    # Slow intensity modulation (rain gusts)
+    mod = 0.6 + 0.4 * np.sin(2 * np.pi * 0.03 * t)
+    rain *= mod
+
+    # Individual heavy drops
+    drops = np.zeros(NUM_SAMPLES)
+    np.random.seed(55)
+    drop_positions = np.random.randint(0, NUM_SAMPLES - 500, 200)
+    for pos in drop_positions:
+        length = np.random.randint(60, 200)
+        freq = np.random.uniform(800, 3000)
+        drop_t = np.linspace(0, length / SAMPLE_RATE, length, endpoint=False)
+        drop = np.sin(2 * np.pi * freq * drop_t) * np.exp(-drop_t * 50) * np.random.uniform(0.1, 0.4)
+        end = min(pos + length, NUM_SAMPLES)
+        actual = end - pos
+        drops[pos:end] += drop[:actual]
+
+    # Low rumble (distant thunder feel)
+    rumble = brown_noise(NUM_SAMPLES)
+    rumble = lowpass_filter(rumble, 100) * 0.15
+    rumble_mod = 0.3 + 0.7 * np.sin(2 * np.pi * 0.02 * t)
+    rumble *= rumble_mod
+
+    signal = rain + drops + rumble
+    signal = apply_loop_crossfade(signal)
+    return normalize_and_convert(signal, volume=0.25)
+
+
+def generate_ocean():
+    """Rolling ocean waves with surf and gentle wash — coastal/island atmosphere."""
+    t = np.linspace(0, DURATION, NUM_SAMPLES, endpoint=False)
+
+    # Wave cycles — low frequency amplitude modulation on broadband noise
+    wave_noise = pink_noise(NUM_SAMPLES)
+    wave_noise = bandpass_filter(wave_noise, 60, 4000)
+
+    # Main wave cycle (about 8 seconds per wave)
+    wave_env = 0.3 + 0.7 * (np.sin(2 * np.pi * 0.125 * t) ** 2)
+    waves = wave_noise * wave_env * 0.5
+
+    # Surf hiss on wave crests
+    surf = pink_noise(NUM_SAMPLES)
+    surf = bandpass_filter(surf, 1500, 8000) * 0.25
+    surf_env = np.clip(np.sin(2 * np.pi * 0.125 * t + 0.5), 0, 1) ** 3
+    surf *= surf_env
+
+    # Deep low rumble (ocean body)
+    deep = brown_noise(NUM_SAMPLES)
+    deep = lowpass_filter(deep, 80) * 0.2
+
+    signal = waves + surf + deep
+    signal = apply_loop_crossfade(signal)
+    return normalize_and_convert(signal, volume=0.25)
+
+
+def generate_river():
+    """Flowing water with gentle babbling — riverside, stream atmosphere."""
+    t = np.linspace(0, DURATION, NUM_SAMPLES, endpoint=False)
+
+    # Continuous flow — filtered noise
+    flow = pink_noise(NUM_SAMPLES)
+    flow = bandpass_filter(flow, 200, 3000) * 0.4
+
+    # Gentle modulation (water tumbling over rocks)
+    flow_mod = 0.6 + 0.4 * np.sin(2 * np.pi * 0.2 * t) * np.sin(2 * np.pi * 0.07 * t)
+    flow *= flow_mod
+
+    # Babbling — higher frequency splashes
+    babble = pink_noise(NUM_SAMPLES)
+    babble = bandpass_filter(babble, 1500, 6000) * 0.15
+    babble_mod = 0.3 + 0.7 * (np.sin(2 * np.pi * 0.35 * t) ** 2)
+    babble *= babble_mod
+
+    # Low water body
+    body = brown_noise(NUM_SAMPLES)
+    body = lowpass_filter(body, 150) * 0.15
+
+    signal = flow + babble + body
+    signal = apply_loop_crossfade(signal)
+    return normalize_and_convert(signal, volume=0.25)
+
+
+def generate_crickets():
+    """Night insects — crickets chirping, cicadas humming — evening/night atmosphere."""
+    t = np.linspace(0, DURATION, NUM_SAMPLES, endpoint=False)
+
+    # Background night hum — very soft filtered noise
+    night = pink_noise(NUM_SAMPLES)
+    night = bandpass_filter(night, 100, 500) * 0.1
+
+    # Cricket chirps — rapid amplitude-modulated sine tones
+    crickets = np.zeros(NUM_SAMPLES)
+    np.random.seed(66)
+
+    # Several cricket "voices" at different pitches and rhythms
+    for voice in range(6):
+        freq = np.random.uniform(3500, 5500)
+        chirp_rate = np.random.uniform(4, 8)  # chirps per second
+        chirp_duty = np.random.uniform(0.3, 0.6)
+        phase_offset = np.random.uniform(0, 2 * np.pi)
+        amplitude = np.random.uniform(0.08, 0.2)
+
+        # On/off modulation
+        mod = (np.sin(2 * np.pi * chirp_rate * t + phase_offset) > (1 - chirp_duty * 2)).astype(float)
+        # Smooth the edges
+        from scipy.signal import butter, sosfilt
+        sos = butter(2, 50, btype='low', fs=SAMPLE_RATE, output='sos')
+        mod = sosfilt(sos, mod)
+        mod = np.clip(mod, 0, 1)
+
+        tone = np.sin(2 * np.pi * freq * t) * mod * amplitude
+        # Occasional silence (cricket pauses)
+        pause_mod = (np.sin(2 * np.pi * np.random.uniform(0.05, 0.15) * t + np.random.uniform(0, 6)) > -0.3).astype(float)
+        tone *= pause_mod
+
+        crickets += tone
+
+    # Cicada drone (higher continuous tone)
+    cicada_freq = 2800
+    cicada = np.sin(2 * np.pi * cicada_freq * t) * 0.03
+    cicada_mod = 0.4 + 0.6 * np.sin(2 * np.pi * 0.08 * t)
+    cicada *= cicada_mod
+
+    signal = night + crickets + cicada
+    signal = apply_loop_crossfade(signal)
+    return normalize_and_convert(signal, volume=0.2)
+
+
+def generate_village():
+    """Distant village life — soft voices murmur, children, chickens, gentle activity."""
+    t = np.linspace(0, DURATION, NUM_SAMPLES, endpoint=False)
+
+    # Distant conversation murmur
+    murmur = pink_noise(NUM_SAMPLES)
+    formant1 = bandpass_filter(murmur, 250, 700) * 0.3
+    formant2 = bandpass_filter(murmur, 800, 1800) * 0.2
+    voices = formant1 + formant2
+
+    # Swell and ebb of conversation
+    voice_mod = 0.3 + 0.7 * (np.sin(2 * np.pi * 0.06 * t) * 0.5 + np.sin(2 * np.pi * 0.03 * t) * 0.5)
+    voices *= voice_mod
+
+    # Occasional higher-pitched sounds (children's voices)
+    children = bandpass_filter(pink_noise(NUM_SAMPLES), 1500, 3500) * 0.08
+    child_mod = np.clip(np.sin(2 * np.pi * 0.1 * t + 1.0), 0, 1) ** 4
+    children *= child_mod
+
+    # Rooster/chicken-like sounds (short chirps)
+    chickens = np.zeros(NUM_SAMPLES)
+    np.random.seed(88)
+    chicken_positions = np.random.randint(SAMPLE_RATE * 2, NUM_SAMPLES - SAMPLE_RATE, 15)
+    for pos in chicken_positions:
+        # Quick descending chirp
+        chirp_len = np.random.randint(300, 600)
+        freq_start = np.random.uniform(1800, 2500)
+        freq_end = np.random.uniform(1200, 1600)
+        freqs = np.linspace(freq_start, freq_end, chirp_len)
+        phase = 2 * np.pi * np.cumsum(freqs) / SAMPLE_RATE
+        chirp_t = np.linspace(0, chirp_len / SAMPLE_RATE, chirp_len, endpoint=False)
+        chirp = np.sin(phase) * np.exp(-chirp_t * 12) * np.random.uniform(0.05, 0.12)
+        end = min(pos + chirp_len, NUM_SAMPLES)
+        actual = end - pos
+        chickens[pos:end] += chirp[:actual]
+
+    # Soft wind/outdoor ambience
+    outdoor = bandpass_filter(pink_noise(NUM_SAMPLES), 100, 500) * 0.1
+
+    signal = voices + children + chickens + outdoor
+    signal = apply_loop_crossfade(signal)
+    return normalize_and_convert(signal, volume=0.2)
+
+
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -304,6 +484,11 @@ def main():
         "nature.wav": generate_nature,
         "market.wav": generate_market,
         "drums.wav": generate_drums,
+        "rain.wav": generate_rain,
+        "ocean.wav": generate_ocean,
+        "river.wav": generate_river,
+        "crickets.wav": generate_crickets,
+        "village.wav": generate_village,
     }
 
     for name, generator in tracks.items():
