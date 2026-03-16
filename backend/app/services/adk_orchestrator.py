@@ -153,15 +153,6 @@ async def run_adk_narrative(
             session_id=adk_session.id,
             new_message=user_message,
         ):
-            # Drain any completed TTS on every event iteration
-            if tts_tasks:
-                done = [t for t in tts_tasks if t.done()]
-                for t in done:
-                    tts_tasks.remove(t)
-                while not tts_queue.empty():
-                    audio_seg = await tts_queue.get()
-                    yield {"event": "audio", "data": audio_seg.model_dump_json()}
-
             if not event.content or not event.content.parts:
                 continue
 
@@ -365,19 +356,14 @@ async def run_adk_followup(
 
                                 await asyncio.sleep(_DELAY_TEXT)
 
-                            # Drain any TTS that finished during this batch
-                            done = [t for t in tts_tasks if t.done()]
-                            for t in done:
-                                tts_tasks.remove(t)
-                            while not tts_queue.empty():
-                                audio_seg = await tts_queue.get()
-                                yield {"event": "audio", "data": audio_seg.model_dump_json()}
-
         if tts_tasks:
             yield _sse_status("generating_audio")
             await asyncio.gather(*tts_tasks, return_exceptions=True)
+            audio_segments: list[NarrativeSegment] = []
             while not tts_queue.empty():
-                audio_seg = await tts_queue.get()
+                audio_segments.append(await tts_queue.get())
+            audio_segments.sort(key=lambda s: s.sequence)
+            for audio_seg in audio_segments:
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         session_store.update(session)
