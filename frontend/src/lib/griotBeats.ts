@@ -8,7 +8,7 @@ export interface GriotBeat {
 }
 
 /**
- * Timestamped text beats synchronized with griot-intro.wav.
+ * Timestamped text beats synchronized with griot-intro.mp3.
  * Timestamps captured via beat-timer.html against the generated audio.
  */
 export const GRIOT_BEATS: GriotBeat[] = [
