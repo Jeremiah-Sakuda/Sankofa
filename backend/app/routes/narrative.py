@@ -216,8 +216,15 @@ from {ui.region_of_origin} during {ui.time_period}.
 The listener asks: "{question}"
 
 Generate a follow-up narrative segment addressing this question. Maintain the warm,
-griot-inspired oral storytelling voice. Generate one relevant watercolor-style image
-with warm earth tones and period-appropriate details.
+griot-inspired oral storytelling voice.
+
+IMAGE STYLE (mandatory for every image):
+Paint in a WATERCOLOR illustration style — visible brushstrokes, soft wet-on-wet
+edges, transparent washes of pigment with white paper showing through. Use a warm
+palette of burnt sienna, raw umber, yellow ochre, and gold leaf accents. No
+photorealism, no digital art, no sharp vector edges. Every image must look like a
+hand-painted watercolor on textured paper. Period-appropriate details only.
+
 Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
 
     segments = await generate_interleaved(prompt)

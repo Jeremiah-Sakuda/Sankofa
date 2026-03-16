@@ -466,6 +466,14 @@ async def deep_dive(topic: str, cultural_context: str) -> str:
 {cultural_context[:_CTX_DEEP_DIVE]}
 
 Write 1-2 rich paragraphs explaining this topic in detail within the context of the region.
+
+IMAGE STYLE (mandatory for every image):
+Paint in a WATERCOLOR illustration style — visible brushstrokes, soft wet-on-wet
+edges, transparent washes of pigment with white paper showing through. Use a warm
+palette of burnt sienna, raw umber, yellow ochre, and gold leaf accents. No
+photorealism, no digital art, no sharp vector edges. Every image must look like a
+hand-painted watercolor on textured paper. Period-appropriate details only.
+
 Prepend paragraphs with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
 
     segments = await generate_interleaved(prompt)
