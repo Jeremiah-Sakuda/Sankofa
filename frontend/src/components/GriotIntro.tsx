@@ -35,11 +35,10 @@ const HERITAGE_FACTS = [
 const STUCK_TIMEOUT_MS = 90_000;
 
 /* ── Background music timing constants ── */
-const MUSIC_START_TIME = 60; // seconds into intro when music begins
+const MUSIC_START_TIME = 3; // seconds into intro when music begins
 const MUSIC_BEAT_DROP = 97; // seconds into intro when beat drop hits
 const MUSIC_VOL_START = 0.03; // initial volume
-const MUSIC_VOL_PEAK = 0.50; // volume at beat drop
-const MUSIC_VOL_CRUISE = 0.20; // volume after beat drop (waiting phase)
+const MUSIC_VOL_PEAK = 0.40; // volume at beat drop and beyond
 const MUSIC_VOL_READY = 0.10; // volume when griot-ready plays
 
 interface GriotIntroProps {
@@ -83,6 +82,7 @@ export default function GriotIntro({
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
   const musicFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const musicStartedRef = useRef(false);
+  const [musicMuted, setMusicMuted] = useState(false);
 
   /** Stop all audio cleanly. */
   const stopAllAudio = useCallback(() => {
@@ -138,6 +138,17 @@ export default function GriotIntro({
       }
     }, 100);
   }, []);
+
+  // Handle music mute toggle
+  useEffect(() => {
+    const music = musicAudioRef.current;
+    if (!music || !musicStartedRef.current) return;
+    if (musicMuted) {
+      music.pause();
+    } else if (phase === "playing" || phase === "waiting") {
+      music.play().catch(() => {});
+    }
+  }, [musicMuted, phase]);
 
   // Transition to ready when story is ready and we're not playing the intro
   useEffect(() => {
@@ -230,20 +241,20 @@ export default function GriotIntro({
     if (t >= MUSIC_START_TIME && !musicStartedRef.current) {
       musicStartedRef.current = true;
       music.volume = MUSIC_VOL_START;
-      music.play().catch(() => {});
+      if (!musicMuted) music.play().catch(() => {});
     }
 
-    if (musicStartedRef.current && !music.paused) {
+    if (musicStartedRef.current && !music.paused && !musicMuted) {
       if (t < MUSIC_BEAT_DROP) {
         // Linear ramp from start volume to peak volume
         const progress = (t - MUSIC_START_TIME) / (MUSIC_BEAT_DROP - MUSIC_START_TIME);
         music.volume = MUSIC_VOL_START + (MUSIC_VOL_PEAK - MUSIC_VOL_START) * Math.min(1, Math.max(0, progress));
       } else {
-        // After beat drop, hold at cruise volume
-        music.volume = MUSIC_VOL_CRUISE;
+        // After beat drop, hold at peak volume
+        music.volume = MUSIC_VOL_PEAK;
       }
     }
-  }, [activeBeatIndex]);
+  }, [activeBeatIndex, musicMuted]);
 
   const handleIntroEnded = useCallback(() => {
     if (isStoryReady) {
@@ -362,7 +373,7 @@ export default function GriotIntro({
       <audio
         ref={musicAudioRef}
         src="/audio/intro-music.mp3"
-        preload="auto"
+        preload="metadata"
       />
 
       {/* Ambient gradient — CSS animated */}
@@ -662,6 +673,28 @@ export default function GriotIntro({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Music mute toggle */}
+      <button
+        type="button"
+        onClick={() => setMusicMuted((m) => !m)}
+        className="fixed bottom-8 left-8 z-40 w-9 h-9 flex items-center justify-center rounded-full border border-[var(--gold)]/30 bg-[var(--night)]/80 backdrop-blur text-[var(--gold)] hover:border-[var(--gold)] transition-all cursor-pointer"
+        title={musicMuted ? "Unmute music" : "Mute music"}
+      >
+        {musicMuted ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="1" />
+            <path d="M20.94 11A8.994 8.994 0 0 0 13 3.06M14.5 21.59A9 9 0 0 1 3.41 10.5" />
+            <line x1="2" x2="22" y1="2" y2="22" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="1" />
+            <path d="M12 7a5 5 0 0 1 5 5" />
+            <path d="M16.95 3.05A9 9 0 0 1 21 12" />
+          </svg>
+        )}
+      </button>
     </motion.div>
   );
 }
