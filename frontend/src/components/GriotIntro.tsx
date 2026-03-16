@@ -38,7 +38,7 @@ const STUCK_TIMEOUT_MS = 90_000;
 const MUSIC_START_TIME = 60; // seconds into intro when music begins
 const MUSIC_BEAT_DROP = 97; // seconds into intro when beat drop hits
 const MUSIC_VOL_START = 0.03; // initial volume
-const MUSIC_VOL_PEAK = 0.30; // volume at beat drop
+const MUSIC_VOL_PEAK = 0.50; // volume at beat drop
 const MUSIC_VOL_CRUISE = 0.20; // volume after beat drop (waiting phase)
 const MUSIC_VOL_READY = 0.10; // volume when griot-ready plays
 
