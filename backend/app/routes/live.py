@@ -20,9 +20,6 @@ from google.genai.types import (
     Blob,
     Content,
     Part,
-    PrebuiltVoiceConfig,
-    SpeechConfig,
-    VoiceConfig,
 )
 
 from app.services.adk_agent import sankofa_live_agent
@@ -43,16 +40,16 @@ _live_runner = Runner(
 )
 
 
-def _build_run_config(voice: str = "Kore") -> RunConfig:
-    """Build a RunConfig for bidirectional audio streaming."""
+def _build_run_config() -> RunConfig:
+    """Build a RunConfig for bidirectional audio streaming.
+
+    Note: Voice/speech_config is set at the Agent level via the Gemini(...)
+    wrapper in adk_agent.py, NOT here. Passing speech_config in RunConfig
+    causes WebSocket error 1007 with run_live() (ADK issue #2934).
+    """
     return RunConfig(
         streaming_mode=StreamingMode.BIDI,
         response_modalities=["AUDIO"],
-        speech_config=SpeechConfig(
-            voice_config=VoiceConfig(
-                prebuilt_voice_config=PrebuiltVoiceConfig(voiceName=voice)
-            )
-        ),
         output_audio_transcription=AudioTranscriptionConfig(),
         input_audio_transcription=AudioTranscriptionConfig(),
     )

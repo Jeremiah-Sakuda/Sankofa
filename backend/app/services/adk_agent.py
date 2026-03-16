@@ -16,6 +16,8 @@ import logging
 import uuid
 
 from google.adk import Agent
+from google.adk.models.google_llm import Gemini
+from google.genai import types as genai_types
 
 from app.config import settings
 from app.knowledge.loader import build_grounding_context
@@ -575,8 +577,17 @@ sankofa_live_tools = [
     notify_user,
 ]
 
-sankofa_live_agent = Agent(
+_live_model = Gemini(
     model=settings.GEMINI_LIVE_MODEL,
+    speech_config=genai_types.SpeechConfig(
+        voice_config=genai_types.VoiceConfig(
+            prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(voice_name="Kore")
+        )
+    ),
+)
+
+sankofa_live_agent = Agent(
+    model=_live_model,
     name="sankofa_heritage_live_narrator",
     description=sankofa_agent_description,
     instruction=sankofa_agent_instruction,
