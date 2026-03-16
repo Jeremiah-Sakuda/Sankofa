@@ -54,10 +54,13 @@ export default function NarrativePage() {
 
   const allSegments = [...segments, ...followUpSegments];
 
-  // Audio is always enabled — need at least 1 text + 1 audio segment
+  // Ready once the first text segment's audio has arrived so narration starts
+  // on the correct paragraph (not a later one whose TTS finished faster).
   const hasTextSegment = segments.some((s) => s.type === "text");
-  const hasAudioSegment = segments.some((s) => s.type === "audio");
-  const isReadyToShow = hasTextSegment && hasAudioSegment;
+  const firstTextSeq = segments.find((s) => s.type === "text" && s.content)?.sequence ?? null;
+  const hasFirstAudio = firstTextSeq !== null &&
+    segments.some((s) => s.type === "audio" && s.sequence === firstTextSeq);
+  const isReadyToShow = hasTextSegment && hasFirstAudio;
 
   const latestImageSrc = useMemo(() => {
     const imgs = allSegments.filter(s => s.type === "image" && s.media_data);
