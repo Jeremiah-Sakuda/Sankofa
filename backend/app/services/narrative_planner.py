@@ -16,8 +16,8 @@ from app.services.trust_classifier import apply_trust_tags
 
 logger = logging.getLogger(__name__)
 
-_VALID_AMBIENT_TRACKS = {"fire.wav", "wind.wav", "nature.wav", "market.wav", "drums.mp3", "rain.wav", "ocean.wav", "river.wav", "crickets.wav", "village.wav"}
-_DEFAULT_AMBIENT = {"act1_setting": "wind.wav", "act2_people": "market.wav", "act3_thread": "drums.mp3"}
+_VALID_AMBIENT_TRACKS = {"fire.mp3", "wind.mp3", "nature.mp3", "market.mp3", "drums.mp3", "rain.mp3", "ocean.mp3", "river.mp3", "crickets.mp3", "village.mp3"}
+_DEFAULT_AMBIENT = {"act1_setting": "wind.mp3", "act2_people": "market.mp3", "act3_thread": "drums.mp3"}
 
 
 async def plan_and_generate(session: Session) -> list[NarrativeSegment]:
@@ -96,21 +96,21 @@ Output a JSON object with this exact structure:
     "focus": "What specific aspect of the landscape/environment to describe",
     "image_prompt": "A detailed prompt for a watercolor-style landscape image",
     "key_facts": ["2-3 historical facts to weave in"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.mp3 (rhythm, ceremony), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
+    "ambient_track": "One of: wind.mp3 (landscape, open air), fire.mp3 (hearth, campfire), nature.mp3 (forest, water), market.mp3 (community, bustle), drums.mp3 (rhythm, ceremony), rain.mp3 (monsoon, tropical rain), ocean.mp3 (coast, sea, island), river.mp3 (riverside, stream), crickets.mp3 (night, evening), village.mp3 (village life, home)"
   }},
   "act2_people": {{
     "title": "A short evocative title for the people section",
     "focus": "What aspect of daily life/culture to center",
     "image_prompt": "A detailed prompt for a portrait-style image of people",
     "key_facts": ["2-3 cultural/historical facts to weave in"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.mp3 (rhythm, ceremony), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
+    "ambient_track": "One of: wind.mp3 (landscape, open air), fire.mp3 (hearth, campfire), nature.mp3 (forest, water), market.mp3 (community, bustle), drums.mp3 (rhythm, ceremony), rain.mp3 (monsoon, tropical rain), ocean.mp3 (coast, sea, island), river.mp3 (riverside, stream), crickets.mp3 (night, evening), village.mp3 (village life, home)"
   }},
   "act3_thread": {{
     "title": "A short evocative title for the connection section",
     "focus": "What thread connects past to present",
     "image_prompt": "A detailed prompt for an image bridging past and present",
     "key_facts": ["2-3 facts about diaspora/migration/cultural survival"],
-    "ambient_track": "One of: wind.wav (landscape, open air), fire.wav (hearth, campfire), nature.wav (forest, water), market.wav (community, bustle), drums.mp3 (rhythm, ceremony), rain.wav (monsoon, tropical rain), ocean.wav (coast, sea, island), river.wav (riverside, stream), crickets.wav (night, evening), village.wav (village life, home)"
+    "ambient_track": "One of: wind.mp3 (landscape, open air), fire.mp3 (hearth, campfire), nature.mp3 (forest, water), market.mp3 (community, bustle), drums.mp3 (rhythm, ceremony), rain.mp3 (monsoon, tropical rain), ocean.mp3 (coast, sea, island), river.mp3 (riverside, stream), crickets.mp3 (night, evening), village.mp3 (village life, home)"
   }},
   "tone": "The specific emotional register (e.g., 'reverent and warm', 'bittersweet but hopeful')",
   "narrative_voice": "How the griot narrator should speak to this specific listener"
@@ -149,14 +149,14 @@ def _fallback_arc(user_input: UserInput) -> dict:
             "focus": f"The landscape and atmosphere of {user_input.region_of_origin} during {user_input.time_period}",
             "image_prompt": f"Watercolor illustration of {user_input.region_of_origin} landscape, {user_input.time_period}, warm earth tones, golden hour light",
             "key_facts": [],
-            "ambient_track": "wind.wav",
+            "ambient_track": "wind.mp3",
         },
         "act2_people": {
             "title": "The People and Their Ways",
             "focus": "Daily life, cultural practices, and community",
             "image_prompt": f"Watercolor portrait of people in {user_input.region_of_origin}, {user_input.time_period}, traditional dress, warm tones",
             "key_facts": [],
-            "ambient_track": "market.wav",
+            "ambient_track": "market.mp3",
         },
         "act3_thread": {
             "title": "The Thread That Reaches You",

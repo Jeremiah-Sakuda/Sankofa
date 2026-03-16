@@ -354,19 +354,19 @@ export default function GriotIntro({
       {/* Audio elements */}
       <audio
         ref={introAudioRef}
-        src="/audio/griot-intro.wav"
+        src="/audio/griot-intro.mp3"
         preload="auto"
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleIntroEnded}
       />
       <audio
         ref={readyAudioRef}
-        src="/audio/griot-ready.wav"
+        src="/audio/griot-ready.mp3"
         preload="auto"
       />
       <audio
         ref={ambientAudioRef}
-        src="/audio/fire.wav"
+        src="/audio/fire.mp3"
         preload="auto"
         loop
       />
