@@ -280,7 +280,7 @@ html {
   border-radius: 2px;
   background: var(--gold);
   opacity: 0;
-  animation: narrate-glow 1.8s ease-in-out infinite;
+  animation: narrate-glow 1.5s ease-in-out infinite;
 }
 
 .narrating-segment::after {
