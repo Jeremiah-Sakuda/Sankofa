@@ -39,5 +39,9 @@ Thumbs.db
 # Docker
 docker-compose.override.yml
 
+# Source media files (not for distribution)
+media/
+/*.mp3
+
 # Blog (draft — publish externally)
 BLOG_POST.md
