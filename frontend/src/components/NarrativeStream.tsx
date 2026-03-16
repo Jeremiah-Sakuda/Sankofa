@@ -9,6 +9,7 @@ import NarrativeSegment from "./NarrativeSegment";
 import NarrationBar, { type AudioTrack } from "./NarrationBar";
 import ScrollProgress from "./ScrollProgress";
 import SankofaBird from "./SankofaBird";
+import VolumePanel from "./VolumePanel";
 
 const FOLLOW_UP_MAX_LENGTH = 500;
 
@@ -180,7 +181,8 @@ export default function NarrativeStream({
   const [activeSequence, setActiveSequence] = useState<number | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [ambientMuted, setAmbientMuted] = useState(false);
+  const [narrationVolume, setNarrationVolume] = useState(1.0);
+  const [ambientVolume, setAmbientVolume] = useState(1.0);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const seenSequences = useRef<Set<number>>(new Set());
@@ -208,7 +210,7 @@ export default function NarrativeStream({
   }, [arcOutline, currentAct]);
 
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
-  const ambientTargetVolume = 0.15;
+  const ambientTargetVolume = 0.15 * ambientVolume;
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Crossfade ambient audio when track changes or autoPlay becomes true
@@ -257,7 +259,7 @@ export default function NarrativeStream({
           const fadeIn = () => {
             audio.play().catch(() => {});
             fadeTimerRef.current = setInterval(() => {
-              const target = ambientMuted ? 0 : ambientTargetVolume;
+              const target = ambientTargetVolume;
               if (audio.volume < target - 0.01) {
                 audio.volume = Math.min(target, audio.volume + 0.01);
               } else {
@@ -282,7 +284,7 @@ export default function NarrativeStream({
       const startFadeIn = () => {
         audio.play().catch(() => {});
         fadeTimerRef.current = setInterval(() => {
-          const target = ambientMuted ? 0 : ambientTargetVolume;
+          const target = ambientTargetVolume;
           if (audio.volume < target - 0.01) {
             audio.volume = Math.min(target, audio.volume + 0.01);
           } else {
@@ -305,7 +307,7 @@ export default function NarrativeStream({
       const startPlay = () => {
         audio.play().catch(() => {});
         fadeTimerRef.current = setInterval(() => {
-          const target = ambientMuted ? 0 : ambientTargetVolume;
+          const target = ambientTargetVolume;
           if (audio.volume < target - 0.01) {
             audio.volume = Math.min(target, audio.volume + 0.01);
           } else {
@@ -330,12 +332,12 @@ export default function NarrativeStream({
     };
   }, [currentAmbientTrack, autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle mute/unmute
+  // Apply ambient volume changes immediately
   useEffect(() => {
-    if (ambientAudioRef.current) {
-      ambientAudioRef.current.volume = ambientMuted ? 0 : ambientTargetVolume;
+    if (ambientAudioRef.current && !ambientAudioRef.current.paused) {
+      ambientAudioRef.current.volume = ambientTargetVolume;
     }
-  }, [ambientMuted]);
+  }, [ambientTargetVolume]);
 
   // Auto-scroll only during active streaming when the user is near the bottom
   useEffect(() => {
@@ -667,6 +669,7 @@ export default function NarrativeStream({
             onDurationChange={handleDurationChange}
             onTalkToGriot={onTalkToGriot}
             autoPlay={autoPlay}
+            volume={narrationVolume}
           />
         )}
       </AnimatePresence>
@@ -681,27 +684,37 @@ export default function NarrativeStream({
         />
       )}
 
-      {/* Ambient mute toggle */}
-      {currentAmbientTrack && (
-        <button
-          onClick={() => setAmbientMuted((m) => !m)}
-          className="fixed bottom-4 right-4 z-40 w-9 h-9 flex items-center justify-center rounded-full border border-[var(--ochre)]/30 bg-[var(--night)]/80 backdrop-blur text-[var(--gold)] hover:border-[var(--gold)] transition-all cursor-pointer"
-          title={ambientMuted ? "Unmute ambient sound" : "Mute ambient sound"}
-        >
-          {ambientMuted ? (
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-              <line x1="23" x2="17" y1="9" y2="15" />
-              <line x1="17" x2="23" y1="9" y2="15" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 5 6 9H2v6h4l5 4V5Z" />
-              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            </svg>
-          )}
-        </button>
-      )}
+      {/* Volume control panel */}
+      <VolumePanel
+        channels={[
+          {
+            id: "narration",
+            label: "Narration",
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </svg>
+            ),
+            value: narrationVolume,
+            onChange: setNarrationVolume,
+          },
+          {
+            id: "ambient",
+            label: "Ambient",
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" />
+                <path d="M9.6 4.6A2 2 0 1 1 11 8H2" />
+                <path d="M12.6 19.4A2 2 0 1 0 14 16H2" />
+              </svg>
+            ),
+            value: ambientVolume,
+            onChange: setAmbientVolume,
+          },
+        ]}
+      />
     </motion.div>
   );
 }

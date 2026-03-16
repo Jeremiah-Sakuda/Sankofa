@@ -18,6 +18,7 @@ interface NarrationBarProps {
   onDurationChange?: (duration: number) => void;
   onTalkToGriot?: () => void;
   autoPlay?: boolean;
+  volume?: number;
 }
 
 function useBlobUrl(audioData: string | undefined, mediaType: string): string | null {
@@ -65,7 +66,7 @@ function useBlobUrl(audioData: string | undefined, mediaType: string): string | 
   return src;
 }
 
-export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, onDurationChange, onTalkToGriot, autoPlay = true }: NarrationBarProps) {
+export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, onDurationChange, onTalkToGriot, autoPlay = true, volume = 1.0 }: NarrationBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -145,6 +146,7 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
         onDurationChange?.(audio.duration);
       }
       if (autoPlay && !hasUserPaused) {
+        audio.volume = volume;
         audio.play().then(() => setIsPlaying(true)).catch(() => {});
       }
     };
@@ -195,6 +197,11 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
     setDuration(0);
     setLoadError(false);
   }, [src]);
+
+  // Apply volume changes
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume;
+  }, [volume, src]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
