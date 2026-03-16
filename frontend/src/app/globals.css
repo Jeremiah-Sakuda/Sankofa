@@ -289,7 +289,7 @@ html {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 0%;
+  right: 0;
   background: linear-gradient(
     90deg,
     rgba(212, 168, 67, 0.06) 0%,
@@ -298,6 +298,8 @@ html {
   );
   border-radius: 4px;
   pointer-events: none;
+  transform-origin: left;
+  will-change: transform;
   animation: reading-sweep var(--narrate-duration, 30s) linear forwards;
 }
 
@@ -307,8 +309,8 @@ html {
 }
 
 @keyframes reading-sweep {
-  from { width: 0%; }
-  to { width: 100%; }
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 @media (min-width: 768px) {
@@ -337,22 +339,17 @@ html {
 @keyframes word-sync {
   0% {
     color: inherit;
-    text-shadow: none;
   }
   1% {
     color: var(--gold);
-    text-shadow: 0 0 8px rgba(212, 168, 67, 0.4);
   }
   3% {
     color: var(--gold);
-    text-shadow: 0 0 8px rgba(212, 168, 67, 0.4);
   }
   6% {
     color: inherit;
-    text-shadow: none;
   }
   100% {
     color: inherit;
-    text-shadow: none;
   }
 }

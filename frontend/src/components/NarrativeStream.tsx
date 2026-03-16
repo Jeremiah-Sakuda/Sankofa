@@ -128,29 +128,32 @@ function ActTransition({ actNumber, arcOutline }: { actNumber: number; arcOutlin
 function buildAudioTracks(segments: SegmentType[]): AudioTrack[] {
   const tracks: AudioTrack[] = [];
 
-  let trackNum = 0;
   for (const seg of segments) {
     if (seg.type === "text" && seg.media_data && seg.media_type?.startsWith("audio")) {
-      trackNum++;
       tracks.push({
         id: `text-${seg.sequence}`,
-        label: `Narration ${trackNum}`,
+        label: "",
         audioData: seg.media_data,
         mediaType: seg.media_type,
         segmentSequence: seg.sequence,
       });
     }
     if (seg.type === "audio" && seg.media_data) {
-      trackNum++;
       tracks.push({
         id: `audio-${seg.sequence}`,
-        label: `Narration ${trackNum}`,
+        label: "",
         audioData: seg.media_data,
         mediaType: seg.media_type ?? "audio/wav",
         segmentSequence: seg.sequence,
       });
     }
   }
+
+  // Sort by sequence so tracks play in narrative order regardless of TTS arrival order
+  tracks.sort((a, b) => a.segmentSequence - b.segmentSequence);
+
+  // Assign labels after sorting
+  tracks.forEach((t, i) => { t.label = `Narration ${i + 1}`; });
 
   return tracks;
 }
@@ -294,6 +297,28 @@ export default function NarrativeStream({
         startFadeIn();
       } else {
         audio.addEventListener("canplaythrough", startFadeIn, { once: true });
+      }
+    } else if (audio.paused) {
+      // src already matches (set by JSX) but audio isn't playing yet — start it
+      audio.volume = 0;
+      audio.load();
+      const startPlay = () => {
+        audio.play().catch(() => {});
+        fadeTimerRef.current = setInterval(() => {
+          const target = ambientMuted ? 0 : ambientTargetVolume;
+          if (audio.volume < target - 0.01) {
+            audio.volume = Math.min(target, audio.volume + 0.01);
+          } else {
+            audio.volume = target;
+            if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+            fadeTimerRef.current = null;
+          }
+        }, 50);
+      };
+      if (audio.readyState >= 4) {
+        startPlay();
+      } else {
+        audio.addEventListener("canplaythrough", startPlay, { once: true });
       }
     }
 
