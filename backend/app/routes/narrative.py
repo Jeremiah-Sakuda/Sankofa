@@ -132,11 +132,14 @@ async def stream_narrative(
                     delay = _DELAY_IMAGE if seg.type == "image" else _DELAY_FIRST_TEXT if i == 0 else _DELAY_TEXT
                     await asyncio.sleep(delay)
 
-                # Wait for all background TTS to finish, then emit audio segments
+                # Wait for all background TTS to finish, then emit in sequence order
                 if tts_tasks:
                     await asyncio.gather(*tts_tasks)
+                    audio_segments: list = []
                     while not tts_queue.empty():
-                        audio_seg = await tts_queue.get()
+                        audio_segments.append(await tts_queue.get())
+                    audio_segments.sort(key=lambda s: s.sequence)
+                    for audio_seg in audio_segments:
                         await _emit("audio", audio_seg.model_dump_json())
 
                 await _emit("status", json.dumps({"status": "complete"}))
