@@ -89,6 +89,18 @@ def _sse_status(status: str, **extra) -> dict:
     return {"event": "status", "data": json.dumps({"status": status, **extra})}
 
 
+async def _drain_tts_queue(tts_queue: asyncio.Queue) -> list[NarrativeSegment]:
+    """Non-blockingly drain all completed TTS results, returned sorted by sequence."""
+    audio_segments: list[NarrativeSegment] = []
+    while not tts_queue.empty():
+        try:
+            audio_segments.append(tts_queue.get_nowait())
+        except asyncio.QueueEmpty:
+            break
+    audio_segments.sort(key=lambda s: s.sequence)
+    return audio_segments
+
+
 # ---------------------------------------------------------------------------
 # Main narrative generation via ADK
 # ---------------------------------------------------------------------------
@@ -244,20 +256,19 @@ async def run_adk_narrative(
                                 # Stagger delivery for natural feel
                                 delay = _DELAY_IMAGE if seg.type == "image" else (_DELAY_FIRST_TEXT if i == 0 else _DELAY_TEXT)
                                 await asyncio.sleep(delay)
+
+                            # Drain any TTS that finished while we were emitting text/images
+                            for audio_seg in await _drain_tts_queue(tts_queue):
+                                yield {"event": "audio", "data": audio_seg.model_dump_json()}
                         else:
                             logger.warning(
                                 "[adk-orch] Could not parse segments from generate_act_segments"
                             )
 
-        # --- Collect remaining TTS results and yield in sequence order ---
+        # --- Collect any remaining TTS results and yield in sequence order ---
         if tts_tasks:
-            yield _sse_status("generating_audio")
             await asyncio.gather(*tts_tasks, return_exceptions=True)
-            audio_segments: list[NarrativeSegment] = []
-            while not tts_queue.empty():
-                audio_segments.append(await tts_queue.get())
-            audio_segments.sort(key=lambda s: s.sequence)
-            for audio_seg in audio_segments:
+            for audio_seg in await _drain_tts_queue(tts_queue):
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         # Persist session
@@ -355,14 +366,13 @@ async def run_adk_followup(
 
                                 await asyncio.sleep(_DELAY_TEXT)
 
+                            # Drain any TTS that finished during segment emission
+                            for audio_seg in await _drain_tts_queue(tts_queue):
+                                yield {"event": "audio", "data": audio_seg.model_dump_json()}
+
         if tts_tasks:
-            yield _sse_status("generating_audio")
             await asyncio.gather(*tts_tasks, return_exceptions=True)
-            audio_segments: list[NarrativeSegment] = []
-            while not tts_queue.empty():
-                audio_segments.append(await tts_queue.get())
-            audio_segments.sort(key=lambda s: s.sequence)
-            for audio_seg in audio_segments:
+            for audio_seg in await _drain_tts_queue(tts_queue):
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         session_store.update(session)
