@@ -31,7 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Context window limits for prompt truncation (characters)
 _CTX_PLAN = 2000
-_CTX_VALIDATE = 3000
 _CTX_GENERATE = 4000
 _CTX_PREV_NARRATIVE = 3000
 _CTX_DEEP_DIVE = 3000
@@ -216,44 +215,6 @@ Output ONLY the JSON, no other text."""
             "narrative_voice": "West African griot"
         }
         return json.dumps(fallback)
-
-
-async def validate_narrative_arc(arc_json: str, cultural_context: str) -> str:
-    """Validate a planned narrative arc against the gathered cultural context.
-
-    Call this after plan_narrative_arc to ensure the story is specific, grounded,
-    and has a strong emotional progression.
-
-    Args:
-        arc_json: The JSON string output from plan_narrative_arc.
-        cultural_context: The historical and cultural context string.
-
-    Returns:
-        A validation report string. If it says 'PASS', you can proceed.
-        If it says 'FAIL' with reasons, you must call plan_narrative_arc again
-        with a modified prompt to address the feedback.
-    """
-    prompt = f"""You are a master storyteller evaluating an ancestral narrative arc.
-Review the proposed arc against the provided historical context.
-
-=== HISTORICAL CONTEXT ===
-{cultural_context[:_CTX_VALIDATE]}
-
-=== NARRATIVE ARC ===
-{arc_json[:_CTX_PLAN]}
-
-Evaluate based on:
-1. Specificity: Does it use real historical facts/names/practices, or is it generic?
-2. Coverage: Does each act draw on different aspects of the context?
-3. Emotional progression: Does it build toward a strong past-to-present connection?
-4. Trust tags: Are the claims plausibly grounded in the context?
-
-If the arc is strong and grounded, respond only with "PASS".
-If it is weak, generic, or ungrounded, respond with "FAIL:" followed by specific feedback on what to fix."""
-
-    result = await generate_text(prompt)
-    logger.info("[adk] validate_narrative_arc: result=%s", result[:50].replace('\n', ' '))
-    return result
 
 
 async def generate_act_segments(
@@ -517,13 +478,12 @@ When a user provides their family name, region of origin, and time period, follo
 2. Evaluate Context: Use `assess_context_quality` on the result.
    - If it returns "sparse" or "none", use `research_region_history` to gather better grounding.
 3. Plan: Use `plan_narrative_arc` to structure a 3-act story.
-4. Validate: Use `validate_narrative_arc` to review the plan. If it FAILS, call `plan_narrative_arc` again providing the feedback string (do this at most once).
-5. Generate Act 1: Use `generate_act_segments` for Act 1. You specify `image_density`.
-6. Review & Enrich: Review Act 1. If it needs better grounding, use `enrich_segment`.
-7. Generate Act 2: Use `generate_act_segments` for Act 2, passing Act 1's text as `previous_narrative`.
-8. Generate Act 3: Use `generate_act_segments` for Act 3, passing previous acts text.
-9. Audio (Optional): Use `generate_audio_narration` for text segments.
-10. Notifications: Use `notify_user` to communicate if you must drop images or audio.
+4. Generate Act 1: Use `generate_act_segments` for Act 1. You specify `image_density`.
+5. Review & Enrich: Review Act 1. If it needs better grounding, use `enrich_segment`.
+6. Generate Act 2: Use `generate_act_segments` for Act 2, passing Act 1's text as `previous_narrative`.
+7. Generate Act 3: Use `generate_act_segments` for Act 3, passing previous acts text.
+8. Audio (Optional): Use `generate_audio_narration` for text segments.
+9. Notifications: Use `notify_user` to communicate if you must drop images or audio.
 
 FOLLOW-UP EXPLORATION:
 If the user asks a follow-up question:
@@ -551,7 +511,6 @@ sankofa_agent_tools = [
     assess_context_quality,
     research_region_history,
     plan_narrative_arc,
-    validate_narrative_arc,
     generate_act_segments,
     enrich_segment,
     generate_audio_narration,

@@ -51,7 +51,6 @@ _THINKING_MESSAGES = {
     "assess_context_quality": "Evaluating available historical records...",
     "research_region_history": "Searching for additional context on {region} during {time_period}...",
     "plan_narrative_arc": "Planning a three-act arc for the {family_name} family story...",
-    "validate_narrative_arc": "Reviewing the story structure for historical accuracy...",
     "generate_act_segments": "Weaving Act {act_number} of the narrative...",
     "enrich_segment": "Enriching the narrative with deeper historical detail...",
 }
@@ -102,7 +101,7 @@ async def run_adk_narrative(
 
     The agent follows its instruction workflow:
       lookup_cultural_context -> assess_context_quality -> (research if sparse)
-      -> plan_narrative_arc -> validate_narrative_arc -> generate_act_segments x3
+      -> plan_narrative_arc -> generate_act_segments x3
 
     The orchestrator intercepts each step and emits the appropriate SSE events
     that the frontend already understands (arc, text, image, audio, status).

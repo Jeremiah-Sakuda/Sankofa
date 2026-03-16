@@ -7,6 +7,7 @@ import { GRIOT_BEATS } from "../lib/griotBeats";
 import type { ArcOutline, StreamProgressStep } from "../hooks/useSSEStream";
 import SankofaBird from "./SankofaBird";
 import GoldParticles from "./GoldParticles";
+import VolumePanel from "./VolumePanel";
 
 /** Heritage fun facts shown during the waiting phase. */
 const HERITAGE_FACTS = [
@@ -82,7 +83,9 @@ export default function GriotIntro({
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
   const musicFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const musicStartedRef = useRef(false);
-  const [musicMuted, setMusicMuted] = useState(false);
+  const [voiceVolume, setVoiceVolume] = useState(1.0);
+  const [musicVolume, setMusicVolume] = useState(1.0);
+  const [ambientVolume, setAmbientVolume] = useState(1.0);
 
   /** Stop all audio cleanly. */
   const stopAllAudio = useCallback(() => {
@@ -139,16 +142,28 @@ export default function GriotIntro({
     }, 100);
   }, []);
 
-  // Handle music mute toggle
+  // Apply voice volume
+  useEffect(() => {
+    if (introAudioRef.current) introAudioRef.current.volume = voiceVolume;
+  }, [voiceVolume]);
+
+  // Apply ambient volume
+  useEffect(() => {
+    if (ambientAudioRef.current && !ambientAudioRef.current.paused) {
+      ambientAudioRef.current.volume = 0.15 * ambientVolume;
+    }
+  }, [ambientVolume]);
+
+  // Handle music volume changes (pause when 0, resume when >0)
   useEffect(() => {
     const music = musicAudioRef.current;
     if (!music || !musicStartedRef.current) return;
-    if (musicMuted) {
+    if (musicVolume === 0) {
       music.pause();
     } else if (phase === "playing" || phase === "waiting") {
       music.play().catch(() => {});
     }
-  }, [musicMuted, phase]);
+  }, [musicVolume, phase]);
 
   // Transition to ready when story is ready and we're not playing the intro
   useEffect(() => {
@@ -240,21 +255,21 @@ export default function GriotIntro({
 
     if (t >= MUSIC_START_TIME && !musicStartedRef.current) {
       musicStartedRef.current = true;
-      music.volume = MUSIC_VOL_START;
-      if (!musicMuted) music.play().catch(() => {});
+      music.volume = MUSIC_VOL_START * musicVolume;
+      if (musicVolume > 0) music.play().catch(() => {});
     }
 
-    if (musicStartedRef.current && !music.paused && !musicMuted) {
+    if (musicStartedRef.current && !music.paused && musicVolume > 0) {
+      let baseVol: number;
       if (t < MUSIC_BEAT_DROP) {
-        // Linear ramp from start volume to peak volume
         const progress = (t - MUSIC_START_TIME) / (MUSIC_BEAT_DROP - MUSIC_START_TIME);
-        music.volume = MUSIC_VOL_START + (MUSIC_VOL_PEAK - MUSIC_VOL_START) * Math.min(1, Math.max(0, progress));
+        baseVol = MUSIC_VOL_START + (MUSIC_VOL_PEAK - MUSIC_VOL_START) * Math.min(1, Math.max(0, progress));
       } else {
-        // After beat drop, hold at peak volume
-        music.volume = MUSIC_VOL_PEAK;
+        baseVol = MUSIC_VOL_PEAK;
       }
+      music.volume = baseVol * musicVolume;
     }
-  }, [activeBeatIndex, musicMuted]);
+  }, [activeBeatIndex, musicVolume]);
 
   const handleIntroEnded = useCallback(() => {
     if (isStoryReady) {
@@ -320,7 +335,7 @@ export default function GriotIntro({
     const audio = introAudioRef.current;
     const ambient = ambientAudioRef.current;
     if (ambient) {
-      ambient.volume = 0.15;
+      ambient.volume = 0.15 * ambientVolume;
       ambient.play().catch(() => {});
     }
     if (audio) {
@@ -674,27 +689,50 @@ export default function GriotIntro({
         )}
       </AnimatePresence>
 
-      {/* Music mute toggle */}
-      <button
-        type="button"
-        onClick={() => setMusicMuted((m) => !m)}
-        className="fixed bottom-8 left-8 z-40 w-9 h-9 flex items-center justify-center rounded-full border border-[var(--gold)]/30 bg-[var(--night)]/80 backdrop-blur text-[var(--gold)] hover:border-[var(--gold)] transition-all cursor-pointer"
-        title={musicMuted ? "Unmute music" : "Mute music"}
-      >
-        {musicMuted ? (
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="1" />
-            <path d="M20.94 11A8.994 8.994 0 0 0 13 3.06M14.5 21.59A9 9 0 0 1 3.41 10.5" />
-            <line x1="2" x2="22" y1="2" y2="22" />
-          </svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="1" />
-            <path d="M12 7a5 5 0 0 1 5 5" />
-            <path d="M16.95 3.05A9 9 0 0 1 21 12" />
-          </svg>
-        )}
-      </button>
+      {/* Volume control panel */}
+      <VolumePanel
+        channels={[
+          {
+            id: "voice",
+            label: "Voice",
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </svg>
+            ),
+            value: voiceVolume,
+            onChange: setVoiceVolume,
+          },
+          {
+            id: "music",
+            label: "Music",
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+            ),
+            value: musicVolume,
+            onChange: setMusicVolume,
+          },
+          {
+            id: "ambient",
+            label: "Ambient",
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2" />
+                <path d="M9.6 4.6A2 2 0 1 1 11 8H2" />
+                <path d="M12.6 19.4A2 2 0 1 0 14 16H2" />
+              </svg>
+            ),
+            value: ambientVolume,
+            onChange: setAmbientVolume,
+          },
+        ]}
+      />
     </motion.div>
   );
 }

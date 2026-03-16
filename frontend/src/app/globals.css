@@ -353,3 +353,39 @@ html {
     color: inherit;
   }
 }
+
+/* Volume panel slider */
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(245, 237, 218, 0.15);
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold);
+  margin-top: -4px;
+  cursor: pointer;
+}
+.volume-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(245, 237, 218, 0.15);
+  border: none;
+}
+.volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: none;
+  cursor: pointer;
+}
