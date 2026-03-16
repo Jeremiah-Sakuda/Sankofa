@@ -32,7 +32,7 @@ const HERITAGE_FACTS = [
   "Trinidad's steelpan is the only acoustic musical instrument invented in the 20th century.",
 ];
 
-const STUCK_TIMEOUT_MS = 90_000;
+const STUCK_TIMEOUT_MS = 180_000;
 
 /* ── Background music timing constants ── */
 const MUSIC_START_TIME = 3; // seconds into intro when music begins
