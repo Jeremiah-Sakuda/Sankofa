@@ -31,13 +31,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         content_length = request.headers.get("content-length")
         try:
             if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
-                from starlette.responses import JSONResponse
                 return JSONResponse(
                     status_code=413,
                     content={"detail": "Request body too large"},
                 )
         except (ValueError, TypeError):
-            pass  # Invalid Content-Length: ignore and let request proceed
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "Invalid Content-Length header"},
+            )
 
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -102,7 +104,7 @@ app.add_middleware(
     allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type"],
 )
 
 app.include_router(intake.router)

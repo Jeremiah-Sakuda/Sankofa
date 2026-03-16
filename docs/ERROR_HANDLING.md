@@ -69,7 +69,7 @@ No global exception handler is registered. Unhandled exceptions (e.g. from Fires
 #### 1.1.7 Narrative Planner
 
 - Arc JSON parsing: on `json.JSONDecodeError` or `IndexError`, falls back to `_fallback_arc(user_input)` and logs a warning. Generation continues with the template arc.
-- Ambient track validation: after a successful arc parse, `_validate_ambient_tracks` checks each act's `ambient_track` against the five valid filenames (`fire.wav`, `wind.wav`, `nature.wav`, `market.wav`, `drums.wav`). Invalid or missing values are silently replaced with per-act defaults (`wind.wav`, `market.wav`, `drums.wav` for acts 1–3). The fallback arc already includes valid defaults.
+- Ambient track validation: after a successful arc parse, `_validate_ambient_tracks` checks each act's `ambient_track` against the ten valid filenames (`fire.mp3`, `wind.mp3`, `nature.mp3`, `market.mp3`, `drums.mp3`, `rain.mp3`, `ocean.mp3`, `river.mp3`, `crickets.mp3`, `village.mp3`). Invalid or missing values are silently replaced with per-act defaults (`wind.mp3`, `market.mp3`, `drums.mp3` for acts 1–3). The fallback arc already includes valid defaults.
 
 #### 1.1.8 Session Store
 
@@ -131,11 +131,11 @@ Timeouts: `checkBackendHealth` uses 5s; `fetchWithTimeout` used for intake/follo
 
 ## 2. Bugs Identified
 
-1. **Audio route return value (`backend/app/routes/audio.py`)**  
-   `generate_narration()` returns `(base64_string, mime_type)`. The route assigns this tuple to `audio_data` and returns `{"audio_data": audio_data, "media_type": "audio/wav"}`. So `audio_data` is the whole tuple, not the base64 string. The frontend expects `audio_data` to be a string. **Fix:** Unpack the tuple and return `{"audio_data": b64, "media_type": mime}`.
+1. **Audio route return value (`backend/app/routes/audio.py`)** — **FIXED.**
+   `generate_narration()` returns `(base64_string, mime_type)`. The route now correctly unpacks the tuple: `b64_data, mime_type = result` and returns `{"audio_data": b64_data, "media_type": mime_type}`.
 
-2. **SecurityHeadersMiddleware (`backend/app/main.py`)**  
-   In the `except (ValueError, TypeError)` block the code does `pass` but then unconditionally returns 413. So any invalid `Content-Length` (e.g. non-numeric) results in 413 instead of continuing. **Fix:** In the except block, only `pass` (or skip the 413) and fall through to `call_next(request)`.
+2. **SecurityHeadersMiddleware (`backend/app/main.py`)** — **FIXED.**
+   The `except (ValueError, TypeError)` block now returns a 400 response for malformed `Content-Length` headers instead of silently allowing the request through.
 
 ---
 
