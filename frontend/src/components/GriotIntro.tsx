@@ -34,6 +34,14 @@ const HERITAGE_FACTS = [
 
 const STUCK_TIMEOUT_MS = 90_000;
 
+/* ── Background music timing constants ── */
+const MUSIC_START_TIME = 60; // seconds into intro when music begins
+const MUSIC_BEAT_DROP = 97; // seconds into intro when beat drop hits
+const MUSIC_VOL_START = 0.03; // initial volume
+const MUSIC_VOL_PEAK = 0.30; // volume at beat drop
+const MUSIC_VOL_CRUISE = 0.20; // volume after beat drop (waiting phase)
+const MUSIC_VOL_READY = 0.10; // volume when griot-ready plays
+
 interface GriotIntroProps {
   isStoryReady: boolean;
   onComplete: () => void;
@@ -72,6 +80,9 @@ export default function GriotIntro({
   const stepStartRef = useRef<number | null>(null);
   const readyAudioPlayed = useRef(false);
   const ambientFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const musicAudioRef = useRef<HTMLAudioElement | null>(null);
+  const musicFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const musicStartedRef = useRef(false);
 
   /** Stop all audio cleanly. */
   const stopAllAudio = useCallback(() => {
@@ -82,6 +93,11 @@ export default function GriotIntro({
       ambientFadeRef.current = null;
     }
     ambientAudioRef.current?.pause();
+    if (musicFadeRef.current) {
+      clearInterval(musicFadeRef.current);
+      musicFadeRef.current = null;
+    }
+    musicAudioRef.current?.pause();
   }, []);
 
   /** Fade out ambient audio over ~1s then pause. */
@@ -102,6 +118,27 @@ export default function GriotIntro({
     }, 100);
   }, []);
 
+  /** Fade music to a target volume over ~1s, optionally pause when silent. */
+  const fadeMusicTo = useCallback((target: number, pauseAtZero = false) => {
+    const music = musicAudioRef.current;
+    if (!music || music.paused) return;
+    if (musicFadeRef.current) clearInterval(musicFadeRef.current);
+    const step = music.volume > target ? -0.02 : 0.02;
+    musicFadeRef.current = setInterval(() => {
+      const diff = target - music.volume;
+      if (Math.abs(diff) < 0.025) {
+        music.volume = target;
+        if (pauseAtZero && target === 0) music.pause();
+        if (musicFadeRef.current) {
+          clearInterval(musicFadeRef.current);
+          musicFadeRef.current = null;
+        }
+      } else {
+        music.volume = Math.max(0, Math.min(1, music.volume + step));
+      }
+    }, 100);
+  }, []);
+
   // Transition to ready when story is ready and we're not playing the intro
   useEffect(() => {
     if (isStoryReady && phase === "waiting") {
@@ -115,8 +152,9 @@ export default function GriotIntro({
       readyAudioPlayed.current = true;
       readyAudioRef.current?.play().catch(() => {});
       fadeOutAmbient();
+      fadeMusicTo(MUSIC_VOL_READY);
     }
-  }, [phase, fadeOutAmbient]);
+  }, [phase, fadeOutAmbient, fadeMusicTo]);
 
   // Rotate fun facts during waiting phase
   useEffect(() => {
@@ -184,6 +222,27 @@ export default function GriotIntro({
       setPrevBeatIndex(activeBeatIndex);
       setActiveBeatIndex(newIndex);
     }
+
+    /* ── Background music volume control ── */
+    const music = musicAudioRef.current;
+    if (!music) return;
+
+    if (t >= MUSIC_START_TIME && !musicStartedRef.current) {
+      musicStartedRef.current = true;
+      music.volume = MUSIC_VOL_START;
+      music.play().catch(() => {});
+    }
+
+    if (musicStartedRef.current && !music.paused) {
+      if (t < MUSIC_BEAT_DROP) {
+        // Linear ramp from start volume to peak volume
+        const progress = (t - MUSIC_START_TIME) / (MUSIC_BEAT_DROP - MUSIC_START_TIME);
+        music.volume = MUSIC_VOL_START + (MUSIC_VOL_PEAK - MUSIC_VOL_START) * Math.min(1, Math.max(0, progress));
+      } else {
+        // After beat drop, hold at cruise volume
+        music.volume = MUSIC_VOL_CRUISE;
+      }
+    }
   }, [activeBeatIndex]);
 
   const handleIntroEnded = useCallback(() => {
@@ -196,6 +255,11 @@ export default function GriotIntro({
 
   const handleSkipIntro = useCallback(() => {
     introAudioRef.current?.pause();
+    musicAudioRef.current?.pause();
+    if (musicFadeRef.current) {
+      clearInterval(musicFadeRef.current);
+      musicFadeRef.current = null;
+    }
     fadeOutAmbient();
     if (isStoryReady) {
       setPhase("ready");
@@ -209,8 +273,9 @@ export default function GriotIntro({
     introAudioRef.current?.pause();
     readyAudioRef.current?.pause();
     fadeOutAmbient(); // smooth fade — NarrativeStream takes over ambient
+    fadeMusicTo(0, true); // fade music out and pause
     onComplete();
-  }, [onComplete, fadeOutAmbient]);
+  }, [onComplete, fadeOutAmbient, fadeMusicTo]);
 
   /** Retry: clear stuck message and local state before calling parent retry. */
   const handleRetry = useCallback(() => {
@@ -257,6 +322,11 @@ export default function GriotIntro({
         clearInterval(ambientFadeRef.current);
         ambientFadeRef.current = null;
       }
+      if (musicFadeRef.current) {
+        clearInterval(musicFadeRef.current);
+        musicFadeRef.current = null;
+      }
+      musicAudioRef.current?.pause();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -288,6 +358,11 @@ export default function GriotIntro({
         src="/audio/fire.wav"
         preload="auto"
         loop
+      />
+      <audio
+        ref={musicAudioRef}
+        src="/audio/intro-music.mp3"
+        preload="auto"
       />
 
       {/* Ambient gradient — CSS animated */}
