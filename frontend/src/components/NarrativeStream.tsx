@@ -250,35 +250,51 @@ export default function NarrativeStream({
           fadeTimerRef.current = null;
           audio.src = newSrc;
           audio.volume = 0;
-          audio.play().catch(() => {});
-          // Fade in
-          fadeTimerRef.current = setInterval(() => {
-            const target = ambientMuted ? 0 : ambientTargetVolume;
-            if (audio.volume < target - 0.01) {
-              audio.volume = Math.min(target, audio.volume + 0.01);
-            } else {
-              audio.volume = target;
-              if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
-              fadeTimerRef.current = null;
-            }
-          }, 50);
+          audio.load();
+          const fadeIn = () => {
+            audio.play().catch(() => {});
+            fadeTimerRef.current = setInterval(() => {
+              const target = ambientMuted ? 0 : ambientTargetVolume;
+              if (audio.volume < target - 0.01) {
+                audio.volume = Math.min(target, audio.volume + 0.01);
+              } else {
+                audio.volume = target;
+                if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+                fadeTimerRef.current = null;
+              }
+            }, 50);
+          };
+          if (audio.readyState >= 4) {
+            fadeIn();
+          } else {
+            audio.addEventListener("canplaythrough", fadeIn, { once: true });
+          }
         }
       }, 50);
     } else if (needsSwitch) {
-      // First load — fade in from 0 for smooth transition from intro
+      // First load — wait for audio to be ready, then fade in from 0
       audio.src = newSrc;
       audio.volume = 0;
-      audio.play().catch(() => {});
-      fadeTimerRef.current = setInterval(() => {
-        const target = ambientMuted ? 0 : ambientTargetVolume;
-        if (audio.volume < target - 0.01) {
-          audio.volume = Math.min(target, audio.volume + 0.01);
-        } else {
-          audio.volume = target;
-          if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
-          fadeTimerRef.current = null;
-        }
-      }, 50);
+      audio.load();
+      const startFadeIn = () => {
+        audio.play().catch(() => {});
+        fadeTimerRef.current = setInterval(() => {
+          const target = ambientMuted ? 0 : ambientTargetVolume;
+          if (audio.volume < target - 0.01) {
+            audio.volume = Math.min(target, audio.volume + 0.01);
+          } else {
+            audio.volume = target;
+            if (fadeTimerRef.current) clearInterval(fadeTimerRef.current);
+            fadeTimerRef.current = null;
+          }
+        }, 50);
+      };
+      // If already ready (cached), play now; otherwise wait for canplaythrough
+      if (audio.readyState >= 4) {
+        startFadeIn();
+      } else {
+        audio.addEventListener("canplaythrough", startFadeIn, { once: true });
+      }
     }
 
     return () => {
@@ -636,7 +652,7 @@ export default function NarrativeStream({
           ref={ambientAudioRef}
           src={`/audio/${currentAmbientTrack}`}
           loop
-          preload="none"
+          preload="auto"
         />
       )}
 
