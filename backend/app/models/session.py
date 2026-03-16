@@ -5,7 +5,7 @@ from typing import Optional
 from app.models.schemas import NarrativeSegment, UserInput
 
 # If is_generating has been True for longer than this, treat it as stale
-_GENERATING_STALE_SECONDS = 480  # 8 minutes
+_GENERATING_STALE_SECONDS = 300  # 5 minutes
 
 
 @dataclass
