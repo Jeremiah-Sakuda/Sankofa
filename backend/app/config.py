@@ -44,6 +44,11 @@ class Settings:
     # Analytics access key (for /api/stats endpoint)
     ANALYTICS_KEY: str = os.getenv("ANALYTICS_KEY", "sankofa-stats")
 
+    # Stripe integration for contributions (tip jar)
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    ENABLE_CONTRIBUTIONS: bool = os.getenv("ENABLE_CONTRIBUTIONS", "false").lower() == "true"
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"

@@ -26,6 +26,12 @@ class EventType(str, Enum):
     FOLLOWUP_USED = "followup_used"
     LIVE_VOICE_STARTED = "live_voice_started"
     LIVE_VOICE_ENDED = "live_voice_ended"
+    # Contribution (tip jar) events
+    TIP_CARD_SHOWN = "tip_card_shown"
+    TIP_CARD_DISMISSED = "tip_card_dismissed"
+    TIP_AMOUNT_SELECTED = "tip_amount_selected"
+    TIP_CHECKOUT_STARTED = "tip_checkout_started"
+    TIP_COMPLETED = "tip_completed"
 
 
 # Firestore collection for analytics
@@ -107,7 +113,7 @@ async def _write_event(
 
         if metadata:
             # Only include safe metadata fields
-            safe_fields = {"segment_count", "duration_seconds", "error_type", "audio_enabled"}
+            safe_fields = {"segment_count", "duration_seconds", "error_type", "audio_enabled", "amount_cents"}
             doc["metadata"] = {k: v for k, v in metadata.items() if k in safe_fields}
 
         # Write to Firestore (blocking, but we're in a background task)

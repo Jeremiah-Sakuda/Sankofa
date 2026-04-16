@@ -197,3 +197,52 @@ export async function getSampleNarrative(): Promise<SampleNarrativeResponse | nu
 export function getSampleStreamUrl(): string {
   return `${API_BASE}/api/narrative/sample/stream`;
 }
+
+// Contribution (tip jar) API functions
+
+export interface ContributionCheckoutResponse {
+  checkout_url: string;
+}
+
+export async function createContributionCheckout(
+  sessionId: string,
+  amountCents: number,
+  email?: string
+): Promise<ContributionCheckoutResponse> {
+  const res = await fetch(`${API_BASE}/api/contribute/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      session_id: sessionId,
+      amount_cents: amountCents,
+      email: email || undefined,
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `Checkout failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function trackContributionEvent(
+  eventType: string,
+  sessionId: string,
+  amountCents?: number
+): Promise<void> {
+  // Fire-and-forget tracking via the main analytics endpoint pattern
+  // This is called from the frontend for tip_card_shown, tip_card_dismissed, tip_amount_selected
+  try {
+    await fetch(`${API_BASE}/api/analytics/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_type: eventType,
+        session_id: sessionId,
+        metadata: amountCents ? { amount_cents: amountCents } : undefined,
+      }),
+    });
+  } catch {
+    // Silently ignore tracking errors
+  }
+}

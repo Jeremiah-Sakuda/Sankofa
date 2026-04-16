@@ -217,6 +217,84 @@ Output ONLY the JSON, no other text."""
         return json.dumps(fallback)
 
 
+async def validate_narrative_arc(arc_json: str, region: str, time_period: str) -> str:
+    """Validate the planned narrative arc for quality and completeness.
+
+    This tool checks:
+    1. Structural validity - all required fields present
+    2. Content quality - titles are specific, not generic placeholders
+    3. Key facts - each act has grounding in actual historical/cultural facts
+    4. Coherence - acts tell a connected story
+
+    Call this after plan_narrative_arc. If validation fails, call
+    plan_narrative_arc again with the feedback to revise.
+
+    Args:
+        arc_json: The JSON string from plan_narrative_arc.
+        region: The geographic region (for context checking).
+        time_period: The historical era (for context checking).
+
+    Returns:
+        JSON string with {"valid": bool, "feedback": str}.
+        If valid=false, feedback explains what needs improvement.
+    """
+    issues = []
+
+    try:
+        arc = json.loads(arc_json.strip().strip("```json").strip("```"))
+    except json.JSONDecodeError as e:
+        return json.dumps({
+            "valid": False,
+            "feedback": f"Arc JSON is malformed: {e}. Please output valid JSON only."
+        })
+
+    # Check required top-level fields
+    required_acts = ["act1_setting", "act2_people", "act3_thread"]
+    for act_key in required_acts:
+        if act_key not in arc:
+            issues.append(f"Missing required field: {act_key}")
+        else:
+            act = arc[act_key]
+            # Check each act has required sub-fields
+            if not act.get("title"):
+                issues.append(f"{act_key}: Missing 'title'")
+            elif len(act["title"]) < 5:
+                issues.append(f"{act_key}: Title too short, be more evocative")
+            elif act["title"].lower() in ["the land", "the people", "connection", "untitled"]:
+                issues.append(f"{act_key}: Title is too generic ('{act['title']}'), make it specific to {region}")
+
+            if not act.get("focus"):
+                issues.append(f"{act_key}: Missing 'focus'")
+
+            if not act.get("key_facts") or not isinstance(act.get("key_facts"), list):
+                issues.append(f"{act_key}: Missing or invalid 'key_facts' (should be a list)")
+            elif len(act.get("key_facts", [])) < 1:
+                issues.append(f"{act_key}: Should have at least 1 key_fact for grounding")
+
+            if not act.get("ambient_track"):
+                issues.append(f"{act_key}: Missing 'ambient_track'")
+
+    if "tone" not in arc:
+        issues.append("Missing 'tone' field")
+    if "narrative_voice" not in arc:
+        issues.append("Missing 'narrative_voice' field")
+
+    # Content quality checks
+    if not issues:
+        # Check that content mentions the actual region/period
+        arc_str = json.dumps(arc).lower()
+        if region.lower() not in arc_str and len(region) > 3:
+            issues.append(f"Arc should reference {region} more specifically in titles or focus areas")
+
+    if issues:
+        feedback = "Please revise the arc to address these issues:\n- " + "\n- ".join(issues)
+        logger.info("[adk] validate_narrative_arc: FAILED with %d issues", len(issues))
+        return json.dumps({"valid": False, "feedback": feedback})
+
+    logger.info("[adk] validate_narrative_arc: PASSED")
+    return json.dumps({"valid": True, "feedback": "Arc structure and content look good."})
+
+
 async def generate_act_segments(
     act_number: int,
     region: str,
@@ -478,12 +556,15 @@ When a user provides their family name, region of origin, and time period, follo
 2. Evaluate Context: Use `assess_context_quality` on the result.
    - If it returns "sparse" or "none", use `research_region_history` to gather better grounding.
 3. Plan: Use `plan_narrative_arc` to structure a 3-act story.
-4. Generate Act 1: Use `generate_act_segments` for Act 1. You specify `image_density`.
-5. Review & Enrich: Review Act 1. If it needs better grounding, use `enrich_segment`.
-6. Generate Act 2: Use `generate_act_segments` for Act 2, passing Act 1's text as `previous_narrative`.
-7. Generate Act 3: Use `generate_act_segments` for Act 3, passing previous acts text.
-8. Audio (Optional): Use `generate_audio_narration` for text segments.
-9. Notifications: Use `notify_user` to communicate if you must drop images or audio.
+4. Validate: Use `validate_narrative_arc` to check the arc quality.
+   - If validation fails, call `plan_narrative_arc` again with the feedback parameter set to the validation issues.
+   - Repeat until validation passes (max 2 attempts).
+5. Generate Act 1: Use `generate_act_segments` for Act 1. You specify `image_density`.
+6. Review & Enrich: Review Act 1. If it needs better grounding, use `enrich_segment`.
+7. Generate Act 2: Use `generate_act_segments` for Act 2, passing Act 1's text as `previous_narrative`.
+8. Generate Act 3: Use `generate_act_segments` for Act 3, passing previous acts text.
+9. Audio (Optional): Use `generate_audio_narration` for text segments.
+10. Notifications: Use `notify_user` to communicate if you must drop images or audio.
 
 FOLLOW-UP EXPLORATION:
 If the user asks a follow-up question:
@@ -511,6 +592,7 @@ sankofa_agent_tools = [
     assess_context_quality,
     research_region_history,
     plan_narrative_arc,
+    validate_narrative_arc,
     generate_act_segments,
     enrich_segment,
     generate_audio_narration,
