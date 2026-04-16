@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useCallback, useState, useRef, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useSSEStream } from "../../../hooks/useSSEStream";
 import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
 import { NarrativeSegment, getSession, getFollowUpStreamUrl, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
-import LiveGriot from "../../../components/LiveGriot";
+// import LiveGriot from "../../../components/LiveGriot";  // Live Griot feature disabled for now
 import GriotIntro from "../../../components/GriotIntro";
 import ShareModal from "../../../components/ShareModal";
+import GoldParticles from "../../../components/GoldParticles";
 
 export default function NarrativePage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
+  const contributed = searchParams.get("contributed") === "true";
   const { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, abort, reset } = useSSEStream();
   const [followUpSegments, setFollowUpSegments] = useState<NarrativeSegment[]>([]);
   const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
@@ -23,7 +26,7 @@ export default function NarrativePage() {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [sessionInvalid, setSessionInvalid] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
-  const [showLiveGriot, setShowLiveGriot] = useState(false);
+  // const [showLiveGriot, setShowLiveGriot] = useState(false);  // Live Griot feature disabled for now
   const [showShareModal, setShowShareModal] = useState(false);
   const [userDismissedIntro, setUserDismissedIntro] = useState(false);
   const autoStartedRef = useRef(false);
@@ -64,12 +67,13 @@ export default function NarrativePage() {
     segments.some((s) => s.type === "audio" && s.sequence === firstTextSeq);
   const isReadyToShow = hasTextSegment && hasFirstAudio;
 
-  const latestImageSrc = useMemo(() => {
-    const imgs = allSegments.filter(s => s.type === "image" && s.media_data);
-    if (imgs.length === 0) return null;
-    const last = imgs[imgs.length - 1];
-    return `data:${last.media_type || "image/png"};base64,${last.media_data}`;
-  }, [allSegments]);
+  // Live Griot feature disabled for now
+  // const latestImageSrc = useMemo(() => {
+  //   const imgs = allSegments.filter(s => s.type === "image" && s.media_data);
+  //   if (imgs.length === 0) return null;
+  //   const last = imgs[imgs.length - 1];
+  //   return `data:${last.media_type || "image/png"};base64,${last.media_data}`;
+  // }, [allSegments]);
 
   const handleFollowUp = useCallback(
     async (question: string) => {
@@ -176,7 +180,17 @@ export default function NarrativePage() {
             background: actGradients[currentAct] ?? actGradients[1],
           }}
         />
+        {/* Vignette overlay - draws eye inward */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "linear-gradient(to right, rgba(0,0,0,0.4) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.4) 100%)",
+          }}
+        />
       </div>
+
+      {/* Subtle gold particles in gutters */}
+      <GoldParticles count={15} />
 
       {/* Cinematic griot intro overlay */}
       <AnimatePresence>
@@ -199,9 +213,9 @@ export default function NarrativePage() {
         )}
       </AnimatePresence>
 
-      {/* Narrative column */}
+      {/* Narrative column - wider for immersion */}
       <motion.div
-        className="relative z-10 mx-auto w-full max-w-[min(1280px,94vw)] min-h-screen px-3 sm:px-4"
+        className="relative z-10 mx-auto w-full max-w-[min(1400px,82vw)] min-h-screen px-3 sm:px-4"
         initial={{ opacity: 0, y: 30 }}
         animate={{
           opacity: userDismissedIntro ? 1 : 0,
@@ -223,8 +237,10 @@ export default function NarrativePage() {
             era={sessionInfo?.time_period}
             arcOutline={arcOutline}
             autoPlay={userDismissedIntro}
+            sessionId={sessionId}
+            contributed={contributed}
             onFollowUp={handleFollowUp}
-            onTalkToGriot={() => setShowLiveGriot(true)}
+            // onTalkToGriot={() => setShowLiveGriot(true)}  // Live Griot feature disabled for now
             onShare={() => setShowShareModal(true)}
             onRetry={() => {
               reset();
@@ -235,7 +251,7 @@ export default function NarrativePage() {
         </div>
       </motion.div>
 
-      {/* Live Griot voice conversation overlay */}
+      {/* Live Griot voice conversation overlay - disabled for now
       <AnimatePresence>
         {showLiveGriot && (
           <LiveGriot
@@ -246,6 +262,7 @@ export default function NarrativePage() {
           />
         )}
       </AnimatePresence>
+      */}
 
       {/* Share modal */}
       <ShareModal

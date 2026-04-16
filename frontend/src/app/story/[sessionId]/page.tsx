@@ -192,10 +192,20 @@ export default function PublicStoryPage() {
             background: actGradients[currentAct] ?? actGradients[1],
           }}
         />
+        {/* Vignette overlay */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "linear-gradient(to right, rgba(0,0,0,0.4) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.4) 100%)",
+          }}
+        />
       </div>
 
+      {/* Subtle gold particles in gutters */}
+      <GoldParticles count={15} />
+
       <motion.div
-        className="relative z-10 mx-auto w-full max-w-[min(1280px,94vw)] min-h-screen px-3 sm:px-4"
+        className="relative z-10 mx-auto w-full max-w-[min(1400px,82vw)] min-h-screen px-3 sm:px-4"
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
@@ -203,20 +213,21 @@ export default function PublicStoryPage() {
         <div className="bg-[var(--ivory)] noise-texture px-6 md:px-14 py-10 md:py-16 min-h-screen shadow-[0_0_80px_rgba(0,0,0,0.6)]">
           <ScrollProgress totalActs={totalActs} currentAct={currentAct} isComplete={true} />
 
-          {/* Shared story banner */}
+          {/* Subtle shared story indicator */}
           <motion.div
-            className="mb-8 p-4 bg-[var(--gold)]/10 border border-[var(--gold)]/30 rounded text-center"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            className="mb-6 py-2 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <p className="font-[family-name:var(--font-body)] text-sm text-[var(--umber)]">
-              A heritage narrative shared with you.{" "}
+            <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+              Shared narrative{" "}
+              <span className="mx-2 text-[var(--gold)]/30">|</span>
               <button
                 onClick={() => router.push("/")}
-                className="text-[var(--gold)] hover:underline cursor-pointer font-medium"
+                className="text-[var(--gold)]/70 hover:text-[var(--gold)] cursor-pointer transition-colors"
               >
-                Create your own story
+                Create your own
               </button>
             </p>
           </motion.div>

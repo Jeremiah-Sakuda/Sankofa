@@ -11,6 +11,7 @@ import ScrollProgress from "./ScrollProgress";
 import SankofaBird from "./SankofaBird";
 import VolumePanel from "./VolumePanel";
 import DiscoveryPrompts from "./DiscoveryPrompts";
+import SupportTheGriot from "./SupportTheGriot";
 
 const FOLLOW_UP_MAX_LENGTH = 500;
 
@@ -33,8 +34,12 @@ interface Props {
   arcOutline?: ArcOutline | null;
   /** Gate narration and ambient audio behind user action (e.g. "Begin" click). */
   autoPlay?: boolean;
+  /** Session ID for contribution tracking */
+  sessionId?: string;
+  /** Whether user has already contributed (from URL query param) */
+  contributed?: boolean;
   onFollowUp?: (question: string) => void;
-  onTalkToGriot?: () => void;
+  // onTalkToGriot?: () => void;  // Live Griot feature disabled for now
   onRetry?: () => void;
   onShare?: () => void;
   onExploreEra?: () => void;
@@ -177,8 +182,10 @@ export default function NarrativeStream({
   progressStep,
   arcOutline,
   autoPlay = true,
+  sessionId,
+  contributed = false,
   onFollowUp,
-  onTalkToGriot,
+  // onTalkToGriot,  // Live Griot feature disabled for now
   onRetry,
   onShare,
   onExploreEra,
@@ -192,6 +199,7 @@ export default function NarrativeStream({
   const [isListening, setIsListening] = useState(false);
   const [narrationVolume, setNarrationVolume] = useState(1.0);
   const [ambientVolume, setAmbientVolume] = useState(1.0);
+  const [showTipCard, setShowTipCard] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const seenSequences = useRef<Set<number>>(new Set());
@@ -355,9 +363,14 @@ export default function NarrativeStream({
     };
   }, [currentAmbientTrack, autoPlay]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Apply ambient volume changes immediately
+  // Apply ambient volume changes immediately and cancel any fade in progress
   useEffect(() => {
-    if (ambientAudioRef.current && !ambientAudioRef.current.paused) {
+    // Cancel any running fade so it doesn't override user's volume change
+    if (fadeTimerRef.current) {
+      clearInterval(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+    if (ambientAudioRef.current) {
       ambientAudioRef.current.volume = ambientTargetVolume;
     }
   }, [ambientTargetVolume]);
@@ -559,6 +572,16 @@ export default function NarrativeStream({
             Look for the margin annotations.
           </p>
 
+          {/* Support the Griot tip card */}
+          {isComplete && sessionId && (showTipCard || contributed) && (
+            <SupportTheGriot
+              sessionId={sessionId}
+              region={region}
+              contributed={contributed}
+              onDismiss={() => setShowTipCard(false)}
+            />
+          )}
+
           {/* Discovery prompts */}
           {isComplete && onFollowUp && (
             <DiscoveryPrompts
@@ -632,24 +655,6 @@ export default function NarrativeStream({
                 Your story continues&hellip;
               </motion.p>
 
-              {/* Talk to the Griot button */}
-              {onTalkToGriot && (
-                <motion.button
-                  onClick={onTalkToGriot}
-                  initial={{ opacity: 0, y: 8 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: 0.5 }}
-                  className="mb-8 px-6 py-3 border border-[var(--gold)] text-[var(--gold)] font-[family-name:var(--font-display)] text-sm tracking-wider uppercase hover:bg-[var(--gold)] hover:text-[var(--night)] transition-all cursor-pointer flex items-center gap-3 mx-auto"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" x2="12" y1="19" y2="22" />
-                  </svg>
-                  Talk to the Griot
-                </motion.button>
-              )}
               <div className="flex items-center justify-center gap-3 max-w-lg mx-auto">
                 <input
                   type="text"
@@ -725,7 +730,7 @@ export default function NarrativeStream({
             onTrackChange={handleTrackChange}
             onPlayStateChange={handlePlayStateChange}
             onDurationChange={handleDurationChange}
-            onTalkToGriot={onTalkToGriot}
+            // onTalkToGriot={onTalkToGriot}  // Live Griot feature disabled for now
             autoPlay={autoPlay}
             volume={narrationVolume}
           />
