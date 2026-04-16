@@ -29,17 +29,20 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
-        try:
-            if content_length and int(content_length) > MAX_REQUEST_BODY_BYTES:
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Request body too large"},
+        if content_length:
+            try:
+                if int(content_length) > MAX_REQUEST_BODY_BYTES:
+                    return JSONResponse(
+                        status_code=413,
+                        content={"detail": "Request body too large"},
+                    )
+            except (ValueError, TypeError):
+                # Malformed Content-Length header - log and continue
+                # The actual body size will be enforced by the server
+                logger.warning(
+                    "Malformed Content-Length header: %s (continuing with request)",
+                    content_length[:50] if len(content_length) < 100 else content_length[:50] + "..."
                 )
-        except (ValueError, TypeError):
-            return JSONResponse(
-                status_code=400,
-                content={"detail": "Invalid Content-Length header"},
-            )
 
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
