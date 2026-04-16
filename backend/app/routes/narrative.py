@@ -16,6 +16,7 @@ from app.services.narrative_planner import generate_narrative_only, get_fast_arc
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration, spawn_tts_task
 from app.store import session_store
+from app.utils.sanitization import sanitize_input
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["narrative"])
@@ -190,7 +191,8 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
             detail="This journey has reached its natural conclusion. Please begin a new narrative to explore further."
         )
 
-    question = payload.question
+    # Sanitize the question to prevent prompt injection
+    question = sanitize_input(payload.question, "followup_question") or ""
 
     is_safe = await validate_followup_question(question)
     if not is_safe:
@@ -284,18 +286,21 @@ async def followup_stream(
             detail="This journey has reached its natural conclusion. Please begin a new narrative to explore further.",
         )
 
-    is_safe = await validate_followup_question(question)
+    # Sanitize the question to prevent prompt injection
+    sanitized_question = sanitize_input(question, "followup_question") or ""
+
+    is_safe = await validate_followup_question(sanitized_question)
     if not is_safe:
-        logger.warning("Rejected unsafe/off-topic followup in session %s: %s", session_id, question)
+        logger.warning("Rejected unsafe/off-topic followup in session %s: %s", session_id, sanitized_question)
         raise HTTPException(
             status_code=400,
             detail="I'm sorry, I can only weave narratives about ancestral heritage, family history, and culture.",
         )
 
     async def followup_event_generator():
-        logger.info("[followup-stream] ADK follow-up stream for session %s: %s", session_id, question[:80])
+        logger.info("[followup-stream] ADK follow-up stream for session %s: %s", session_id, sanitized_question[:80])
         try:
-            async for sse_event in run_adk_followup(session, question, audio=audio):
+            async for sse_event in run_adk_followup(session, sanitized_question, audio=audio):
                 yield sse_event
         except Exception as e:
             logger.error(f"ADK Followup generation error: {e}", exc_info=True)
