@@ -28,8 +28,8 @@ INJECTION_PATTERNS = [
     r"<\|im_start\|>",
     r"<\|im_end\|>",
     # Role markers
-    r"(?i)^(system|assistant|user|human|ai):\s*",
-    r"(?i)###\s*(system|instruction|response)",
+    r"^(system|assistant|user|human|ai):\s*",
+    r"###\s*(system|instruction|response)",
     # Escape sequences that might break prompts
     r"```\s*(system|prompt|instruction)",
 ]
