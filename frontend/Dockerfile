@@ -13,7 +13,7 @@ COPY . .
 
 # Hardcode the production API URL so Next.js inlines it into the client bundle.
 # The ARG approach does not work with Cloud Run source deploys.
-ENV NEXT_PUBLIC_API_URL=https://sankofa-api-stbvjbjf6a-uc.a.run.app
+ENV NEXT_PUBLIC_API_URL=https://sankofa-568972239298.us-central1.run.app
 
 RUN npm run build
 
