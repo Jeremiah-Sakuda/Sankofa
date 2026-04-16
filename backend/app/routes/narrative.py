@@ -31,6 +31,10 @@ _DELAY_IMAGE = 1.2
 _DELAY_FIRST_TEXT = 0.6
 _DELAY_TEXT = 0.35
 
+# Overall timeout for narrative generation (seconds)
+# Prevents hung streams from consuming resources indefinitely
+_OVERALL_TIMEOUT = 180
+
 
 @router.get("/narrative/{session_id}/stream")
 @limiter.limit("10/minute")
@@ -71,10 +75,26 @@ async def stream_narrative(
             session.is_generating = True
             session.generating_started_at = time.time()
             session_store.update(session)
+            start_time = time.time()
+            timed_out = False
+
             try:
                 logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
                 async for sse_event in run_adk_narrative(session, audio=audio):
+                    # Check overall timeout
+                    if time.time() - start_time > _OVERALL_TIMEOUT:
+                        logger.warning("[stream] Overall timeout (%ds) exceeded for session %s", _OVERALL_TIMEOUT, str(session_id))
+                        timed_out = True
+                        yield {"event": "error", "data": json.dumps({
+                            "error": "The story is taking longer than expected. Please try again."
+                        })}
+                        break
                     yield sse_event
+            except asyncio.TimeoutError:
+                logger.warning("[stream] Timeout for session %s", str(session_id))
+                yield {"event": "error", "data": json.dumps({
+                    "error": "The story is taking longer than expected. Please try again."
+                })}
             except Exception as e:
                 logger.error(f"ADK Narrative generation error: {e}", exc_info=True)
                 error_msg = "An unexpected error occurred during narrative generation. Please try again."
@@ -84,6 +104,8 @@ async def stream_narrative(
             finally:
                 generation_limiter.finish(client_ip, str(session_id))
                 session.is_generating = False
+                if timed_out:
+                    logger.info("[stream] Session %s timed out after %ds", str(session_id), int(time.time() - start_time))
                 try:
                     session_store.update(session)
                 except Exception as store_err:

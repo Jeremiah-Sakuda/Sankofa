@@ -27,6 +27,19 @@ from app.services.gemini_service import _is_transient, get_client
 
 logger = logging.getLogger(__name__)
 
+# Semaphore to limit concurrent TTS API calls across all sessions
+# Prevents overwhelming Gemini TTS quota during high load
+_TTS_CONCURRENCY_LIMIT = 4
+_tts_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_tts_semaphore() -> asyncio.Semaphore:
+    """Get or create the TTS semaphore (must be called from async context)."""
+    global _tts_semaphore
+    if _tts_semaphore is None:
+        _tts_semaphore = asyncio.Semaphore(_TTS_CONCURRENCY_LIMIT)
+    return _tts_semaphore
+
 # ---------------------------------------------------------------------------
 # Sentence-level splitting
 # ---------------------------------------------------------------------------
@@ -91,9 +104,14 @@ Let the words breathe. This is oral storytelling, not news reading.
 
 
 async def _generate_pcm_async(text: str, voice_name: str) -> bytes | None:
-    """Non-blocking wrapper around the synchronous PCM generator."""
+    """Non-blocking wrapper around the synchronous PCM generator.
+
+    Uses a semaphore to limit concurrent TTS API calls globally.
+    """
+    semaphore = _get_tts_semaphore()
     try:
-        return await asyncio.to_thread(_generate_pcm_sync, text, voice_name)
+        async with semaphore:
+            return await asyncio.to_thread(_generate_pcm_sync, text, voice_name)
     except Exception as e:
         logger.warning("TTS chunk failed: %s", e, exc_info=True)
         return None
