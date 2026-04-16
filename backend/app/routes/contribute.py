@@ -6,7 +6,7 @@ import time
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.config import settings
@@ -244,16 +244,20 @@ async def _record_contribution(
 
 
 @router.get("/stats")
-async def contribution_stats(key: str = ""):
+@limiter.limit("10/minute")
+async def contribution_stats(request: Request, authorization: str = Header(None)):
     """
-    Get aggregate contribution statistics (password-protected).
+    Get aggregate contribution statistics (key-protected via Authorization header).
 
-    Query params:
-        key: Admin access key (same as ANALYTICS_KEY)
+    Headers:
+        Authorization: Bearer <ANALYTICS_KEY>
     """
-    expected_key = settings.ANALYTICS_KEY
-    if key != expected_key:
-        raise HTTPException(status_code=401, detail="Invalid or missing access key")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header required (Bearer <key>)")
+
+    key = authorization.split(" ", 1)[1]
+    if key != settings.ANALYTICS_KEY:
+        raise HTTPException(status_code=401, detail="Invalid access key")
 
     if not settings.USE_FIRESTORE:
         return {"error": "Statistics not available (Firestore disabled)"}
@@ -298,4 +302,4 @@ async def contribution_stats(key: str = ""):
 
     except Exception as e:
         logger.error("Failed to fetch contribution stats: %s", e, exc_info=True)
-        return {"error": str(e)}
+        return {"error": "Failed to fetch statistics"}

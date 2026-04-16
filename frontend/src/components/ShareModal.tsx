@@ -77,20 +77,20 @@ export default function ShareModal({
     if (!shareUrl) return;
     const text = `I discovered my ${familyName || "family"} heritage from ${region || "my ancestral homeland"} through Sankofa. Explore your own roots:`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleShareFacebook = () => {
     if (!shareUrl) return;
     const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleShareWhatsApp = () => {
     if (!shareUrl) return;
     const text = `I discovered my ${familyName || "family"} heritage through Sankofa! Check out my story: ${shareUrl}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   return (

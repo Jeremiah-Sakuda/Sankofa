@@ -7,6 +7,7 @@ python-dotenv==1.2.2
 pydantic==2.12.5
 google-cloud-firestore==2.25.0
 google-adk==1.27.1
+firebase-admin==6.5.0
 slowapi==0.1.9
 tenacity==9.1.4
-stripe>=8.0.0
+stripe==8.11.0

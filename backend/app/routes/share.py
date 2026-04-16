@@ -1,14 +1,19 @@
 """Share routes for public narrative sharing."""
 
 import logging
+import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.models.user import User
+from app.rate_limiter import limiter
 from app.routes.auth import get_current_user
 from app.store import session_store
+
+# Use configured frontend URL for share links (prevents host header injection)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://sankofa.app")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["share"])
@@ -31,6 +36,7 @@ class PublicNarrativeResponse(BaseModel):
 
 
 @router.post("/narratives/{session_id}/share", response_model=ShareResponse)
+@limiter.limit("10/minute")
 async def share_narrative(
     request: Request,
     session_id: UUID,
@@ -45,18 +51,19 @@ async def share_narrative(
     if not session:
         raise HTTPException(status_code=404, detail="Narrative not found")
 
-    # Check ownership - must own or be unclaimed
-    if session.owner_id and user and session.owner_id != user.user_id:
-        raise HTTPException(status_code=403, detail="You don't have permission to share this narrative")
+    # Check ownership - owned narratives require authentication
+    if session.owner_id:
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        if session.owner_id != user.user_id:
+            raise HTTPException(status_code=403, detail="You don't have permission to share this narrative")
 
     # Make public
     session.is_public = True
     session_store.update_metadata(session)
 
-    # Build share URL - use request host
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or "sankofa.app"
-    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
-    share_url = f"{scheme}://{host}/story/{session_id}"
+    # Build share URL from configured frontend URL (prevents host header injection)
+    share_url = f"{FRONTEND_URL.rstrip('/')}/story/{session_id}"
 
     logger.info("Narrative %s shared by user %s", session_id, user.user_id if user else "anonymous")
 
@@ -64,6 +71,7 @@ async def share_narrative(
 
 
 @router.get("/story/{session_id}")
+@limiter.limit("30/minute")
 async def get_public_story(
     request: Request,
     session_id: UUID,
@@ -106,6 +114,7 @@ async def get_public_story(
 
 
 @router.delete("/narratives/{session_id}/share")
+@limiter.limit("10/minute")
 async def unshare_narrative(
     request: Request,
     session_id: UUID,
@@ -116,9 +125,12 @@ async def unshare_narrative(
     if not session:
         raise HTTPException(status_code=404, detail="Narrative not found")
 
-    # Check ownership
-    if session.owner_id and user and session.owner_id != user.user_id:
-        raise HTTPException(status_code=403, detail="You don't have permission to unshare this narrative")
+    # Check ownership - owned narratives require authentication
+    if session.owner_id:
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        if session.owner_id != user.user_id:
+            raise HTTPException(status_code=403, detail="You don't have permission to unshare this narrative")
 
     # Make private
     session.is_public = False

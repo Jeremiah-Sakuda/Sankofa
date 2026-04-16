@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -52,6 +52,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # HSTS: enforce HTTPS for 1 year, include subdomains
+        if settings.is_production:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+        # Content Security Policy for API responses (JSON)
+        # - default-src 'none': API responses shouldn't load any resources
+        # - frame-ancestors 'none': prevent embedding in iframes (clickjacking)
+        # Note: Full CSP should be set on the frontend (Next.js) for HTML pages
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+
+        # Permissions-Policy: disable sensitive browser features not needed
+        response.headers["Permissions-Policy"] = (
+            "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+            "magnetometer=(), microphone=(), payment=(), usb=()"
+        )
+
         return response
 
 
@@ -120,11 +137,15 @@ async def lifespan(app: FastAPI):
 
 
 # Allow request body up to 1MB to prevent large payload abuse
+# Disable OpenAPI docs in production to reduce attack surface
 app = FastAPI(
     title="Sankofa API",
     description="Ancestral Heritage Narrator — transforming personal inputs into immersive heritage narratives",
     version="0.1.0",
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 app.state.limiter = limiter
@@ -149,8 +170,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 app.include_router(auth.router)
@@ -183,19 +204,26 @@ async def health_check():
 
 
 @app.get("/api/stats")
-async def analytics_stats(key: str = ""):
+@limiter.limit("10/minute")
+async def analytics_stats(request: Request, authorization: str = Header(None)):
     """
-    Aggregate analytics statistics (password-protected).
+    Aggregate analytics statistics (key-protected via Authorization header).
 
-    Query params:
-        key: Admin access key (set via ANALYTICS_KEY env var, defaults to 'sankofa-stats')
+    Headers:
+        Authorization: Bearer <ANALYTICS_KEY>
     """
-    # Simple password protection
-    expected_key = settings.ANALYTICS_KEY if hasattr(settings, 'ANALYTICS_KEY') else "sankofa-stats"
-    if key != expected_key:
+    # Extract key from Authorization header
+    if not authorization or not authorization.startswith("Bearer "):
         return JSONResponse(
             status_code=401,
-            content={"error": "Invalid or missing access key"}
+            content={"error": "Authorization header required (Bearer <key>)"}
+        )
+
+    key = authorization.split(" ", 1)[1]
+    if key != settings.ANALYTICS_KEY:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid access key"}
         )
 
     stats = await get_aggregate_stats()

@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from app.knowledge.loader import build_grounding_context
@@ -339,7 +340,8 @@ async def followup_query(request: Request, session_id: UUID, payload: FollowUpRe
 
     is_safe = await validate_followup_question(question)
     if not is_safe:
-        logger.warning(f"Rejected unsafe/off-topic prompt in session {session_id}: {question}")
+        # Log rejection without PII (question content)
+        logger.warning("Rejected unsafe/off-topic prompt in session %s", session_id)
         raise HTTPException(
             status_code=400,
             detail="I'm sorry, I can only weave narratives about ancestral heritage, family history, and culture."
@@ -418,15 +420,23 @@ Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
     return {"segments": [seg.model_dump() for seg in all_segments]}
 
 
-@router.get("/narrative/{session_id}/followup-stream")
+class FollowUpStreamRequest(BaseModel):
+    """Request body for follow-up streaming (POST to keep PII out of logs)."""
+    question: str = Field(..., max_length=2000, description="The follow-up question")
+    audio: bool = Field(default=False, description="Generate TTS audio")
+
+
+@router.post("/narrative/{session_id}/followup-stream")
 @limiter.limit("10/minute")
 async def followup_stream(
     request: Request,
     session_id: UUID,
-    question: str = Query(..., max_length=2000, description="The follow-up question"),
-    audio: bool = Query(default=False, description="Generate TTS audio"),
+    body: FollowUpStreamRequest,
 ):
-    """SSE-streaming follow-up endpoint — segments arrive one-by-one like the initial narrative."""
+    """SSE-streaming follow-up endpoint — segments arrive one-by-one like the initial narrative.
+
+    Uses POST to keep user questions out of server logs (PII protection).
+    """
     session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -439,23 +449,25 @@ async def followup_stream(
         )
 
     # Sanitize the question to prevent prompt injection
-    sanitized_question = sanitize_input(question, "followup_question") or ""
+    sanitized_question = sanitize_input(body.question, "followup_question") or ""
 
     is_safe = await validate_followup_question(sanitized_question)
     if not is_safe:
-        logger.warning("Rejected unsafe/off-topic followup in session %s: %s", session_id, sanitized_question)
+        # Log only that rejection happened, not the actual content (PII)
+        logger.warning("Rejected unsafe/off-topic followup in session %s", session_id)
         raise HTTPException(
             status_code=400,
             detail="I'm sorry, I can only weave narratives about ancestral heritage, family history, and culture.",
         )
 
     async def followup_event_generator():
-        logger.info("[followup-stream] ADK follow-up stream for session %s: %s", session_id, sanitized_question[:80])
+        # Log session ID but not question content (PII protection)
+        logger.info("[followup-stream] ADK follow-up stream for session %s", session_id)
         try:
-            async for sse_event in run_adk_followup(session, sanitized_question, audio=audio):
+            async for sse_event in run_adk_followup(session, sanitized_question, audio=body.audio):
                 yield sse_event
         except Exception as e:
-            logger.error(f"ADK Followup generation error: {e}", exc_info=True)
+            logger.error("ADK Followup generation error: %s", type(e).__name__, exc_info=True)
             error_msg = "An unexpected error occurred during follow-up generation. Please try again."
             if isinstance(e, ValueError):
                 error_msg = str(e)

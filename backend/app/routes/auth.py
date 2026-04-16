@@ -3,10 +3,11 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 
 from app.models.user import User
+from app.rate_limiter import limiter
 from app.store.user_store import user_store
 
 logger = logging.getLogger(__name__)
@@ -44,10 +45,14 @@ def _get_firebase_app():
 async def get_current_user(authorization: Optional[str] = Header(None)) -> Optional[User]:
     """Extract and verify Firebase ID token from Authorization header.
 
-    Returns None if no valid token is provided (allows anonymous access).
+    Returns None if no Authorization header (allows anonymous access).
+    Raises 401 if token is provided but invalid (prevents silent auth failures).
     """
-    if not authorization or not authorization.startswith("Bearer "):
+    if not authorization:
         return None
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header format")
 
     token = authorization.split(" ", 1)[1]
 
@@ -56,6 +61,8 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Optio
 
         app = _get_firebase_app()
         if app is None:
+            # Firebase not configured - allow anonymous
+            logger.warning("Firebase not configured, treating as anonymous")
             return None
 
         decoded = auth.verify_id_token(token, app=app)
@@ -74,8 +81,9 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Optio
             avatar_url=decoded.get("picture"),
         )
     except Exception as e:
-        logger.warning("Token verification failed: %s", e)
-        return None
+        # Token was provided but invalid - reject with 401
+        logger.warning("Token verification failed: %s", type(e).__name__)
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 
 async def require_user(user: Optional[User] = Depends(get_current_user)) -> User:
@@ -99,7 +107,8 @@ class UserResponse(BaseModel):
 
 
 @router.post("/login", response_model=UserResponse)
-async def login(request: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest):
     """Verify Firebase ID token and create/update user record.
 
     The frontend should obtain an ID token from Firebase Auth (Google sign-in)
@@ -116,7 +125,7 @@ async def login(request: LoginRequest):
             )
 
         # Verify the ID token
-        decoded = auth.verify_id_token(request.id_token, app=app)
+        decoded = auth.verify_id_token(body.id_token, app=app)
         user_id = decoded["uid"]
 
         # Create or update user
@@ -151,7 +160,8 @@ async def login(request: LoginRequest):
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(user: User = Depends(require_user)):
+@limiter.limit("30/minute")
+async def get_me(request: Request, user: User = Depends(require_user)):
     """Get current user profile."""
     return UserResponse(
         user_id=user.user_id,

@@ -295,7 +295,8 @@ async def validate_followup_question(question: str) -> bool:
     """Check if a user follow-up question is safe and on-topic, preventing prompt injection."""
     # Fast path: catch obvious injection patterns without an LLM call
     if _fast_injection_check(question):
-        logger.warning("[gemini] Fast injection check blocked: %s", question[:80])
+        # Log detection without PII (question content)
+        logger.warning("[gemini] Fast injection check blocked suspicious input")
         return False
 
     prompt = f"""You are a security filter for an ancestral heritage storytelling app.

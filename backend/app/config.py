@@ -65,6 +65,9 @@ class Settings:
             raise ValueError("At least one CORS origin (FRONTEND_URL or CORS_ORIGINS) is required in production")
         if self.USE_FIRESTORE and not self.GOOGLE_CLOUD_PROJECT:
             raise ValueError("GOOGLE_CLOUD_PROJECT is required when USE_FIRESTORE is true")
+        # Require strong analytics key in production
+        if self.is_production and self.ANALYTICS_KEY == "sankofa-stats":
+            raise ValueError("ANALYTICS_KEY must be set to a unique secret in production (not the default)")
 
 
 settings = Settings()

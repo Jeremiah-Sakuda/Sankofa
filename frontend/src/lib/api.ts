@@ -142,14 +142,28 @@ export function getStreamUrl(sessionId: string, audio: boolean = false, useAdk: 
   return `${API_BASE}/api/narrative/${sessionId}/stream${qs ? `?${qs}` : ""}`;
 }
 
-export function getFollowUpStreamUrl(
-  sessionId: string,
-  question: string,
-  audio: boolean = false,
-): string {
-  const params = new URLSearchParams({ question });
-  if (audio) params.set("audio", "true");
-  return `${API_BASE}/api/narrative/${sessionId}/followup-stream?${params.toString()}`;
+/**
+ * Get the URL for the follow-up stream endpoint.
+ * Note: This is a POST endpoint for PII protection (question stays in body, not URL).
+ */
+export function getFollowUpStreamUrl(sessionId: string): string {
+  return `${API_BASE}/api/narrative/${sessionId}/followup-stream`;
+}
+
+/**
+ * Create request options for the follow-up stream (POST body).
+ * Returns individual properties to spread into fetchEventSource options.
+ */
+export function getFollowUpStreamOptions(question: string, audio: boolean = false): {
+  method: string;
+  headers: Record<string, string>;
+  body: string;
+} {
+  return {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, audio }),
+  };
 }
 
 export async function generateAudio(text: string): Promise<{ audio_data: string; media_type: string } | null> {

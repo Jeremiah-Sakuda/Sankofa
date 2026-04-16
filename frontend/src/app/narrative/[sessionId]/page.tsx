@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useSSEStream } from "../../../hooks/useSSEStream";
 import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
-import { NarrativeSegment, getSession, getFollowUpStreamUrl, type SessionInfo } from "../../../lib/api";
+import { NarrativeSegment, getSession, getFollowUpStreamUrl, getFollowUpStreamOptions, type SessionInfo } from "../../../lib/api";
 import NarrativeStream from "../../../components/NarrativeStream";
 // import LiveGriot from "../../../components/LiveGriot";  // Live Griot feature disabled for now
 import GriotIntro from "../../../components/GriotIntro";
@@ -89,7 +89,8 @@ export default function NarrativePage() {
       let receivedSegments = false;
 
       try {
-        await fetchEventSource(getFollowUpStreamUrl(sessionId, question, true), {
+        await fetchEventSource(getFollowUpStreamUrl(sessionId), {
+          ...getFollowUpStreamOptions(question, true),
           signal: ctrl.signal,
           async onopen(response) {
             const ct = response.headers.get("content-type") || "";
