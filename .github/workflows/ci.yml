@@ -31,6 +31,15 @@ jobs:
           cd backend
           .venv/bin/ruff check app --output-format=github
 
+      - name: Run tests
+        run: |
+          cd backend
+          .venv/bin/pytest tests/ -v --tb=short
+        env:
+          GOOGLE_API_KEY: placeholder-for-ci
+          ENVIRONMENT: development
+          USE_FIRESTORE: "false"
+
       - name: Verify app starts
         run: |
           cd backend
