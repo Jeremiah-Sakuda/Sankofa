@@ -23,6 +23,7 @@ from google.genai.types import (
 )
 
 from app.services.adk_agent import sankofa_live_agent
+from app.services.analytics import track_event, EventType
 from app.store import session_store
 
 # Context window limit for prompt truncation (characters)
@@ -85,6 +86,13 @@ async def live_griot(websocket: WebSocket, session_id: str):
         return
 
     ui = session.user_input
+
+    # Track live voice session start
+    await track_event(
+        EventType.LIVE_VOICE_STARTED,
+        session_id,
+        region=ui.region_of_origin
+    )
 
     # Create ADK live session with context priming
     adk_session = await _live_session_service.create_session(
@@ -302,4 +310,12 @@ async def live_griot(websocket: WebSocket, session_id: str):
             await event_task
         except (asyncio.CancelledError, Exception):
             pass
+
+        # Track live voice session end
+        await track_event(
+            EventType.LIVE_VOICE_ENDED,
+            session_id,
+            region=ui.region_of_origin
+        )
+
         logger.info("[live] Live session ended for %s", session_id)

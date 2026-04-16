@@ -13,6 +13,7 @@ from app.config import settings
 from app.rate_limiter import limiter
 from app.routes import audio, intake, live, narrative
 from app.services.gemini_service import check_gemini_health
+from app.services.analytics import get_aggregate_stats
 
 logging.basicConfig(
     level=logging.INFO,
@@ -175,6 +176,26 @@ async def health_check():
             "cached": gemini_health.get("cached", False),
         },
     }
+
+
+@app.get("/api/stats")
+async def analytics_stats(key: str = ""):
+    """
+    Aggregate analytics statistics (password-protected).
+
+    Query params:
+        key: Admin access key (set via ANALYTICS_KEY env var, defaults to 'sankofa-stats')
+    """
+    # Simple password protection
+    expected_key = settings.ANALYTICS_KEY if hasattr(settings, 'ANALYTICS_KEY') else "sankofa-stats"
+    if key != expected_key:
+        return JSONResponse(
+            status_code=401,
+            content={"error": "Invalid or missing access key"}
+        )
+
+    stats = await get_aggregate_stats()
+    return stats
 
 
 @app.get("/")

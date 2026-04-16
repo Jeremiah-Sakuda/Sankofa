@@ -41,6 +41,9 @@ class Settings:
     USE_FIRESTORE: bool = os.getenv("USE_FIRESTORE", "false").lower() == "true"
     FIRESTORE_SESSIONS_COLLECTION: str = os.getenv("FIRESTORE_SESSIONS_COLLECTION", "sessions")
 
+    # Analytics access key (for /api/stats endpoint)
+    ANALYTICS_KEY: str = os.getenv("ANALYTICS_KEY", "sankofa-stats")
+
     @property
     def is_production(self) -> bool:
         return self.ENVIRONMENT.lower() == "production"

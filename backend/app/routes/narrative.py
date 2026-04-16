@@ -16,6 +16,7 @@ from app.services.gemini_service import generate_interleaved, validate_followup_
 from app.services.narrative_planner import generate_narrative_only, get_fast_arc, plan_arc_only
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration, spawn_tts_task
+from app.services.analytics import track_event, EventType
 from app.store import session_store
 from app.utils.sanitization import sanitize_input
 
@@ -77,6 +78,16 @@ async def stream_narrative(
             session_store.update(session)
             start_time = time.time()
             timed_out = False
+            completed = False
+            had_error = False
+
+            # Track narrative start
+            await track_event(
+                EventType.NARRATIVE_START,
+                str(session_id),
+                region=session.user_input.region_of_origin,
+                metadata={"audio_enabled": audio}
+            )
 
             try:
                 logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
@@ -85,18 +96,29 @@ async def stream_narrative(
                     if time.time() - start_time > _OVERALL_TIMEOUT:
                         logger.warning("[stream] Overall timeout (%ds) exceeded for session %s", _OVERALL_TIMEOUT, str(session_id))
                         timed_out = True
+                        had_error = True
                         yield {"event": "error", "data": json.dumps({
                             "error": "The story is taking longer than expected. Please try again."
                         })}
                         break
+                    # Check for completion status event
+                    if sse_event.get("event") == "status":
+                        try:
+                            status_data = json.loads(sse_event.get("data", "{}"))
+                            if status_data.get("status") == "complete":
+                                completed = True
+                        except json.JSONDecodeError:
+                            pass
                     yield sse_event
             except asyncio.TimeoutError:
                 logger.warning("[stream] Timeout for session %s", str(session_id))
+                had_error = True
                 yield {"event": "error", "data": json.dumps({
                     "error": "The story is taking longer than expected. Please try again."
                 })}
             except Exception as e:
                 logger.error(f"ADK Narrative generation error: {e}", exc_info=True)
+                had_error = True
                 error_msg = "An unexpected error occurred during narrative generation. Please try again."
                 if isinstance(e, ValueError):
                     error_msg = str(e)
@@ -104,8 +126,25 @@ async def stream_narrative(
             finally:
                 generation_limiter.finish(client_ip, str(session_id))
                 session.is_generating = False
+                duration = int(time.time() - start_time)
+
+                # Track completion or error
+                if completed:
+                    await track_event(
+                        EventType.NARRATIVE_COMPLETE,
+                        str(session_id),
+                        region=session.user_input.region_of_origin,
+                        metadata={"segment_count": len(session.segments), "duration_seconds": duration}
+                    )
+                elif had_error:
+                    await track_event(
+                        EventType.NARRATIVE_ERROR,
+                        str(session_id),
+                        metadata={"error_type": "timeout" if timed_out else "exception"}
+                    )
+
                 if timed_out:
-                    logger.info("[stream] Session %s timed out after %ds", str(session_id), int(time.time() - start_time))
+                    logger.info("[stream] Session %s timed out after %ds", str(session_id), duration)
                 try:
                     session_store.update(session)
                 except Exception as store_err:
@@ -305,6 +344,15 @@ Tag each paragraph with [HISTORICAL], [CULTURAL], or [RECONSTRUCTED]."""
                     logger.warning("TTS failed for follow-up segment %s: %s", seg.sequence, e)
 
     session_store.update(session)
+
+    # Track follow-up usage
+    await track_event(
+        EventType.FOLLOWUP_USED,
+        str(session_id),
+        region=session.user_input.region_of_origin,
+        metadata={"segment_count": len(segments)}
+    )
+
     all_segments = segments + audio_segments
     return {"segments": [seg.model_dump() for seg in all_segments]}
 
