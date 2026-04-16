@@ -116,8 +116,16 @@ input:focus {
   .griot-text-enter,
   .griot-text-exit,
   .griot-bg-pulse,
-  .griot-divider-expand {
-    animation: none;
+  .griot-divider-expand,
+  .narrating-segment::before,
+  .narrating-segment::after,
+  .sync-highlight {
+    animation: none !important;
+  }
+
+  /* Preserve essential visual indicators without animation */
+  .narrating-segment::before {
+    opacity: 0.6;
   }
 }
 
