@@ -5,10 +5,15 @@ User inputs are injected into Gemini prompts. Without sanitization,
 malicious inputs could manipulate model behavior.
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import unicodedata
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from app.models.schemas import UserInput
 
 logger = logging.getLogger(__name__)
 

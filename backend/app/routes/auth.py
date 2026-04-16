@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from app.models.user import User
@@ -24,6 +24,7 @@ def _get_firebase_app():
         try:
             import firebase_admin
             from firebase_admin import credentials
+
             from app.config import settings
 
             # In GCP environment, use default credentials

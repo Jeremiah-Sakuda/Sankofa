@@ -20,7 +20,10 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "Sankofa — Ancestral Heritage Narrator",
+  title: {
+    default: "Sankofa",
+    template: "%s | Sankofa",
+  },
   description:
     "An AI agent that transforms personal inputs into immersive, multimodal ancestral heritage narratives.",
 };

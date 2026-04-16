@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from app.models.schemas import IntakeResponse, UserInput
 from app.rate_limiter import limiter
 from app.store import session_store
-from app.utils.sanitization import sanitize_user_input, is_suspicious_input
+from app.utils.sanitization import is_suspicious_input, sanitize_user_input
 
 logger = logging.getLogger(__name__)
 

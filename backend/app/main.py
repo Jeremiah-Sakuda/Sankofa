@@ -12,9 +12,8 @@ from starlette.requests import Request
 from app.config import settings
 from app.rate_limiter import limiter
 from app.routes import audio, auth, contribute, intake, narrative, share
-# from app.routes import live  # Live Griot feature disabled for now
-from app.services.gemini_service import check_gemini_health
 from app.services.analytics import get_aggregate_stats
+from app.services.gemini_service import check_gemini_health
 
 logging.basicConfig(
     level=logging.INFO,
@@ -75,6 +74,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def _session_cleanup_task():
     """Background task that periodically cleans up expired sessions."""
     import asyncio
+
     from app.store import session_store
     from app.store.firestore_store import FirestoreSessionStore
 

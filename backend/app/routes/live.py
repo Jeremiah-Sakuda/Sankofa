@@ -15,15 +15,10 @@ from google.adk.agents.live_request_queue import LiveRequestQueue
 from google.adk.agents.run_config import StreamingMode
 from google.adk.runners import RunConfig, Runner
 from google.adk.sessions import InMemorySessionService
-from google.genai.types import (
-    AudioTranscriptionConfig,
-    Blob,
-    Content,
-    Part,
-)
+from google.genai.types import AudioTranscriptionConfig, Blob, Content, Part
 
 from app.services.adk_agent import sankofa_live_agent
-from app.services.analytics import track_event, EventType
+from app.services.analytics import EventType, track_event
 from app.store import session_store
 
 # Context window limit for prompt truncation (characters)

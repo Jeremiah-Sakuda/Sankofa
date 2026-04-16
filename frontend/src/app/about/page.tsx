@@ -24,6 +24,12 @@ export default function AboutPage() {
         </Link>
         <nav className="flex items-center gap-6">
           <Link
+            href="/explore"
+            className="text-sm text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
+          >
+            Explore
+          </Link>
+          <Link
             href="/"
             className="text-sm text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
           >

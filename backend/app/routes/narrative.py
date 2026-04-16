@@ -5,26 +5,24 @@ import time
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from slowapi.util import get_remote_address
 from sse_starlette.sse import EventSourceResponse
 
 from app.knowledge.loader import build_grounding_context
 from app.models.schemas import FollowUpRequest, NarrativeSegment
-from app.rate_limiter import limiter, generation_limiter
-from slowapi.util import get_remote_address
+from app.models.user import User
+from app.rate_limiter import generation_limiter, limiter
+from app.routes.auth import require_user
 from app.services.adk_orchestrator import run_adk_followup, run_adk_narrative
+from app.services.analytics import EventType, track_event
 from app.services.gemini_service import generate_interleaved, validate_followup_question
 from app.services.narrative_planner import generate_narrative_only, get_fast_arc, plan_arc_only
 from app.services.trust_classifier import apply_trust_tags
 from app.services.tts_service import generate_narration, spawn_tts_task
-from app.services.analytics import track_event, EventType
 from app.store import session_store
 from app.utils.sanitization import sanitize_input
-from app.routes.auth import get_current_user, require_user
-from app.models.user import User
-from fastapi import Depends
-from typing import Optional
 
 # Load sample narrative - always fresh read to pick up changes
 _SAMPLE_NARRATIVE_PATH = Path(__file__).parent.parent / "data" / "sample_narrative.json"
