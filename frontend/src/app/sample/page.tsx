@@ -204,6 +204,20 @@ export default function SampleNarrativePage() {
 
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
+  // Gate: don't expose tracks until the first text segment's audio has arrived.
+  // This prevents NarrationBar from auto-playing a later paragraph when its TTS
+  // finishes before the first one.
+  const firstNarratableSequence = useMemo(() => {
+    const first = segments.find((s) => s.type === "text" && s.content);
+    return first?.sequence ?? null;
+  }, [segments]);
+
+  const readyTracks = useMemo(() => {
+    if (firstNarratableSequence === null || audioTracks.length === 0) return [];
+    if (audioTracks[0].segmentSequence !== firstNarratableSequence) return [];
+    return audioTracks;
+  }, [audioTracks, firstNarratableSequence]);
+
   // Keep ref in sync for scroll-to behavior
   useEffect(() => { isAudioPlayingRef.current = isAudioPlaying; }, [isAudioPlaying]);
 
@@ -276,9 +290,9 @@ export default function SampleNarrativePage() {
           <ScrollProgress totalActs={totalActs} currentAct={currentAct} isComplete={isComplete} />
 
           {/* Narration bar for audio playback */}
-          {audioTracks.length > 0 && (
+          {readyTracks.length > 0 && (
             <NarrationBar
-              tracks={audioTracks}
+              tracks={readyTracks}
               autoPlay={true}
               onTrackChange={handleTrackChange}
               onPlayStateChange={handlePlayStateChange}
