@@ -9,7 +9,8 @@ from sse_starlette.sse import EventSourceResponse
 
 from app.knowledge.loader import build_grounding_context
 from app.models.schemas import FollowUpRequest, NarrativeSegment
-from app.rate_limiter import limiter
+from app.rate_limiter import limiter, generation_limiter
+from slowapi.util import get_remote_address
 from app.services.adk_orchestrator import run_adk_followup, run_adk_narrative
 from app.services.gemini_service import generate_interleaved, validate_followup_question
 from app.services.narrative_planner import generate_narrative_only, get_fast_arc, plan_arc_only
@@ -51,9 +52,22 @@ async def stream_narrative(
         session.is_generating = False
         session_store.update(session)
 
+    # Check concurrent generation limit per IP
+    client_ip = get_remote_address(request)
+    if not generation_limiter.can_start(client_ip, str(session_id)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many concurrent narrative generations. Please wait for your current story to complete."
+        )
+
     # --- ADK-orchestrated path ---
     if use_adk:
         async def adk_event_generator():
+            # Track this generation in the concurrency limiter
+            if not generation_limiter.start(client_ip, str(session_id)):
+                yield {"event": "error", "data": json.dumps({"error": "Too many concurrent generations"})}
+                return
+
             session.is_generating = True
             session.generating_started_at = time.time()
             session_store.update(session)
@@ -68,6 +82,7 @@ async def stream_narrative(
                     error_msg = str(e)
                 yield {"event": "error", "data": json.dumps({"error": error_msg})}
             finally:
+                generation_limiter.finish(client_ip, str(session_id))
                 session.is_generating = False
                 try:
                     session_store.update(session)
@@ -81,6 +96,11 @@ async def stream_narrative(
     narrative_timeout = 120     # seconds (Gemini image + text call)
 
     async def event_generator():
+        # Track this generation in the concurrency limiter
+        if not generation_limiter.start(client_ip, str(session_id)):
+            yield {"event": "error", "data": json.dumps({"error": "Too many concurrent generations"})}
+            return
+
         session.is_generating = True
         session.generating_started_at = time.time()
         session_store.update(session)
@@ -157,6 +177,7 @@ async def stream_narrative(
                     error_msg = str(e)
                 await _emit("error", json.dumps({"error": error_msg}))
             finally:
+                generation_limiter.finish(client_ip, str(session_id))
                 session.is_generating = False
                 try:
                     session_store.update(session)
