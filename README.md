@@ -256,6 +256,14 @@ Built for the **Gemini Live Agent Challenge** (Google / Devpost) in the **Creati
 <!-- TODO: Add live demo link when deployed -->
 <!-- **[Try the Live Demo →](https://sankofa.app)** -->
 
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+This means you are free to use, modify, and distribute this software, but if you run a modified version on a server and let others interact with it, you must make your modified source code available to those users under the same license.
+
+See [LICENSE](LICENSE) for the full license text.
+
 ## Author
 
 **Jeremiah Sakuda**
