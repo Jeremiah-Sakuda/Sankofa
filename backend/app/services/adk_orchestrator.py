@@ -23,6 +23,7 @@ from app.models.session import Session
 from app.services.adk_agent import media_store, sankofa_agent
 from app.services.tts_service import spawn_tts_task
 from app.store import session_store
+from app.utils.error_messages import translate_error_for_sse
 
 logger = logging.getLogger(__name__)
 
@@ -278,7 +279,7 @@ async def run_adk_narrative(
 
     except Exception as e:
         logger.error("[adk-orch] Narrative generation error: %s", e, exc_info=True)
-        yield {"event": "error", "data": json.dumps({"error": str(e)})}
+        yield {"event": "error", "data": json.dumps(translate_error_for_sse(e))}
 
 
 # ---------------------------------------------------------------------------
@@ -380,4 +381,4 @@ async def run_adk_followup(
 
     except Exception as e:
         logger.error("[adk-orch] Follow-up error: %s", e, exc_info=True)
-        yield {"event": "error", "data": json.dumps({"error": str(e)})}
+        yield {"event": "error", "data": json.dumps(translate_error_for_sse(e))}
