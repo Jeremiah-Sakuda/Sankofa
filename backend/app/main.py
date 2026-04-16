@@ -53,8 +53,37 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+async def _session_cleanup_task():
+    """Background task that periodically cleans up expired sessions."""
+    import asyncio
+    from app.store import session_store
+    from app.store.firestore_store import FirestoreSessionStore
+
+    # Only run cleanup for Firestore store
+    if not isinstance(session_store, FirestoreSessionStore):
+        logger.info("[cleanup] Session cleanup disabled (not using Firestore)")
+        return
+
+    cleanup_interval = 60 * 60  # 1 hour
+    logger.info("[cleanup] Session cleanup task started (interval: %d seconds)", cleanup_interval)
+
+    while True:
+        try:
+            await asyncio.sleep(cleanup_interval)
+            deleted = session_store.cleanup_expired()
+            if deleted > 0:
+                logger.info("[cleanup] Deleted %d expired sessions", deleted)
+        except asyncio.CancelledError:
+            logger.info("[cleanup] Session cleanup task cancelled")
+            break
+        except Exception as e:
+            logger.error("[cleanup] Error during session cleanup: %s", e, exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
+
     try:
         settings.validate()
     except ValueError as e:
@@ -74,7 +103,18 @@ async def lifespan(app: FastAPI):
         logger.info("Session store: Firestore (project=%s, collection=%s)", settings.GOOGLE_CLOUD_PROJECT, settings.FIRESTORE_SESSIONS_COLLECTION)
     else:
         logger.info("Session store: in-memory")
+
+    # Start background cleanup task for Firestore sessions
+    cleanup_task = asyncio.create_task(_session_cleanup_task())
+
     yield
+
+    # Cancel cleanup task on shutdown
+    cleanup_task.cancel()
+    try:
+        await cleanup_task
+    except asyncio.CancelledError:
+        pass
 
 
 # Allow request body up to 1MB to prevent large payload abuse

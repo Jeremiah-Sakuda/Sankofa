@@ -1,6 +1,7 @@
 """Firestore-backed session store. Sessions in main collection; segments in subcollection to stay under 1 MiB doc limit."""
 
 import logging
+import time
 from typing import Optional
 
 from google.cloud import firestore
@@ -11,20 +12,27 @@ from app.models.session import Session
 
 logger = logging.getLogger(__name__)
 
+# Session TTL in seconds (24 hours)
+_SESSION_TTL_SECONDS = 24 * 60 * 60
+
 
 def _get_client() -> firestore.Client:
     return firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
 
 
-def _session_to_doc(session: Session) -> dict:
+def _session_to_doc(session: Session, include_ttl: bool = False) -> dict:
     """Session document fields (no segments; those go in subcollection)."""
-    return {
+    doc = {
         "user_input": session.user_input.model_dump(),
         "narrative_context": session.narrative_context,
         "is_generating": session.is_generating,
         "generating_started_at": session.generating_started_at,
         "arc_outline": session.arc_outline,
+        "created_at": session.created_at,
     }
+    if include_ttl:
+        doc["expires_at"] = session.created_at + _SESSION_TTL_SECONDS
+    return doc
 
 
 def _doc_to_session(session_id: str, data: dict, segments: list[NarrativeSegment]) -> Session:
@@ -36,6 +44,7 @@ def _doc_to_session(session_id: str, data: dict, segments: list[NarrativeSegment
         is_generating=data.get("is_generating") or False,
         generating_started_at=data.get("generating_started_at") or 0.0,
         arc_outline=data.get("arc_outline"),
+        created_at=data.get("created_at") or time.time(),
     )
 
 
@@ -55,8 +64,8 @@ class FirestoreSessionStore:
         try:
             session = Session(session_id=session_id, user_input=user_input)
             doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
-            doc_ref.set(_session_to_doc(session))
-            logger.info("Firestore: created session %s", session_id)
+            doc_ref.set(_session_to_doc(session, include_ttl=True))
+            logger.info("Firestore: created session %s (TTL: %d hours)", session_id, _SESSION_TTL_SECONDS // 3600)
             return session
         except Exception as e:
             logger.error("Firestore create error: %s", e, exc_info=True)
@@ -111,3 +120,47 @@ class FirestoreSessionStore:
         except Exception as e:
             logger.error("Firestore exists error: %s", e, exc_info=True)
             raise RuntimeError("Failed to verify session existence in data store.") from e
+
+    def cleanup_expired(self, batch_size: int = 50) -> int:
+        """Delete expired sessions and their segments.
+
+        Args:
+            batch_size: Maximum number of sessions to delete in one call
+
+        Returns:
+            Number of sessions deleted
+        """
+        try:
+            now = time.time()
+            collection = self._client_or_init().collection(self._collection_name)
+
+            # Query for expired sessions
+            expired_query = (
+                collection
+                .where(filter=firestore.FieldFilter("expires_at", "<", now))
+                .limit(batch_size)
+            )
+
+            deleted_count = 0
+            for doc in expired_query.stream():
+                session_id = doc.id
+                doc_ref = collection.document(session_id)
+
+                # Delete segments subcollection first
+                seg_coll = doc_ref.collection("segments")
+                for seg_doc in seg_coll.stream():
+                    seg_doc.reference.delete()
+
+                # Delete the session document
+                doc_ref.delete()
+                deleted_count += 1
+                logger.debug("Firestore: deleted expired session %s", session_id)
+
+            if deleted_count > 0:
+                logger.info("Firestore: cleaned up %d expired sessions", deleted_count)
+
+            return deleted_count
+
+        except Exception as e:
+            logger.error("Firestore cleanup error: %s", e, exc_info=True)
+            return 0
