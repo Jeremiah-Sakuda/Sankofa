@@ -1,19 +1,74 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import IntakeFlow from "../components/IntakeFlow";
 import SankofaBird from "../components/SankofaBird";
 import GoldParticles from "../components/GoldParticles";
+import SampleNarrativeButton from "../components/SampleNarrativeButton";
+import AuthModal from "../components/AuthModal";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Home() {
   const [showIntake, setShowIntake] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const router = useRouter();
+  const { user, isLoading, isConfigured, signInWithGoogle, signOut } = useAuth();
 
   return (
     <div className="relative min-h-screen overflow-hidden">
       <div className="fixed inset-0 bg-[var(--night)] animate-gradient-drift bg-gradient-to-br from-[var(--night)] via-[var(--indigo)] to-[#1a0f0a]" />
       <div className="fixed inset-0 noise-texture pointer-events-none" />
       <GoldParticles count={showIntake ? 40 : 25} />
+
+      {/* Header with auth */}
+      {!showIntake && isConfigured && (
+        <motion.header
+          className="fixed top-0 right-0 z-20 p-4 flex items-center gap-4"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 2 }}
+        >
+          {!isLoading && (
+            <>
+              {user ? (
+                <>
+                  <Link
+                    href="/library"
+                    className="text-sm text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
+                  >
+                    My Library
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    {user.photoURL && (
+                      <img
+                        src={user.photoURL}
+                        alt={user.displayName || "User"}
+                        className="w-7 h-7 rounded-full border border-[var(--gold)]/30"
+                      />
+                    )}
+                    <button
+                      onClick={signOut}
+                      className="text-sm text-[var(--muted)] hover:text-[var(--ivory)] transition-colors cursor-pointer"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="text-sm text-[var(--muted)] hover:text-[var(--gold)] transition-colors cursor-pointer"
+                >
+                  Sign in
+                </button>
+              )}
+            </>
+          )}
+        </motion.header>
+      )}
 
       <AnimatePresence mode="wait">
         {!showIntake ? (
@@ -87,6 +142,8 @@ export default function Home() {
               Begin Your Journey
             </motion.button>
 
+            <SampleNarrativeButton onClick={() => router.push("/sample")} />
+
             <motion.p
               className="absolute bottom-8 font-[family-name:var(--font-body)] text-xs text-[var(--muted)] italic text-center px-4"
               initial={{ opacity: 0 }}
@@ -109,6 +166,13 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Auth modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSignIn={signInWithGoogle}
+      />
     </div>
   );
 }

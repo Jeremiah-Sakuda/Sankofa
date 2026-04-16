@@ -165,3 +165,35 @@ export async function generateAudio(text: string): Promise<{ audio_data: string;
     return null;
   }
 }
+
+// Sample narrative types and functions
+export interface ArcOutline {
+  title: string;
+  acts: Array<{
+    act_number: number;
+    title: string;
+    summary: string;
+    ambient_track: string;
+  }>;
+}
+
+export interface SampleNarrativeResponse {
+  session_id: string;
+  user_input: UserInput;
+  arc_outline: ArcOutline;
+  segments: NarrativeSegment[];
+}
+
+export async function getSampleNarrative(): Promise<SampleNarrativeResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/api/narrative/sample`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+export function getSampleStreamUrl(): string {
+  return `${API_BASE}/api/narrative/sample/stream`;
+}

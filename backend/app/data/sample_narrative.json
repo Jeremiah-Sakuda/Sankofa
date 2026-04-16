@@ -1,0 +1,170 @@
+{
+  "session_id": "sample-narrative",
+  "user_input": {
+    "family_name": "Mwangi",
+    "region_of_origin": "Kenya",
+    "time_period": "1940s",
+    "known_fragments": "My great-grandmother was a healer in her village",
+    "language_or_ethnicity": "Kikuyu",
+    "specific_interests": "Traditional medicine and healing practices"
+  },
+  "arc_outline": {
+    "title": "Echoes of the Kikuyu Healers",
+    "acts": [
+      {
+        "act_number": 1,
+        "title": "The Land of a Thousand Hills",
+        "summary": "Introduction to the Mwangi family in the central highlands of Kenya during the 1940s, a time of change as colonial influence grew.",
+        "ambient_track": "nature"
+      },
+      {
+        "act_number": 2,
+        "title": "The Medicine Woman's Garden",
+        "summary": "The story of Wanjiku Mwangi, a revered mundu mugo (healer) who preserved ancient Kikuyu medicinal knowledge.",
+        "ambient_track": "village"
+      },
+      {
+        "act_number": 3,
+        "title": "Seeds of Tomorrow",
+        "summary": "How the Mwangi family's healing traditions adapted and survived through generations of change.",
+        "ambient_track": "drums"
+      }
+    ]
+  },
+  "segments": [
+    {
+      "type": "image",
+      "content": "The mist-shrouded peaks of Mount Kenya rise above terraced hillsides where small farms dot the landscape. Watercolor illustration in warm earth tones.",
+      "media_data": null,
+      "media_type": "image/png",
+      "trust_level": "cultural",
+      "sequence": 0,
+      "act": 1,
+      "is_hero": true,
+      "image_url": "/sample/hero.webp"
+    },
+    {
+      "type": "text",
+      "content": "In the shadow of Kirinyaga, the mountain the colonizers called Kenya, there lived a people who had walked these highlands for generations beyond counting. The Kikuyu, children of Mumbi and Gikuyu, had built their lives around the fertile red earth and the wisdom passed from elder to child.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "cultural",
+      "sequence": 1,
+      "act": 1,
+      "is_hero": false
+    },
+    {
+      "type": "text",
+      "content": "The year was 1943, and the world beyond the highlands was at war. But in the village near Nyeri, life continued in its ancient rhythms. The Mwangi homestead sat on a hillside where the morning mists brought moisture to the crops and the evening fires brought the community together.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "reconstructed",
+      "sequence": 2,
+      "act": 1,
+      "is_hero": false
+    },
+    {
+      "type": "image",
+      "content": "A traditional Kikuyu homestead with round thatched huts arranged in a semicircle, smoke rising from cooking fires. Watercolor with golden morning light.",
+      "media_data": null,
+      "media_type": "image/png",
+      "trust_level": "cultural",
+      "sequence": 3,
+      "act": 1,
+      "is_hero": false,
+      "image_url": "/sample/homestead.webp"
+    },
+    {
+      "type": "text",
+      "content": "Among the Mwangi family, there was one whose name was spoken with particular reverence: Wanjiku, the grandmother whose hands knew the secrets of the forest. She was what the Kikuyu called a mundu mugo, a medicine woman, keeper of healing knowledge that stretched back to the time when the first Kikuyu descended from the sacred fig tree.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "reconstructed",
+      "sequence": 4,
+      "act": 2,
+      "is_hero": false
+    },
+    {
+      "type": "text",
+      "content": "Her garden was legendary in the region. Behind her hut grew plants that most had forgotten the names of: muthiga for fevers, mugumo bark for strength, the purple-flowered muiri whose roots could ease the pains of childbirth. She had learned these secrets from her own grandmother, who had learned from hers, in an unbroken chain of knowledge.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "cultural",
+      "sequence": 5,
+      "act": 2,
+      "is_hero": false
+    },
+    {
+      "type": "image",
+      "content": "An elderly Kikuyu woman in traditional dress tending to medicinal plants in a garden, surrounded by children watching and learning. Watercolor in earth tones.",
+      "media_data": null,
+      "media_type": "image/png",
+      "trust_level": "reconstructed",
+      "sequence": 6,
+      "act": 2,
+      "is_hero": false,
+      "image_url": "/sample/healer.webp"
+    },
+    {
+      "type": "text",
+      "content": "The colonial authorities viewed such practices with suspicion. They called it superstition, witchcraft even. But the people knew differently. When the European medicines failed or were too expensive, when the missionary hospital was too far to reach in time, it was to Wanjiku and her medicines that they turned.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "historical",
+      "sequence": 7,
+      "act": 2,
+      "is_hero": false
+    },
+    {
+      "type": "text",
+      "content": "She taught her granddaughter the names and uses of each plant, making her recite them in the old tongue so they would not be lost. 'Our knowledge is our wealth,' she would say. 'The land may be taken, but what lives in your mind and heart, that belongs only to you.'",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "reconstructed",
+      "sequence": 8,
+      "act": 2,
+      "is_hero": false
+    },
+    {
+      "type": "image",
+      "content": "A sunrise over the Kenyan highlands with figures walking toward terraced farms, symbolizing a new generation carrying forward tradition. Watercolor with warm golden light.",
+      "media_data": null,
+      "media_type": "image/png",
+      "trust_level": "cultural",
+      "sequence": 9,
+      "act": 3,
+      "is_hero": false,
+      "image_url": "/sample/sunrise.webp"
+    },
+    {
+      "type": "text",
+      "content": "The years that followed brought upheaval. The struggle for independence, the new nation rising, the rush toward modernity. But the Mwangi family carried their grandmother's teachings forward. Some became nurses and doctors, combining Western medicine with traditional wisdom. Others preserved the old gardens, ensuring that the plants and their uses would not be forgotten.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "historical",
+      "sequence": 10,
+      "act": 3,
+      "is_hero": false
+    },
+    {
+      "type": "text",
+      "content": "Today, when you trace your lineage back to the Mwangi healers of Nyeri, you carry more than a name. You carry a legacy of resilience, of knowledge preserved against all odds, of a deep connection to the land and its gifts. The spirit of Wanjiku lives on in every descendant who tends a garden, who remembers that healing comes in many forms, who knows that the wisdom of the ancestors is a treasure beyond measure.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "reconstructed",
+      "sequence": 11,
+      "act": 3,
+      "is_hero": false
+    },
+    {
+      "type": "text",
+      "content": "This is your heritage. This is the story that flows in your blood, as surely as the rivers flow from Kirinyaga to the sea. Go back and get it. Sankofa.",
+      "media_data": null,
+      "media_type": null,
+      "trust_level": "cultural",
+      "sequence": 12,
+      "act": 3,
+      "is_hero": false
+    }
+  ]
+}

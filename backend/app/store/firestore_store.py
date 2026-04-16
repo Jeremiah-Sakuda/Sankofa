@@ -29,6 +29,8 @@ def _session_to_doc(session: Session, include_ttl: bool = False) -> dict:
         "generating_started_at": session.generating_started_at,
         "arc_outline": session.arc_outline,
         "created_at": session.created_at,
+        "owner_id": getattr(session, "owner_id", None),
+        "is_public": getattr(session, "is_public", False),
     }
     if include_ttl:
         doc["expires_at"] = session.created_at + _SESSION_TTL_SECONDS
@@ -45,6 +47,8 @@ def _doc_to_session(session_id: str, data: dict, segments: list[NarrativeSegment
         generating_started_at=data.get("generating_started_at") or 0.0,
         arc_outline=data.get("arc_outline"),
         created_at=data.get("created_at") or time.time(),
+        owner_id=data.get("owner_id"),
+        is_public=data.get("is_public") or False,
     )
 
 
@@ -93,6 +97,7 @@ class FirestoreSessionStore:
             raise RuntimeError("Failed to retrieve session from data store.") from e
 
     def update(self, session: Session) -> None:
+        """Update the entire session including segments. Prefer update_metadata + append_segment for streaming."""
         try:
             doc_ref = self._client_or_init().collection(self._collection_name).document(session.session_id)
             doc_ref.update(_session_to_doc(session))
@@ -113,6 +118,37 @@ class FirestoreSessionStore:
             logger.error("Firestore update error: %s", e, exc_info=True)
             raise RuntimeError("Failed to update session in data store.") from e
 
+    def update_metadata(self, session: Session) -> None:
+        """Update only session metadata (not segments). O(1) operation.
+
+        Use this instead of update() during streaming to avoid bulk segment rewrites.
+        """
+        try:
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session.session_id)
+            doc_ref.set(_session_to_doc(session), merge=True)
+            logger.debug("Firestore: updated metadata for session %s", session.session_id)
+        except Exception as e:
+            logger.error("Firestore update_metadata error: %s", e, exc_info=True)
+            raise RuntimeError("Failed to update session metadata in data store.") from e
+
+    def append_segment(self, session_id: str, segment: NarrativeSegment) -> None:
+        """Append a single segment to the subcollection. O(1) operation.
+
+        Use this instead of update() during streaming to avoid bulk segment rewrites.
+        """
+        try:
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
+            seg_coll = doc_ref.collection("segments")
+            seg_dict = segment.model_dump()
+            # Strip media_data that exceeds Firestore's 1 MiB field limit.
+            if seg_dict.get("media_data") and len(seg_dict["media_data"]) > 900_000:
+                seg_dict["media_data"] = None
+            seg_coll.document(str(segment.sequence)).set(seg_dict)
+            logger.debug("Firestore: appended segment %d to session %s", segment.sequence, session_id)
+        except Exception as e:
+            logger.error("Firestore append_segment error: %s", e, exc_info=True)
+            raise RuntimeError("Failed to append segment to data store.") from e
+
     def exists(self, session_id: str) -> bool:
         try:
             doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
@@ -120,6 +156,48 @@ class FirestoreSessionStore:
         except Exception as e:
             logger.error("Firestore exists error: %s", e, exc_info=True)
             raise RuntimeError("Failed to verify session existence in data store.") from e
+
+    def list_by_owner(self, owner_id: str, limit: int = 50) -> list[Session]:
+        """List sessions owned by a user, sorted by created_at descending."""
+        try:
+            collection = self._client_or_init().collection(self._collection_name)
+            query = (
+                collection
+                .where(filter=firestore.FieldFilter("owner_id", "==", owner_id))
+                .order_by("created_at", direction=firestore.Query.DESCENDING)
+                .limit(limit)
+            )
+
+            sessions = []
+            for doc in query.stream():
+                data = doc.to_dict()
+                if not data:
+                    continue
+                # Load segments for each session
+                seg_refs = doc.reference.collection("segments").order_by("sequence").stream()
+                segments = []
+                for seg_doc in seg_refs:
+                    seg_data = seg_doc.to_dict()
+                    if seg_data:
+                        segments.append(NarrativeSegment.model_validate(seg_data))
+                sessions.append(_doc_to_session(doc.id, data, segments))
+
+            logger.debug("Firestore: listed %d sessions for owner %s", len(sessions), owner_id)
+            return sessions
+        except Exception as e:
+            logger.error("Firestore list_by_owner error: %s", e, exc_info=True)
+            return []
+
+    def set_owner(self, session_id: str, owner_id: str) -> bool:
+        """Set the owner of a session. Returns True on success."""
+        try:
+            doc_ref = self._client_or_init().collection(self._collection_name).document(session_id)
+            doc_ref.update({"owner_id": owner_id})
+            logger.info("Firestore: set owner %s for session %s", owner_id, session_id)
+            return True
+        except Exception as e:
+            logger.error("Firestore set_owner error: %s", e, exc_info=True)
+            return False
 
     def cleanup_expired(self, batch_size: int = 50) -> int:
         """Delete expired sessions and their segments.

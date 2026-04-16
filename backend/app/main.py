@@ -11,7 +11,7 @@ from starlette.requests import Request
 
 from app.config import settings
 from app.rate_limiter import limiter
-from app.routes import audio, intake, live, narrative
+from app.routes import audio, auth, intake, live, narrative, share
 from app.services.gemini_service import check_gemini_health
 from app.services.analytics import get_aggregate_stats
 
@@ -152,10 +152,12 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+app.include_router(auth.router)
 app.include_router(intake.router)
 app.include_router(narrative.router)
 app.include_router(audio.router)
 app.include_router(live.router)
+app.include_router(share.router)
 
 
 @app.get("/api/health")

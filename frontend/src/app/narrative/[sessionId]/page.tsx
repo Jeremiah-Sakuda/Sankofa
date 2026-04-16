@@ -9,6 +9,7 @@ import { NarrativeSegment, getSession, getFollowUpStreamUrl, type SessionInfo } 
 import NarrativeStream from "../../../components/NarrativeStream";
 import LiveGriot from "../../../components/LiveGriot";
 import GriotIntro from "../../../components/GriotIntro";
+import ShareModal from "../../../components/ShareModal";
 
 export default function NarrativePage() {
   const params = useParams();
@@ -23,6 +24,7 @@ export default function NarrativePage() {
   const [sessionInvalid, setSessionInvalid] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [showLiveGriot, setShowLiveGriot] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [userDismissedIntro, setUserDismissedIntro] = useState(false);
   const autoStartedRef = useRef(false);
 
@@ -223,6 +225,7 @@ export default function NarrativePage() {
             autoPlay={userDismissedIntro}
             onFollowUp={handleFollowUp}
             onTalkToGriot={() => setShowLiveGriot(true)}
+            onShare={() => setShowShareModal(true)}
             onRetry={() => {
               reset();
               setHasStarted(false);
@@ -243,6 +246,15 @@ export default function NarrativePage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Share modal */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        sessionId={sessionId}
+        familyName={sessionInfo?.family_name}
+        region={sessionInfo?.region_of_origin}
+      />
     </div>
   );
 }

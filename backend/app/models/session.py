@@ -26,6 +26,8 @@ class Session:
     generating_started_at: float = 0.0
     arc_outline: Optional[dict] = None
     created_at: float = field(default_factory=time.time)
+    owner_id: Optional[str] = None
+    is_public: bool = False
 
     @property
     def is_generating_stale(self) -> bool:
@@ -95,8 +97,35 @@ class InMemorySessionStore:
         # Move to end (most recently used)
         self._sessions.move_to_end(session.session_id)
 
+    def update_metadata(self, session: Session) -> None:
+        """Update session metadata. For in-memory store, same as update()."""
+        self.update(session)
+
+    def append_segment(self, session_id: str, segment: NarrativeSegment) -> None:
+        """Append a segment to the session. For in-memory store, finds and appends."""
+        session = self._sessions.get(session_id)
+        if session:
+            # Only append if not already present (idempotent)
+            if not any(s.sequence == segment.sequence for s in session.segments):
+                session.segments.append(segment)
+            self._sessions.move_to_end(session_id)
+
     def exists(self, session_id: str) -> bool:
         return session_id in self._sessions
+
+    def list_by_owner(self, owner_id: str, limit: int = 50) -> list[Session]:
+        """List sessions owned by a user, sorted by created_at descending."""
+        owned = [s for s in self._sessions.values() if s.owner_id == owner_id]
+        owned.sort(key=lambda s: s.created_at, reverse=True)
+        return owned[:limit]
+
+    def set_owner(self, session_id: str, owner_id: str) -> bool:
+        """Set the owner of a session. Returns True on success."""
+        session = self._sessions.get(session_id)
+        if session:
+            session.owner_id = owner_id
+            return True
+        return False
 
     def count(self) -> int:
         """Return the number of active sessions."""

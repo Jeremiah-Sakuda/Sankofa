@@ -2,6 +2,9 @@
 
 > *"Se wo were fi na wosankofa a yenkyi."* — It is not wrong to go back for that which you have forgotten.
 
+<!-- TODO: Add screenshot or GIF of the narrative experience here -->
+<!-- ![Sankofa Narrative Experience](docs/assets/demo.gif) -->
+
 Sankofa is a multimodal AI agent that transforms sparse personal and familial inputs into immersive heritage narratives — weaving together oral-history-style narration, AI-generated period imagery, ambient audio, and contextual text into a single cohesive experience.
 
 Named after the Akan concept of "go back and get it," Sankofa addresses a profound gap: hundreds of millions of people in diaspora communities have lost tangible connection to their ancestral heritage.
@@ -247,6 +250,11 @@ These appear as subtle margin annotations in the narrative, building trust witho
 ## Hackathon
 
 Built for the **Gemini Live Agent Challenge** (Google / Devpost) in the **Creative Storyteller** category.
+
+**🏆 Won the Creative Storytellers category** and **presented at Google Cloud Next 2026**.
+
+<!-- TODO: Add live demo link when deployed -->
+<!-- **[Try the Live Demo →](https://sankofa.app)** -->
 
 ## Author
 

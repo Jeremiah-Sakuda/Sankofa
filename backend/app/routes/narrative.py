@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import time
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -19,9 +20,72 @@ from app.services.tts_service import generate_narration, spawn_tts_task
 from app.services.analytics import track_event, EventType
 from app.store import session_store
 from app.utils.sanitization import sanitize_input
+from app.routes.auth import get_current_user, require_user
+from app.models.user import User
+from fastapi import Depends
+from typing import Optional
+
+# Load sample narrative at module load time
+_SAMPLE_NARRATIVE_PATH = Path(__file__).parent.parent / "data" / "sample_narrative.json"
+_SAMPLE_NARRATIVE: dict | None = None
+
+def _load_sample_narrative() -> dict:
+    global _SAMPLE_NARRATIVE
+    if _SAMPLE_NARRATIVE is None:
+        with open(_SAMPLE_NARRATIVE_PATH, "r", encoding="utf-8") as f:
+            _SAMPLE_NARRATIVE = json.load(f)
+    return _SAMPLE_NARRATIVE
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["narrative"])
+
+
+@router.get("/narrative/sample")
+@limiter.limit("30/minute")
+async def get_sample_narrative(request: Request):
+    """Return pre-generated sample narrative for "See an example" feature.
+
+    Returns the full narrative data including arc outline and all segments.
+    This is read-only and does not create a session.
+    """
+    sample = _load_sample_narrative()
+    return {
+        "session_id": sample["session_id"],
+        "user_input": sample["user_input"],
+        "arc_outline": sample["arc_outline"],
+        "segments": sample["segments"],
+    }
+
+
+@router.get("/narrative/sample/stream")
+@limiter.limit("30/minute")
+async def stream_sample_narrative(request: Request):
+    """Stream pre-generated sample narrative via SSE for consistent UX.
+
+    Streams the sample narrative with realistic delays to match the
+    live generation experience.
+    """
+    sample = _load_sample_narrative()
+
+    async def sample_event_generator():
+        yield {"event": "status", "data": json.dumps({"status": "generating"})}
+        await asyncio.sleep(0.3)
+
+        # Emit arc
+        yield {"event": "arc", "data": json.dumps(sample["arc_outline"])}
+        await asyncio.sleep(0.5)
+
+        yield {"event": "status", "data": json.dumps({"status": "generating_narrative"})}
+
+        # Stream segments with natural pacing
+        for i, seg in enumerate(sample["segments"]):
+            yield {"event": seg["type"], "data": json.dumps(seg)}
+            delay = _DELAY_IMAGE if seg["type"] == "image" else (_DELAY_FIRST_TEXT if i == 0 else _DELAY_TEXT)
+            await asyncio.sleep(delay)
+
+        yield {"event": "status", "data": json.dumps({"status": "complete"})}
+
+    return EventSourceResponse(sample_event_generator())
 
 # Context window limits for prompt truncation (characters)
 _CTX_GROUNDING = 2000
@@ -401,3 +465,113 @@ async def followup_stream(
             yield {"event": "error", "data": json.dumps({"error": error_msg})}
 
     return EventSourceResponse(followup_event_generator())
+
+
+# ---------------------------------------------------------------------------
+# Library endpoints (user's saved narratives)
+# ---------------------------------------------------------------------------
+
+class NarrativeSummary:
+    """Summary of a narrative for library listing."""
+    def __init__(
+        self,
+        session_id: str,
+        family_name: str,
+        region: str,
+        era: str,
+        created_at: float,
+        segment_count: int,
+        first_image_data: str | None = None,
+        arc_title: str | None = None,
+    ):
+        self.session_id = session_id
+        self.family_name = family_name
+        self.region = region
+        self.era = era
+        self.created_at = created_at
+        self.segment_count = segment_count
+        self.first_image_data = first_image_data
+        self.arc_title = arc_title
+
+
+@router.get("/narratives")
+async def list_narratives(
+    request: Request,
+    user: User = Depends(require_user),
+    limit: int = Query(default=20, le=50),
+):
+    """List user's saved narratives for the library."""
+    sessions = session_store.list_by_owner(user.user_id, limit=limit)
+
+    narratives = []
+    for session in sessions:
+        # Find first image for thumbnail
+        first_image = next(
+            (s for s in session.segments if s.type == "image" and s.media_data),
+            None
+        )
+
+        # Get arc title if available
+        arc_title = None
+        if session.arc_outline and isinstance(session.arc_outline, dict):
+            arc_title = session.arc_outline.get("title")
+
+        narratives.append({
+            "session_id": session.session_id,
+            "family_name": session.user_input.family_name,
+            "region": session.user_input.region_of_origin,
+            "era": session.user_input.time_period,
+            "created_at": session.created_at,
+            "segment_count": len(session.segments),
+            "first_image_data": first_image.media_data if first_image else None,
+            "first_image_type": first_image.media_type if first_image else None,
+            "arc_title": arc_title,
+        })
+
+    return {"narratives": narratives}
+
+
+@router.get("/narratives/{session_id}")
+async def get_narrative(
+    request: Request,
+    session_id: UUID,
+    user: User = Depends(require_user),
+):
+    """Get a full narrative for replay. User must own the narrative."""
+    session = session_store.get(str(session_id))
+    if not session:
+        raise HTTPException(status_code=404, detail="Narrative not found")
+
+    # Check ownership
+    if session.owner_id != user.user_id:
+        raise HTTPException(status_code=403, detail="You don't have access to this narrative")
+
+    return {
+        "session_id": session.session_id,
+        "user_input": session.user_input.model_dump(),
+        "arc_outline": session.arc_outline,
+        "segments": [seg.model_dump() for seg in session.segments],
+        "created_at": session.created_at,
+    }
+
+
+@router.post("/narratives/{session_id}/claim")
+async def claim_narrative(
+    request: Request,
+    session_id: UUID,
+    user: User = Depends(require_user),
+):
+    """Claim an unclaimed narrative (associate it with the current user)."""
+    session = session_store.get(str(session_id))
+    if not session:
+        raise HTTPException(status_code=404, detail="Narrative not found")
+
+    # Can only claim unclaimed narratives
+    if session.owner_id and session.owner_id != user.user_id:
+        raise HTTPException(status_code=403, detail="This narrative belongs to another user")
+
+    # Set owner
+    if session_store.set_owner(str(session_id), user.user_id):
+        return {"message": "Narrative saved to your library"}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to save narrative")

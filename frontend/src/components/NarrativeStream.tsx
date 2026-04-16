@@ -10,6 +10,7 @@ import NarrationBar, { type AudioTrack } from "./NarrationBar";
 import ScrollProgress from "./ScrollProgress";
 import SankofaBird from "./SankofaBird";
 import VolumePanel from "./VolumePanel";
+import DiscoveryPrompts from "./DiscoveryPrompts";
 
 const FOLLOW_UP_MAX_LENGTH = 500;
 
@@ -35,6 +36,10 @@ interface Props {
   onFollowUp?: (question: string) => void;
   onTalkToGriot?: () => void;
   onRetry?: () => void;
+  onShare?: () => void;
+  onExploreEra?: () => void;
+  onExploreCulture?: (topic: string) => void;
+  onTraceMigration?: () => void;
 }
 
 function ActTransition({ actNumber, arcOutline }: { actNumber: number; arcOutline?: ArcOutline | null }) {
@@ -175,6 +180,10 @@ export default function NarrativeStream({
   onFollowUp,
   onTalkToGriot,
   onRetry,
+  onShare,
+  onExploreEra,
+  onExploreCulture,
+  onTraceMigration,
 }: Props) {
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpValidationError, setFollowUpValidationError] = useState<string | null>(null);
@@ -549,6 +558,41 @@ export default function NarrativeStream({
             Sankofa distinguishes historical record from narrative imagination.
             Look for the margin annotations.
           </p>
+
+          {/* Discovery prompts */}
+          {isComplete && onFollowUp && (
+            <DiscoveryPrompts
+              familyName={familyName}
+              region={region}
+              era={era}
+              onExploreEra={() => {
+                if (onExploreEra) {
+                  onExploreEra();
+                } else if (onFollowUp) {
+                  onFollowUp(`Tell me about an earlier era in the history of this region, before ${era || "this time period"}.`);
+                }
+              }}
+              onExploreCulture={() => {
+                if (onExploreCulture) {
+                  onExploreCulture("music");
+                } else if (onFollowUp) {
+                  onFollowUp(`What was the music and artistic culture like in ${region || "this region"} during ${era || "this era"}?`);
+                }
+              }}
+              onTraceMigration={() => {
+                if (onTraceMigration) {
+                  onTraceMigration();
+                } else if (onFollowUp) {
+                  onFollowUp("Tell me about the migration patterns and diaspora journeys from this region. Where did people go and why?");
+                }
+              }}
+              onShare={() => {
+                if (onShare) {
+                  onShare();
+                }
+              }}
+            />
+          )}
 
           {/* Follow-up input */}
           {onFollowUp && (
