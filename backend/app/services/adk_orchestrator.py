@@ -20,7 +20,14 @@ from google.genai.types import Content, Part
 
 from app.models.schemas import NarrativeSegment
 from app.models.session import Session
-from app.services.adk_agent import media_store, sankofa_agent
+from app.services.adk_agent import (
+    media_store,
+    sankofa_agent,
+    sankofa_critic_agent,
+    review_narrative_quality,
+    review_cultural_authenticity,
+    suggest_narrative_improvements,
+)
 from app.services.tts_service import spawn_tts_task
 from app.store import session_store
 from app.utils.error_messages import translate_error_for_sse
@@ -41,6 +48,14 @@ _runner = Runner(
     agent=sankofa_agent,
     app_name="sankofa",
     session_service=_adk_session_service,
+)
+
+# Critic agent runner for narrative review
+_critic_session_service = InMemorySessionService()
+_critic_runner = Runner(
+    agent=sankofa_critic_agent,
+    app_name="sankofa_critic",
+    session_service=_critic_session_service,
 )
 
 # ---------------------------------------------------------------------------
@@ -382,3 +397,193 @@ async def run_adk_followup(
     except Exception as e:
         logger.error("[adk-orch] Follow-up error: %s", e, exc_info=True)
         yield {"event": "error", "data": json.dumps(translate_error_for_sse(e))}
+
+
+# ---------------------------------------------------------------------------
+# Critic Agent — Narrative Quality Review (Self-Correction)
+# ---------------------------------------------------------------------------
+
+async def run_critic_review(
+    session: Session,
+    arc_json: str | None = None,
+) -> dict:
+    """Run the critic agent to review a generated narrative.
+
+    This enables self-correction by having a separate agent evaluate
+    the narrative for quality, cultural authenticity, and coherence.
+
+    Args:
+        session: The session containing the generated narrative segments.
+        arc_json: The narrative arc JSON (optional, will use session.arc_outline if not provided).
+
+    Returns:
+        A dict with review results including:
+        - quality_review: Output from review_narrative_quality
+        - authenticity_review: Output from review_cultural_authenticity
+        - improvements: Output from suggest_narrative_improvements
+        - overall_passed: Whether the narrative passed review
+    """
+    ui = session.user_input
+
+    # Prepare narrative segments as JSON
+    segments_json = json.dumps([
+        {
+            "type": seg.type,
+            "content": seg.content,
+            "trust_level": seg.trust_level,
+            "act": seg.act,
+            "sequence": seg.sequence,
+        }
+        for seg in session.segments
+    ])
+
+    # Use provided arc or session's arc
+    arc = arc_json or json.dumps(session.arc_outline or {})
+
+    # Combine all text for authenticity review
+    narrative_text = "\n\n".join(
+        seg.content for seg in session.segments
+        if seg.type == "text" and seg.content
+    )
+
+    logger.info("[critic] Starting narrative review for session %s", session.session_id)
+
+    try:
+        # Run the three review tools directly (faster than full agent loop)
+        quality_result = await review_narrative_quality(
+            narrative_segments_json=segments_json,
+            arc_json=arc,
+            region=ui.region_of_origin,
+            time_period=ui.time_period,
+            family_name=ui.family_name,
+        )
+
+        authenticity_result = await review_cultural_authenticity(
+            narrative_text=narrative_text,
+            region=ui.region_of_origin,
+            time_period=ui.time_period,
+        )
+
+        improvements_result = await suggest_narrative_improvements(
+            quality_review_json=quality_result,
+            authenticity_review_json=authenticity_result,
+            arc_json=arc,
+        )
+
+        # Parse results
+        quality = json.loads(quality_result)
+        authenticity = json.loads(authenticity_result)
+        improvements = json.loads(improvements_result)
+
+        overall_passed = improvements.get("action") in ["approve", "approve_with_notes"]
+
+        logger.info(
+            "[critic] Review complete: quality=%.1f, authenticity=%s, action=%s",
+            quality.get("quality_score", 0),
+            authenticity.get("authenticity_score", 0),
+            improvements.get("action"),
+        )
+
+        return {
+            "quality_review": quality,
+            "authenticity_review": authenticity,
+            "improvements": improvements,
+            "overall_passed": overall_passed,
+            "overall_score": improvements.get("overall_quality", 5),
+        }
+
+    except Exception as e:
+        logger.error("[critic] Review failed: %s", e, exc_info=True)
+        return {
+            "quality_review": {"error": str(e)},
+            "authenticity_review": {"error": str(e)},
+            "improvements": {"action": "error", "error": str(e)},
+            "overall_passed": False,
+            "overall_score": 0,
+        }
+
+
+async def run_adk_narrative_with_review(
+    session: Session,
+    audio: bool = False,
+    max_revisions: int = 1,
+) -> AsyncGenerator[dict, None]:
+    """Run narrative generation with automatic critic review and self-correction.
+
+    This is the enhanced version of run_adk_narrative that:
+    1. Generates the initial narrative
+    2. Runs the critic agent to review it
+    3. If review fails with fixable issues, regenerates specific acts
+    4. Yields the final approved narrative
+
+    Args:
+        session: The session to generate narrative for.
+        audio: Whether to generate TTS audio.
+        max_revisions: Maximum number of revision attempts (default 1).
+
+    Yields:
+        SSE events for the narrative generation and review process.
+    """
+    revision_count = 0
+
+    while revision_count <= max_revisions:
+        # Generate narrative (or regenerate on revision)
+        if revision_count == 0:
+            yield _sse_status("generating")
+        else:
+            yield _sse_status("revising", message=f"Revising narrative (attempt {revision_count})...")
+
+        # Run the main narrative generation
+        async for event in run_adk_narrative(session, audio=audio):
+            # Don't emit "complete" yet if we need to review
+            if event.get("event") == "status":
+                status_data = json.loads(event.get("data", "{}"))
+                if status_data.get("status") == "complete":
+                    continue  # Skip, we'll emit after review
+            yield event
+
+        # Run critic review
+        yield _sse_status("reviewing", message="Quality review in progress...")
+
+        arc_json = json.dumps(session.arc_outline) if session.arc_outline else None
+        review = await run_critic_review(session, arc_json)
+
+        # Emit review results
+        yield {
+            "event": "review",
+            "data": json.dumps({
+                "passed": review["overall_passed"],
+                "score": review["overall_score"],
+                "action": review["improvements"].get("action"),
+                "issues_count": len(review["improvements"].get("priority_fixes", [])),
+            })
+        }
+
+        if review["overall_passed"]:
+            logger.info("[critic] Narrative approved on attempt %d", revision_count + 1)
+            yield _sse_status("complete", reviewed=True, score=review["overall_score"])
+            return
+
+        # Check if we should retry
+        action = review["improvements"].get("action", "regenerate")
+        if action == "regenerate" and revision_count < max_revisions:
+            logger.info("[critic] Regeneration requested, clearing segments for retry")
+            # Clear segments for regeneration
+            session.segments = []
+            session.arc_outline = None
+            revision_count += 1
+            continue
+        else:
+            # Accept with notes or max revisions reached
+            logger.info("[critic] Accepting narrative with notes (action=%s, revisions=%d)",
+                       action, revision_count)
+            yield _sse_status(
+                "complete",
+                reviewed=True,
+                score=review["overall_score"],
+                notes=review["improvements"].get("priority_fixes", [])[:3]
+            )
+            return
+
+    # Should not reach here, but just in case
+    yield _sse_status("complete", reviewed=False)

@@ -15,7 +15,12 @@ from app.models.schemas import FollowUpRequest, NarrativeSegment
 from app.models.user import User
 from app.rate_limiter import generation_limiter, limiter
 from app.routes.auth import require_user
-from app.services.adk_orchestrator import run_adk_followup, run_adk_narrative
+from app.services.adk_orchestrator import (
+    run_adk_followup,
+    run_adk_narrative,
+    run_adk_narrative_with_review,
+    run_critic_review,
+)
 from app.services.analytics import EventType, track_event
 from app.services.gemini_service import generate_interleaved, validate_followup_question
 from app.services.narrative_planner import generate_narrative_only, get_fast_arc, plan_arc_only
@@ -105,6 +110,7 @@ async def stream_narrative(
     audio: bool = Query(default=False, description="Generate TTS audio for text segments"),
     fast: bool = Query(default=True, description="Skip arc-planning Gemini call; use template for faster load"),
     use_adk: bool = Query(default=True, description="Route through the ADK agent orchestrator"),
+    review: bool = Query(default=False, description="Enable critic agent review for quality assurance"),
 ):
     session = session_store.get(str(session_id))
     if not session:
@@ -150,8 +156,15 @@ async def stream_narrative(
             )
 
             try:
-                logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
-                async for sse_event in run_adk_narrative(session, audio=audio):
+                # Choose between standard or critic-reviewed generation
+                if review:
+                    logger.info("[stream] ADK narrative stream with critic review started for session %s (audio=%s)", str(session_id), audio)
+                    adk_generator = run_adk_narrative_with_review(session, audio=audio)
+                else:
+                    logger.info("[stream] ADK narrative stream started for session %s (audio=%s)", str(session_id), audio)
+                    adk_generator = run_adk_narrative(session, audio=audio)
+
+                async for sse_event in adk_generator:
                     # Check overall timeout
                     if time.time() - start_time > _OVERALL_TIMEOUT:
                         logger.warning("[stream] Overall timeout (%ds) exceeded for session %s", _OVERALL_TIMEOUT, str(session_id))
@@ -317,6 +330,45 @@ async def stream_narrative(
             yield item
 
     return EventSourceResponse(event_generator())
+
+
+@router.post("/narrative/{session_id}/review")
+@limiter.limit("5/minute")
+async def review_narrative(request: Request, session_id: UUID):
+    """Run the critic agent to review an existing narrative.
+
+    This endpoint allows quality review of a previously generated narrative
+    without regenerating it. Useful for:
+    - Quality assurance checks
+    - Understanding why a narrative might need improvement
+    - Getting specific feedback for manual review
+
+    Returns:
+        Review results including quality score, authenticity assessment,
+        and actionable improvement suggestions.
+    """
+    session = session_store.get(str(session_id))
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not session.segments:
+        raise HTTPException(status_code=400, detail="No narrative segments to review")
+
+    logger.info("[review] Running critic review for session %s", str(session_id))
+
+    arc_json = json.dumps(session.arc_outline) if session.arc_outline else None
+    review = await run_critic_review(session, arc_json)
+
+    return {
+        "session_id": str(session_id),
+        "review": {
+            "passed": review["overall_passed"],
+            "overall_score": review["overall_score"],
+            "quality": review["quality_review"],
+            "authenticity": review["authenticity_review"],
+            "improvements": review["improvements"],
+        }
+    }
 
 
 @router.post("/narrative/{session_id}/followup")

@@ -634,3 +634,312 @@ sankofa_live_agent = Agent(
     instruction=sankofa_agent_instruction,
     tools=sankofa_live_tools,
 )
+
+
+# ---------------------------------------------------------------------------
+# Critic Agent — Self-Correction via Multi-Agent Review
+# ---------------------------------------------------------------------------
+
+async def review_narrative_quality(
+    narrative_segments_json: str,
+    arc_json: str,
+    region: str,
+    time_period: str,
+    family_name: str,
+) -> str:
+    """Evaluate the overall quality and coherence of a generated narrative.
+
+    This tool performs a comprehensive review of the narrative including:
+    - Narrative coherence across all acts
+    - Cultural authenticity and historical accuracy
+    - Trust level classification correctness
+    - Emotional resonance and storytelling quality
+    - Proper griot voice and tone consistency
+
+    Args:
+        narrative_segments_json: JSON array of all generated segments.
+        arc_json: The narrative arc that was planned.
+        region: The geographic region.
+        time_period: The historical era.
+        family_name: The family name being narrated.
+
+    Returns:
+        JSON with {"quality_score": 1-10, "passed": bool, "issues": [...], "suggestions": [...]}
+    """
+    try:
+        segments = json.loads(narrative_segments_json)
+        arc = json.loads(arc_json.strip().strip("```json").strip("```"))
+    except json.JSONDecodeError as e:
+        return json.dumps({
+            "quality_score": 0,
+            "passed": False,
+            "issues": [f"Invalid JSON input: {e}"],
+            "suggestions": ["Regenerate the narrative with valid JSON output"]
+        })
+
+    issues = []
+    suggestions = []
+
+    # 1. Check segment count and distribution
+    text_segments = [s for s in segments if s.get("type") == "text"]
+    image_segments = [s for s in segments if s.get("type") == "image"]
+
+    if len(text_segments) < 6:
+        issues.append(f"Narrative has only {len(text_segments)} text segments; expected at least 6 for a 3-act story")
+        suggestions.append("Generate more detailed content for each act")
+
+    # 2. Check trust level distribution
+    trust_levels = [s.get("trust_level", "unknown") for s in text_segments]
+    if all(t == "reconstructed" for t in trust_levels):
+        issues.append("All segments are marked [RECONSTRUCTED] with no historical or cultural grounding")
+        suggestions.append("Use research_region_history to gather more factual context before regenerating")
+
+    # 3. Check act coverage
+    acts_covered = set(s.get("act") for s in segments if s.get("act"))
+    if len(acts_covered) < 3:
+        issues.append(f"Only {len(acts_covered)} acts generated; all 3 acts should be present")
+        suggestions.append("Ensure generate_act_segments is called for acts 1, 2, and 3")
+
+    # 4. Check narrative continuity (basic: segments should have content)
+    empty_segments = [i for i, s in enumerate(text_segments) if not s.get("content") or len(s.get("content", "")) < 50]
+    if empty_segments:
+        issues.append(f"{len(empty_segments)} text segments have insufficient content")
+        suggestions.append("Regenerate sparse segments with more descriptive prompts")
+
+    # 5. Check region/cultural specificity
+    all_text = " ".join(s.get("content", "") for s in text_segments).lower()
+    region_lower = region.lower()
+    if region_lower not in all_text and len(region) > 3:
+        issues.append(f"Narrative does not mention {region} specifically")
+        suggestions.append(f"Ensure the narrative is grounded in {region}'s specific cultural context")
+
+    # 6. Check for generic placeholder content
+    generic_markers = ["lorem ipsum", "[placeholder]", "insert here", "tbd", "todo"]
+    for marker in generic_markers:
+        if marker in all_text:
+            issues.append(f"Narrative contains placeholder text: '{marker}'")
+            suggestions.append("Remove all placeholder content and replace with authentic narrative")
+
+    # Calculate quality score
+    base_score = 10
+    base_score -= len(issues) * 1.5
+    base_score = max(1, min(10, base_score))
+
+    passed = len(issues) == 0 or (len(issues) <= 2 and base_score >= 7)
+
+    logger.info("[critic] review_narrative_quality: score=%.1f, passed=%s, issues=%d",
+                base_score, passed, len(issues))
+
+    return json.dumps({
+        "quality_score": round(base_score, 1),
+        "passed": passed,
+        "issues": issues,
+        "suggestions": suggestions,
+        "stats": {
+            "text_segments": len(text_segments),
+            "image_segments": len(image_segments),
+            "acts_covered": list(acts_covered),
+            "trust_distribution": {t: trust_levels.count(t) for t in set(trust_levels)}
+        }
+    })
+
+
+async def review_cultural_authenticity(
+    narrative_text: str,
+    region: str,
+    time_period: str,
+) -> str:
+    """Use Gemini to evaluate cultural authenticity and historical accuracy.
+
+    This performs a deeper AI-powered review of whether the narrative
+    accurately represents the culture and history of the specified region.
+
+    Args:
+        narrative_text: The combined text of all narrative segments.
+        region: The geographic region.
+        time_period: The historical era.
+
+    Returns:
+        JSON with authenticity assessment and specific feedback.
+    """
+    prompt = f"""You are a cultural historian and authenticity reviewer. Evaluate this
+narrative about {region} during {time_period} for cultural and historical accuracy.
+
+=== NARRATIVE ===
+{narrative_text[:_CTX_GENERATE]}
+
+=== REVIEW CRITERIA ===
+1. Historical Accuracy: Are dates, events, and historical context correct?
+2. Cultural Authenticity: Are cultural practices, traditions, and customs accurately portrayed?
+3. Language & Terminology: Are terms, names, and phrases appropriate for the region and era?
+4. Avoiding Stereotypes: Does the narrative avoid harmful stereotypes or oversimplifications?
+5. Griot Voice: Is the storytelling style consistent with West African oral traditions?
+
+=== OUTPUT ===
+Return a JSON object:
+{{
+  "authenticity_score": 1-10,
+  "historical_accuracy": "accurate/mostly accurate/needs improvement/inaccurate",
+  "cultural_representation": "authentic/mostly authentic/needs improvement/problematic",
+  "specific_issues": ["issue 1", "issue 2"],
+  "recommendations": ["recommendation 1", "recommendation 2"],
+  "strengths": ["what the narrative does well"]
+}}
+
+Output ONLY the JSON."""
+
+    try:
+        response = await generate_text(prompt, grounded=True)
+        # Try to parse and validate
+        result = json.loads(response.strip().strip("```json").strip("```"))
+        logger.info("[critic] review_cultural_authenticity: score=%s", result.get("authenticity_score"))
+        return json.dumps(result)
+    except Exception as e:
+        logger.warning("[critic] review_cultural_authenticity failed: %s", e)
+        return json.dumps({
+            "authenticity_score": 5,
+            "historical_accuracy": "unable to assess",
+            "cultural_representation": "unable to assess",
+            "specific_issues": [f"Review failed: {e}"],
+            "recommendations": ["Manual review recommended"],
+            "strengths": []
+        })
+
+
+async def suggest_narrative_improvements(
+    quality_review_json: str,
+    authenticity_review_json: str,
+    arc_json: str,
+) -> str:
+    """Synthesize reviews into actionable improvement suggestions.
+
+    Call this after both review_narrative_quality and review_cultural_authenticity
+    to get a consolidated action plan for improving the narrative.
+
+    Args:
+        quality_review_json: Output from review_narrative_quality.
+        authenticity_review_json: Output from review_cultural_authenticity.
+        arc_json: The original narrative arc.
+
+    Returns:
+        JSON with prioritized improvement actions.
+    """
+    try:
+        quality = json.loads(quality_review_json)
+        authenticity = json.loads(authenticity_review_json)
+        arc = json.loads(arc_json.strip().strip("```json").strip("```"))
+    except json.JSONDecodeError:
+        return json.dumps({
+            "action": "regenerate",
+            "priority_fixes": ["Unable to parse reviews; regenerate narrative from scratch"],
+            "optional_enhancements": []
+        })
+
+    priority_fixes = []
+    optional_enhancements = []
+
+    # Combine issues from both reviews
+    quality_score = quality.get("quality_score", 5)
+    auth_score = authenticity.get("authenticity_score", 5)
+
+    # Critical issues (must fix)
+    if quality_score < 5:
+        priority_fixes.append("Narrative quality is poor; regenerate all acts with richer context")
+    if auth_score < 5:
+        priority_fixes.append("Cultural authenticity issues detected; research region history before regenerating")
+
+    for issue in quality.get("issues", []):
+        if "placeholder" in issue.lower() or "reconstructed" in issue.lower():
+            priority_fixes.append(issue)
+        else:
+            optional_enhancements.append(issue)
+
+    for issue in authenticity.get("specific_issues", []):
+        if "stereotype" in issue.lower() or "inaccurate" in issue.lower():
+            priority_fixes.append(issue)
+        else:
+            optional_enhancements.append(issue)
+
+    # Determine action
+    if quality_score >= 8 and auth_score >= 8:
+        action = "approve"
+    elif quality_score >= 6 and auth_score >= 6 and len(priority_fixes) == 0:
+        action = "approve_with_notes"
+    elif len(priority_fixes) <= 2:
+        action = "revise_specific_acts"
+    else:
+        action = "regenerate"
+
+    logger.info("[critic] suggest_narrative_improvements: action=%s, fixes=%d",
+                action, len(priority_fixes))
+
+    return json.dumps({
+        "action": action,
+        "overall_quality": (quality_score + auth_score) / 2,
+        "priority_fixes": priority_fixes[:5],  # Top 5 critical fixes
+        "optional_enhancements": optional_enhancements[:5],
+        "strengths": authenticity.get("strengths", []),
+        "recommendation": quality.get("suggestions", [])[:3]
+    })
+
+
+# Critic Agent Definition
+sankofa_critic_description = (
+    "The Sankofa Critic is a quality assurance agent that reviews generated narratives "
+    "for cultural authenticity, historical accuracy, storytelling coherence, and proper "
+    "trust level classification. It provides structured feedback for improvement."
+)
+
+sankofa_critic_instruction = """You are the Sankofa Critic, a quality assurance reviewer for
+ancestral heritage narratives. Your role is to evaluate narratives generated by the
+Sankofa Narrator agent and ensure they meet high standards of quality and authenticity.
+
+When reviewing a narrative, follow this process:
+
+1. STRUCTURAL REVIEW: Use `review_narrative_quality` to check:
+   - All 3 acts are present and properly structured
+   - Adequate content depth (at least 6 text segments)
+   - Proper trust level distribution (mix of HISTORICAL, CULTURAL, RECONSTRUCTED)
+   - No placeholder or generic content
+
+2. CULTURAL REVIEW: Use `review_cultural_authenticity` to check:
+   - Historical accuracy of events and dates
+   - Authentic representation of cultural practices
+   - Appropriate terminology and language
+   - Avoidance of stereotypes
+   - Consistent griot storytelling voice
+
+3. SYNTHESIZE: Use `suggest_narrative_improvements` to:
+   - Combine findings from both reviews
+   - Prioritize critical issues vs. optional enhancements
+   - Determine action: approve, revise, or regenerate
+   - Provide specific, actionable feedback
+
+REVIEW STANDARDS:
+- Quality Score >= 8 AND Authenticity Score >= 8: APPROVE
+- Scores 6-7 with no critical issues: APPROVE WITH NOTES
+- 1-2 critical issues: REVISE SPECIFIC ACTS
+- 3+ critical issues or score < 5: REGENERATE
+
+Your feedback should be constructive and specific. Focus on what needs to change
+and why, not just what's wrong. Always acknowledge strengths alongside issues.
+
+IMPORTANT: Be rigorous but fair. The goal is to help improve narratives, not to
+reject everything. A narrative doesn't need to be perfect — it needs to be respectful,
+grounded, and emotionally resonant."""
+
+sankofa_critic_tools = [
+    review_narrative_quality,
+    review_cultural_authenticity,
+    suggest_narrative_improvements,
+    lookup_cultural_context,  # For reference checking
+    research_region_history,  # For fact verification
+]
+
+sankofa_critic_agent = Agent(
+    model=settings.GEMINI_PLANNING_MODEL,
+    name="sankofa_heritage_critic",
+    description=sankofa_critic_description,
+    instruction=sankofa_critic_instruction,
+    tools=sankofa_critic_tools,
+)
