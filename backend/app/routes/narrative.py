@@ -25,16 +25,13 @@ from app.models.user import User
 from fastapi import Depends
 from typing import Optional
 
-# Load sample narrative at module load time
+# Load sample narrative - always fresh read to pick up changes
 _SAMPLE_NARRATIVE_PATH = Path(__file__).parent.parent / "data" / "sample_narrative.json"
-_SAMPLE_NARRATIVE: dict | None = None
 
 def _load_sample_narrative() -> dict:
-    global _SAMPLE_NARRATIVE
-    if _SAMPLE_NARRATIVE is None:
-        with open(_SAMPLE_NARRATIVE_PATH, "r", encoding="utf-8") as f:
-            _SAMPLE_NARRATIVE = json.load(f)
-    return _SAMPLE_NARRATIVE
+    """Load sample narrative from JSON file. Always reads fresh for reliability."""
+    with open(_SAMPLE_NARRATIVE_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["narrative"])

@@ -6,9 +6,29 @@ import { motion, AnimatePresence } from "motion/react";
 import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
 import { NarrativeSegment, getSampleStreamUrl } from "../../lib/api";
 import SegmentComponent from "../../components/NarrativeSegment";
+import NarrationBar, { type AudioTrack } from "../../components/NarrationBar";
 import SankofaBird from "../../components/SankofaBird";
 import ScrollProgress from "../../components/ScrollProgress";
+import GoldParticles from "../../components/GoldParticles";
 import Link from "next/link";
+
+function buildAudioTracks(segments: NarrativeSegment[]): AudioTrack[] {
+  const tracks: AudioTrack[] = [];
+  for (const seg of segments) {
+    if (seg.type === "audio" && seg.media_data) {
+      tracks.push({
+        id: `audio-${seg.sequence}`,
+        label: "",
+        audioData: seg.media_data,
+        mediaType: seg.media_type ?? "audio/wav",
+        segmentSequence: seg.sequence,
+      });
+    }
+  }
+  tracks.sort((a, b) => a.segmentSequence - b.segmentSequence);
+  tracks.forEach((t, i) => { t.label = `Narration ${i + 1}`; });
+  return tracks;
+}
 
 interface ArcOutline {
   title: string;
@@ -96,6 +116,11 @@ export default function SampleNarrativePage() {
   const endRef = useRef<HTMLDivElement>(null);
   const prevSegmentCount = useRef(0);
 
+  // Narration state
+  const [activeSequence, setActiveSequence] = useState<number | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const isAudioPlayingRef = useRef(false);
+
   useEffect(() => {
     const ctrl = new AbortController();
 
@@ -129,7 +154,7 @@ export default function SampleNarrativePage() {
             setIsStreaming(false);
             return;
           }
-          if (["text", "image"].includes(ev.event)) {
+          if (["text", "image", "audio"].includes(ev.event)) {
             const segment = JSON.parse(ev.data) as NarrativeSegment;
             setSegments((prev) => [...prev, segment]);
           }
@@ -177,6 +202,24 @@ export default function SampleNarrativePage() {
     return textSegs.length > 0 ? (textSegs[textSegs.length - 1].act ?? 1) : 1;
   }, [segments]);
 
+  const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
+
+  // Keep ref in sync for scroll-to behavior
+  useEffect(() => { isAudioPlayingRef.current = isAudioPlaying; }, [isAudioPlaying]);
+
+  // Handlers for NarrationBar
+  const handleTrackChange = useCallback((track: AudioTrack | null) => {
+    setActiveSequence(track?.segmentSequence ?? null);
+    if (track && isAudioPlayingRef.current) {
+      const el = document.querySelector(`[data-sequence="${track.segmentSequence}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
+
+  const handlePlayStateChange = useCallback((playing: boolean) => {
+    setIsAudioPlaying(playing);
+  }, []);
+
   const actGradients: Record<number, string> = {
     1: "radial-gradient(ellipse at 50% 30%, #1a1520 0%, var(--night) 70%)",
     2: "radial-gradient(ellipse at 50% 40%, #1c1210 0%, var(--night) 70%)",
@@ -201,6 +244,7 @@ export default function SampleNarrativePage() {
 
   return (
     <div className="min-h-screen relative">
+      {/* Dark background with vignette gradient */}
       <div className="fixed inset-0 bg-[var(--night)]">
         <motion.div
           className="absolute inset-0"
@@ -210,10 +254,20 @@ export default function SampleNarrativePage() {
             background: actGradients[currentAct] ?? actGradients[1],
           }}
         />
+        {/* Vignette overlay - draws eye inward */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "linear-gradient(to right, rgba(0,0,0,0.4) 0%, transparent 15%, transparent 85%, rgba(0,0,0,0.4) 100%)",
+          }}
+        />
       </div>
 
+      {/* Subtle gold particles in gutters */}
+      <GoldParticles count={15} />
+
       <motion.div
-        className="relative z-10 mx-auto w-full max-w-[min(1280px,94vw)] min-h-screen px-3 sm:px-4"
+        className="relative z-10 mx-auto w-full max-w-[min(1400px,82vw)] min-h-screen px-3 sm:px-4"
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
@@ -221,34 +275,37 @@ export default function SampleNarrativePage() {
         <div className="bg-[var(--ivory)] noise-texture px-6 md:px-14 py-10 md:py-16 min-h-screen shadow-[0_0_80px_rgba(0,0,0,0.6)]">
           <ScrollProgress totalActs={totalActs} currentAct={currentAct} isComplete={isComplete} />
 
-          {/* Sample narrative banner */}
+          {/* Narration bar for audio playback */}
+          {audioTracks.length > 0 && (
+            <NarrationBar
+              tracks={audioTracks}
+              autoPlay={true}
+              onTrackChange={handleTrackChange}
+              onPlayStateChange={handlePlayStateChange}
+            />
+          )}
+
+          {/* Subtle sample indicator */}
           <motion.div
-            className="mb-8 p-4 bg-[var(--gold)]/10 border border-[var(--gold)]/30 rounded text-center"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            className="mb-6 py-2 text-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <p className="font-[family-name:var(--font-body)] text-sm text-[var(--umber)]">
-              This is a sample narrative to show you what Sankofa creates.{" "}
+            <p className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]">
+              Sample narrative{" "}
+              <span className="mx-2 text-[var(--gold)]/30">|</span>
               <button
                 onClick={() => router.push("/")}
-                className="text-[var(--gold)] hover:underline cursor-pointer font-medium"
+                className="text-[var(--gold)]/70 hover:text-[var(--gold)] cursor-pointer transition-colors"
               >
-                Create your own story
+                Create your own
               </button>
             </p>
           </motion.div>
 
           {/* Header */}
           <header className="text-center mb-16">
-            <div className="flex items-center justify-between mb-4">
-              <Link
-                href="/"
-                className="font-[family-name:var(--font-body)] text-sm text-[var(--muted)] hover:text-[var(--gold)] transition-colors"
-              >
-                Create your own narrative
-              </Link>
-            </div>
             <h1 className="font-[family-name:var(--font-display)] text-2xl md:text-3xl tracking-[0.3em] text-[var(--gold)] uppercase">
               Sankofa
             </h1>
@@ -283,9 +340,9 @@ export default function SampleNarrativePage() {
                       segment={segment}
                       index={i}
                       isFirstInAct={isFirstInAct || false}
-                      isNarrating={false}
-                      isNarrationPaused={false}
-                      spotlightActive={false}
+                      isNarrating={activeSequence === segment.sequence && isAudioPlaying}
+                      isNarrationPaused={!isAudioPlaying && activeSequence === segment.sequence}
+                      spotlightActive={activeSequence !== null && isAudioPlaying}
                       isNew={isNew}
                     />
                   </div>
@@ -317,7 +374,7 @@ export default function SampleNarrativePage() {
                 animate={{ opacity: [0.4, 0.7, 0.4] }}
                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               >
-                A sample narrative: The Mwangi Family, Kenya, 1940s
+                A sample narrative: The Sakuda Family, Kenya, 1940s
               </motion.p>
               <p className="mt-2 text-center font-[family-name:var(--font-body)] text-xs text-[var(--muted)] opacity-60">
                 Sankofa distinguishes historical record from narrative imagination.

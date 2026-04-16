@@ -16,7 +16,7 @@ interface NarrationBarProps {
   onTrackChange?: (track: AudioTrack | null) => void;
   onPlayStateChange?: (playing: boolean) => void;
   onDurationChange?: (duration: number) => void;
-  onTalkToGriot?: () => void;
+  // onTalkToGriot?: () => void;  // Live Griot feature disabled for now
   autoPlay?: boolean;
   volume?: number;
 }
@@ -66,7 +66,7 @@ function useBlobUrl(audioData: string | undefined, mediaType: string): string | 
   return src;
 }
 
-export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, onDurationChange, onTalkToGriot, autoPlay = true, volume = 1.0 }: NarrationBarProps) {
+export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange, onDurationChange, autoPlay = true, volume = 1.0 }: NarrationBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -414,7 +414,7 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
             ))}
           </div>
 
-          {/* Talk to Griot mic button */}
+          {/* Talk to Griot mic button - Live Griot feature disabled for now
           {onTalkToGriot && (
             <button
               type="button"
@@ -430,6 +430,7 @@ export default function NarrationBar({ tracks, onTrackChange, onPlayStateChange,
               </svg>
             </button>
           )}
+          */}
         </div>
       </div>
     </motion.div>
