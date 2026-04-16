@@ -12,6 +12,7 @@ from starlette.requests import Request
 from app.config import settings
 from app.rate_limiter import limiter
 from app.routes import audio, intake, live, narrative
+from app.services.gemini_service import check_gemini_health
 
 logging.basicConfig(
     level=logging.INFO,
@@ -118,10 +119,21 @@ app.include_router(live.router)
 
 @app.get("/api/health")
 async def health_check():
+    """Health check endpoint with Gemini API status."""
+    gemini_health = await check_gemini_health()
+
+    # Overall status is degraded if Gemini is unavailable
+    overall_status = "healthy" if gemini_health.get("available") else "degraded"
+
     return {
-        "status": "healthy",
+        "status": overall_status,
         "service": "sankofa-api",
         "version": "0.1.0",
+        "gemini": {
+            "available": gemini_health.get("available", False),
+            "message": gemini_health.get("message", "Unknown"),
+            "cached": gemini_health.get("cached", False),
+        },
     }
 
 

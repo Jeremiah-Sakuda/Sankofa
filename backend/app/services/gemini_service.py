@@ -84,6 +84,60 @@ def get_client() -> genai.Client:
     return _client
 
 
+# Health check cache
+_health_cache: dict = {"status": None, "timestamp": 0.0}
+_HEALTH_CACHE_TTL = 60  # seconds
+
+
+async def check_gemini_health() -> dict:
+    """
+    Check if Gemini API is reachable and responding.
+
+    Returns cached result for 60 seconds to avoid excessive API calls.
+
+    Returns:
+        {"available": bool, "message": str, "cached": bool}
+    """
+    import time
+
+    now = time.time()
+
+    # Return cached result if fresh
+    if _health_cache["status"] is not None:
+        if now - _health_cache["timestamp"] < _HEALTH_CACHE_TTL:
+            return {**_health_cache["status"], "cached": True}
+
+    try:
+        # Do a minimal API call - list models (doesn't consume quota)
+        client = get_client()
+        # Use asyncio.to_thread to avoid blocking
+        models = await asyncio.to_thread(lambda: list(client.models.list()))
+
+        # Check if our required model is available
+        model_names = [m.name for m in models] if models else []
+        planning_model = settings.GEMINI_PLANNING_MODEL
+        found = any(planning_model in name for name in model_names)
+
+        result = {
+            "available": True,
+            "message": f"Gemini API responding ({len(model_names)} models available)",
+            "model_found": found,
+        }
+
+    except Exception as e:
+        logger.warning("[gemini] Health check failed: %s", e)
+        result = {
+            "available": False,
+            "message": f"Gemini API unavailable: {type(e).__name__}",
+        }
+
+    # Cache the result
+    _health_cache["status"] = result
+    _health_cache["timestamp"] = now
+
+    return {**result, "cached": False}
+
+
 # Model that supports image+text output; use when env has a text-only model
 IMAGE_CAPABLE_MODEL = "gemini-2.5-flash-image"
 TEXT_ONLY_MODEL_IDS = ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro")
