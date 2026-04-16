@@ -24,6 +24,7 @@ A user provides a few seeds: a family surname, a country or region, a time perio
 - **Trust indicators** — Every segment marked as Historical, Cultural, or Reconstructed
 - **Audio narration** — TTS audio for each text segment in a warm storytelling voice (persistent narration bar with track list, seek, auto-advance, and integrated mic button). Audio is always enabled.
 - **Follow-up exploration** — Ask Sankofa to go deeper into any aspect of the heritage, with answers streaming in segment-by-segment via SSE
+- **Explore Regions page** — Browse all supported heritage regions with coverage indicators (Deep, Moderate, Focused) and click to start a narrative pre-filled with that region
 - **Live voice conversation** — Talk to the Griot in real-time via the mic button in the narration bar, powered by Gemini Live API, with two immersive UI modes:
   - **Glassmorphism dock** — When a narrative is visible, the voice panel slides up as a frosted-glass bottom dock (`backdrop-blur-xl`), keeping the story and images visible behind it
   - **Ambient full-screen** — When no narrative exists yet, a warm radial gradient with floating gold particles and an optional Ken Burns background image replaces the old dark overlay
@@ -66,8 +67,10 @@ flowchart TB
 
         subgraph ADK["ADK Agent Orchestrator"]
             AG["sankofa_heritage_narrator\n(google.adk.Agent)"]
+            CR["sankofa_heritage_critic\n(Quality Review)"]
             OR["ADK Orchestrator\n(Runner → SSE bridge)"]
             AG --> OR
+            CR -.->|"review"| OR
         end
 
         subgraph Tools["Agent Tools"]
@@ -123,7 +126,7 @@ flowchart TB
 | Component | Technology | Google Cloud Service |
 |---|---|---|
 | AI Models | Gemini 2.5 Flash Image (narrative + images), Gemini 2.5 Pro Preview TTS (audio), Gemini 2.5 Flash (arc planning + agent), Gemini 2.0 Flash Live (voice conversation) | Vertex AI / GenAI SDK |
-| Agent Orchestration | Google Agent Development Kit (ADK) — `sankofa_heritage_narrator` agent with full tool suite for narrative generation, plus `sankofa_heritage_live_narrator` with a filtered conversation-only tool set for live voice | ADK + GenAI SDK |
+| Agent Orchestration | Google Agent Development Kit (ADK) — `sankofa_heritage_narrator` agent with full tool suite for narrative generation, `sankofa_heritage_live_narrator` with a filtered conversation-only tool set for live voice, and `sankofa_heritage_critic` for quality review and self-correction | ADK + GenAI SDK |
 | Backend | Python 3.12 / FastAPI | Cloud Run |
 | Frontend | Next.js 16 / React 19 / Tailwind CSS v4 / Motion (motion/react) | Cloud Run |
 | Streaming | SSE via sse-starlette — initial narrative + follow-ups both stream via SSE; "thinking aloud" status messages show agent progress | Cloud Run |
@@ -197,7 +200,11 @@ You should see `status: healthy` and `service: sankofa-api`. In the app, a small
 
 ## ADK Agent Orchestration
 
-The narrative pipeline is orchestrated by an ADK agent (`sankofa_heritage_narrator`) rather than hard-coded function calls. The agent decides tool order, validates its own output, and adapts dynamically:
+The narrative pipeline is orchestrated by three ADK agents working together:
+
+### Narrator Agent (`sankofa_heritage_narrator`)
+
+The primary agent that generates narratives. It decides tool order, validates its own output, and adapts dynamically:
 
 1. **Context gathering** — `lookup_cultural_context` → `assess_context_quality` → (if sparse) `research_region_history`
 2. **Arc planning with validation** — `plan_narrative_arc` (includes per-act `ambient_track` selection) → `validate_narrative_arc` → re-plan if FAIL
@@ -205,9 +212,57 @@ The narrative pipeline is orchestrated by an ADK agent (`sankofa_heritage_narrat
 4. **Enrichment** — `enrich_segment` upgrades RECONSTRUCTED segments with real historical detail
 5. **Status updates** — `notify_user` surfaces progress to the frontend as "thinking aloud" messages
 
-The `adk_orchestrator.py` module bridges the ADK Runner with SSE: it observes tool calls and results in real-time and emits the SSE events (`arc`, `text`, `image`, `audio`, `status`) that the frontend expects.
+### Live Agent (`sankofa_heritage_live_narrator`)
 
-**Fallback:** Pass `use_adk=false` to the stream endpoint to bypass the agent and use the direct 3-step pipeline instead.
+A filtered agent for real-time voice conversation via Gemini Live API, with tools for context lookup and deep dives but no image generation.
+
+### Critic Agent (`sankofa_heritage_critic`)
+
+A quality assurance agent that reviews generated narratives for self-correction:
+
+- **`review_narrative_quality`** — Structural checks (segment count, act coverage, trust level distribution)
+- **`review_cultural_authenticity`** — AI-powered review of historical accuracy and cultural representation
+- **`suggest_narrative_improvements`** — Synthesizes feedback into actions: `approve`, `approve_with_notes`, `revise_specific_acts`, or `regenerate`
+
+**Self-correction flow:** When `?review=true` is passed to the stream endpoint, the critic automatically reviews the generated narrative. If it fails (score < 7 or critical issues), the narrative is regenerated (max 1 retry).
+
+The `adk_orchestrator.py` module bridges the ADK Runner with SSE: it observes tool calls and results in real-time and emits the SSE events (`arc`, `text`, `image`, `audio`, `status`, `review`) that the frontend expects.
+
+**Fallback:** Pass `use_adk=false` to bypass the agent and use the direct 3-step pipeline instead.
+
+## Testing
+
+The backend includes a comprehensive test suite using pytest:
+
+```bash
+cd backend
+pip install pytest pytest-asyncio httpx
+python -m pytest tests/ -v
+```
+
+**Test coverage:**
+- **Sanitization tests** — Input validation, prompt injection prevention, Unicode handling
+- **Session tests** — Session lifecycle, LRU eviction, owner management
+- **Intake tests** — API endpoint validation, error handling, health checks
+- **Critic tests** — Quality review, cultural authenticity checks, improvement suggestions
+
+Tests run automatically in CI on every push and PR to main.
+
+## API Endpoints
+
+Key narrative endpoints:
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/intake` | POST | Create a new session with user input |
+| `/api/session/{id}` | GET | Retrieve session details |
+| `/api/narrative/{id}/stream` | GET | Stream narrative generation via SSE |
+| `/api/narrative/{id}/stream?review=true` | GET | Stream with automatic critic review |
+| `/api/narrative/{id}/review` | POST | Review an existing narrative |
+| `/api/narrative/{id}/followup` | POST | Ask a follow-up question |
+| `/api/narrative/{id}/followup-stream` | POST | Stream follow-up response via SSE |
+| `/api/narrative/{id}/live` | WebSocket | Real-time voice conversation |
+| `/api/health` | GET | Health check |
 
 ## Google Cloud Deployment
 
