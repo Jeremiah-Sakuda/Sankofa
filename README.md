@@ -306,7 +306,6 @@ These appear as subtle margin annotations in the narrative, building trust witho
 
 Built for the **Gemini Live Agent Challenge** (Google / Devpost) in the **Creative Storyteller** category.
 
-**🏆 Won the Creative Storytellers category** and **presented at Google Cloud Next 2026**.
 
 <!-- TODO: Add live demo link when deployed -->
 <!-- **[Try the Live Demo →](https://sankofa.app)** -->
