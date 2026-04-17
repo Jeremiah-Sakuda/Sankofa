@@ -45,3 +45,4 @@ media/
 
 # Blog (draft — publish externally)
 BLOG_POST.md
+.claude/
