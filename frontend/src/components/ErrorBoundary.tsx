@@ -35,11 +35,7 @@ export default class ErrorBoundary extends Component<Props, State> {
           <p className="mt-4 font-[family-name:var(--font-body)] text-[var(--muted)] text-center max-w-md">
             Sankofa encountered an unexpected error. Please try refreshing the page.
           </p>
-          {this.state.error && (
-            <p className="mt-3 font-[family-name:var(--font-body)] text-xs text-[var(--terracotta)] text-center max-w-md opacity-70">
-              {this.state.error.message}
-            </p>
-          )}
+          {/* Error details logged to console, not exposed to users */}
           <button
             type="button"
             onClick={() => {
