@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import SankofaBird from "./SankofaBird";
 import { API_BASE } from "../lib/api";
+import { useAuth } from "../hooks/useAuth";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ export default function ShareModal({
   familyName,
   region,
 }: ShareModalProps) {
+  const { user } = useAuth();
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,17 @@ export default function ShareModal({
       setError(null);
 
       try {
+        const headers: Record<string, string> = {};
+
+        // Include auth token for owned narratives
+        if (user) {
+          const token = await user.getIdToken();
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
         const res = await fetch(`${API_BASE}/api/narratives/${sessionId}/share`, {
           method: "POST",
+          headers,
         });
 
         if (res.ok) {
@@ -52,7 +63,7 @@ export default function ShareModal({
     };
 
     createShareLink();
-  }, [isOpen, sessionId]);
+  }, [isOpen, sessionId, user]);
 
   const handleCopy = async () => {
     if (!shareUrl) return;
