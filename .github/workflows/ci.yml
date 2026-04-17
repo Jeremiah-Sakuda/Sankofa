@@ -103,7 +103,7 @@ jobs:
             --project ${{ secrets.GCP_PROJECT_ID }} \
             --allow-unauthenticated \
             --quiet \
-            --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=us-central1,GOOGLE_GENAI_USE_VERTEXAI=True,USE_FIRESTORE=True,FRONTEND_URL=https://www.sankofagriot.com,CORS_ORIGINS=https://www.sankofagriot.com;https://sankofagriot.com,ANALYTICS_KEY=${{ secrets.ANALYTICS_KEY }}" \
+            --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=us-central1,GOOGLE_GENAI_USE_VERTEXAI=True,USE_FIRESTORE=True,FRONTEND_URL=https://www.sankofagriot.com,CORS_ORIGINS=https://www.sankofagriot.com;https://sankofagriot.com,ANALYTICS_KEY=${{ secrets.ANALYTICS_KEY }},ENABLE_CONTRIBUTIONS=true,STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }},STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}" \
             --min-instances 1 \
             --max-instances 5 \
             --memory 1Gi \
