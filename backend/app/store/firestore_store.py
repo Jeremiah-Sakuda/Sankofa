@@ -99,12 +99,19 @@ class FirestoreSessionStore:
     def update(self, session: Session) -> None:
         """Update the entire session including segments. Prefer update_metadata + append_segment for streaming."""
         try:
-            doc_ref = self._client_or_init().collection(self._collection_name).document(session.session_id)
-            doc_ref.update(_session_to_doc(session))
-            # Replace segments subcollection
+            client = self._client_or_init()
+            doc_ref = client.collection(self._collection_name).document(session.session_id)
             seg_coll = doc_ref.collection("segments")
+
+            # Use a batch to atomically delete old segments and add new ones
+            batch = client.batch()
+            batch.update(doc_ref, _session_to_doc(session))
+
+            # Delete existing segments
             for seg_doc in seg_coll.stream():
-                seg_doc.reference.delete()
+                batch.delete(seg_doc.reference)
+
+            # Add new segments
             for seg in session.segments:
                 seg_dict = seg.model_dump()
                 # Strip media_data that exceeds Firestore's 1 MiB field limit.
@@ -112,7 +119,9 @@ class FirestoreSessionStore:
                 # so Firestore only needs the metadata for session recovery.
                 if seg_dict.get("media_data") and len(seg_dict["media_data"]) > 900_000:
                     seg_dict["media_data"] = None
-                seg_coll.document(str(seg.sequence)).set(seg_dict)
+                batch.set(seg_coll.document(str(seg.sequence)), seg_dict)
+
+            batch.commit()
             logger.debug("Firestore: updated session %s (%d segments)", session.session_id, len(session.segments))
         except Exception as e:
             logger.error("Firestore update error: %s", e, exc_info=True)
