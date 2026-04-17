@@ -193,4 +193,4 @@ async def get_aggregate_stats() -> dict:
 
     except Exception as e:
         logger.error("[analytics] Stats query failed: %s", e, exc_info=True)
-        return {"error": str(e)}
+        return {"error": "Failed to retrieve analytics data"}
