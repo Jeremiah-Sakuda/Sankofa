@@ -1,3 +1,4 @@
+import hmac
 import logging
 from contextlib import asynccontextmanager
 
@@ -220,7 +221,7 @@ async def analytics_stats(request: Request, authorization: str = Header(None)):
         )
 
     key = authorization.split(" ", 1)[1]
-    if key != settings.ANALYTICS_KEY:
+    if not hmac.compare_digest(key, settings.ANALYTICS_KEY):
         return JSONResponse(
             status_code=401,
             content={"error": "Invalid access key"}

@@ -1,6 +1,7 @@
 """Contribution routes for voluntary tip jar functionality using Stripe."""
 
 import asyncio
+import hmac
 import logging
 import time
 from typing import Optional
@@ -256,7 +257,7 @@ async def contribution_stats(request: Request, authorization: str = Header(None)
         raise HTTPException(status_code=401, detail="Authorization header required (Bearer <key>)")
 
     key = authorization.split(" ", 1)[1]
-    if key != settings.ANALYTICS_KEY:
+    if not hmac.compare_digest(key, settings.ANALYTICS_KEY):
         raise HTTPException(status_code=401, detail="Invalid access key")
 
     if not settings.USE_FIRESTORE:
