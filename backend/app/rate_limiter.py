@@ -5,11 +5,27 @@ from contextlib import contextmanager
 from typing import Generator
 
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
+
+def get_real_ip(request: Request) -> str:
+    """
+    Get the real client IP address, accounting for proxies like Cloud Run.
+
+    Cloud Run sets X-Forwarded-For header with the original client IP.
+    Format: "client_ip, proxy1_ip, proxy2_ip, ..."
+    """
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # First IP in the chain is the original client
+        return forwarded.split(",")[0].strip()
+    # Fallback to direct connection IP
+    return request.client.host if request.client else "unknown"
+
+
+limiter = Limiter(key_func=get_real_ip)
 
 
 class ConcurrencyLimiter:
