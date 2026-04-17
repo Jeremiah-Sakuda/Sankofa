@@ -51,7 +51,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
+        # X-XSS-Protection removed: deprecated in modern browsers, CSP is preferred
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # HSTS: enforce HTTPS for 1 year, include subdomains
