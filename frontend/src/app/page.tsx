@@ -56,7 +56,7 @@ export default function Home() {
       {/* Fixed background */}
       <div className="fixed inset-0 bg-[var(--night)] animate-gradient-drift bg-gradient-to-br from-[var(--night)] via-[var(--indigo)] to-[#1a0f0a]" />
       <div className="fixed inset-0 noise-texture pointer-events-none" />
-      <GoldParticles count={showIntake ? 40 : 25} />
+      <GoldParticles count={showIntake ? 50 : 35} />
 
       {/* Fixed header with navigation */}
       {!showIntake && (
