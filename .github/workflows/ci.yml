@@ -98,12 +98,12 @@ jobs:
             --project ${{ secrets.GCP_PROJECT_ID }} \
             --allow-unauthenticated \
             --quiet \
-            --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=us-central1,GOOGLE_GENAI_USE_VERTEXAI=True,USE_FIRESTORE=True" \
+            --set-env-vars "ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }},GOOGLE_CLOUD_LOCATION=us-central1,GOOGLE_GENAI_USE_VERTEXAI=True,USE_FIRESTORE=True,FRONTEND_URL=https://www.sankofagriot.com,CORS_ORIGINS=https://www.sankofagriot.com;https://sankofagriot.com,ANALYTICS_KEY=${{ secrets.ANALYTICS_KEY }}" \
             --min-instances 1 \
             --max-instances 5 \
             --memory 1Gi \
             --timeout 300
-          
+
           echo "url=$(gcloud run services describe sankofa --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
 
       - name: Deploy Frontend
@@ -120,12 +120,12 @@ jobs:
             --min-instances 1 \
             --max-instances 3 \
             --memory 512Mi
-          
+
           echo "url=$(gcloud run services describe sankofa-frontend --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
 
-      - name: Update Backend CORS
+      - name: Update Backend CORS with Frontend URL
         run: |
           gcloud run services update sankofa \
             --region us-central1 \
             --project ${{ secrets.GCP_PROJECT_ID }} \
-            --update-env-vars "FRONTEND_URL=https://www.sankofagriot.com,CORS_ORIGINS=https://www.sankofagriot.com,https://sankofagriot.com,${{ steps.deploy-frontend.outputs.url }}"
+            --update-env-vars "CORS_ORIGINS=https://www.sankofagriot.com;https://sankofagriot.com;${{ steps.deploy-frontend.outputs.url }}"

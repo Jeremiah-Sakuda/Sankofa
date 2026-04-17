@@ -6,10 +6,16 @@ load_dotenv()
 
 
 def _parse_cors_origins() -> list[str]:
-    """Parse CORS origins from env: comma-separated list, or single FRONTEND_URL."""
+    """Parse CORS origins from env: comma or semicolon-separated list, or single FRONTEND_URL."""
     raw = os.getenv("CORS_ORIGINS", "").strip()
     if raw:
-        return [o.strip() for o in raw.split(",") if o.strip()]
+        # Support both comma and semicolon as delimiters (semicolon needed for gcloud --set-env-vars)
+        origins = []
+        for part in raw.replace(";", ",").split(","):
+            origin = part.strip()
+            if origin:
+                origins.append(origin)
+        return origins
     url = os.getenv("FRONTEND_URL", "http://localhost:3000").strip()
     return [url] if url else []
 
