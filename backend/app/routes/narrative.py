@@ -99,7 +99,8 @@ _DELAY_TEXT = 0.35
 
 # Overall timeout for narrative generation (seconds)
 # Prevents hung streams from consuming resources indefinitely
-_OVERALL_TIMEOUT = 180
+# Set to 5 minutes to accommodate image generation + TTS
+_OVERALL_TIMEOUT = 300
 
 
 @router.get("/narrative/{session_id}/stream")
