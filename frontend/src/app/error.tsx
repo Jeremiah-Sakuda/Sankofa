@@ -21,11 +21,7 @@ export default function Error({
       <p className="mt-4 font-[family-name:var(--font-body)] text-[var(--muted)] text-center max-w-md">
         Sankofa encountered an unexpected error. Please try again.
       </p>
-      {error?.message && (
-        <p className="mt-3 font-[family-name:var(--font-body)] text-xs text-[var(--terracotta)] text-center max-w-md opacity-70">
-          {error.message}
-        </p>
-      )}
+      {/* Error details logged to console, not exposed to users */}
       <div className="flex gap-4 mt-8">
         <button
           type="button"
