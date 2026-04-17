@@ -348,13 +348,13 @@ html {
   0% {
     color: inherit;
   }
-  1% {
+  2% {
     color: var(--gold);
   }
-  3% {
+  8% {
     color: var(--gold);
   }
-  6% {
+  14% {
     color: inherit;
   }
   100% {
