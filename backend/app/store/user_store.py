@@ -80,5 +80,34 @@ class UserStore:
             raise RuntimeError("Failed to delete user.") from e
 
 
-# Singleton instance
-user_store = UserStore()
+# Singleton instance — only initialize Firestore-backed store in production
+if settings.USE_FIRESTORE:
+    user_store = UserStore()
+else:
+    # In-memory stub for local development without Firestore
+    class _InMemoryUserStore:
+        """Stub user store for local development. Auth features require USE_FIRESTORE=true."""
+
+        def __init__(self):
+            self._users: dict[str, User] = {}
+            logger.warning("UserStore: using in-memory stub (auth features limited)")
+
+        def get(self, user_id: str):
+            return self._users.get(user_id)
+
+        def get_by_email(self, email: str):
+            for u in self._users.values():
+                if u.email == email:
+                    return u
+            return None
+
+        def create_or_update(self, user: User):
+            import time
+            user.last_login_at = time.time()
+            self._users[user.user_id] = user
+            return user
+
+        def delete(self, user_id: str):
+            self._users.pop(user_id, None)
+
+    user_store = _InMemoryUserStore()  # type: ignore[assignment]
