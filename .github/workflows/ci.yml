@@ -92,7 +92,7 @@ jobs:
       - name: Deploy Backend
         id: deploy-backend
         run: |
-          gcloud run deploy sankofa-api \
+          gcloud run deploy sankofa \
             --source ./backend \
             --region us-central1 \
             --project ${{ secrets.GCP_PROJECT_ID }} \
@@ -104,7 +104,7 @@ jobs:
             --memory 1Gi \
             --timeout 300
           
-          echo "url=$(gcloud run services describe sankofa-api --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
+          echo "url=$(gcloud run services describe sankofa --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
 
       - name: Deploy Frontend
         id: deploy-frontend
@@ -125,7 +125,7 @@ jobs:
 
       - name: Update Backend CORS
         run: |
-          gcloud run services update sankofa-api \
+          gcloud run services update sankofa \
             --region us-central1 \
             --project ${{ secrets.GCP_PROJECT_ID }} \
-            --update-env-vars "FRONTEND_URL=${{ steps.deploy-frontend.outputs.url }}"
+            --update-env-vars "FRONTEND_URL=https://www.sankofagriot.com,CORS_ORIGINS=https://www.sankofagriot.com,https://sankofagriot.com,${{ steps.deploy-frontend.outputs.url }}"
