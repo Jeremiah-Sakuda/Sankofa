@@ -21,7 +21,7 @@ from google.genai.types import Content, Part
 from app.models.schemas import NarrativeSegment
 from app.models.session import Session
 from app.services.adk_agent import (
-    media_store,
+    _media_store_pop,
     review_cultural_authenticity,
     review_narrative_quality,
     sankofa_agent,
@@ -245,7 +245,7 @@ async def run_adk_narrative(
                                 seg = NarrativeSegment(
                                     type=seg_data.get("type", "text"),
                                     content=seg_data.get("content"),
-                                    media_data=media_store.pop(seg_data["media_reference"], None) if
+                                    media_data=_media_store_pop(seg_data["media_reference"]) if
                                                seg_data.get("media_reference") else seg_data.get("media_data"),
                                     media_type=seg_data.get("media_type"),
                                     trust_level=seg_data.get("trust_level", "reconstructed"),
@@ -370,7 +370,7 @@ async def run_adk_followup(
                                 seg = NarrativeSegment(
                                     type=seg_data.get("type", "text"),
                                     content=seg_data.get("content"),
-                                    media_data=media_store.pop(seg_data["media_reference"], None) if
+                                    media_data=_media_store_pop(seg_data["media_reference"]) if
                                                seg_data.get("media_reference") else seg_data.get("media_data"),
                                     media_type=seg_data.get("media_type"),
                                     trust_level=seg_data.get("trust_level", "reconstructed"),

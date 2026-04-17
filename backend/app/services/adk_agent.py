@@ -13,6 +13,7 @@ FastAPI backend for structured agent orchestration.
 
 import json
 import logging
+import threading
 import uuid
 
 from google.adk import Agent
@@ -41,16 +42,24 @@ _CTX_DEEP_DIVE = 3000
 # ---------------------------------------------------------------------------
 
 media_store: dict[str, str] = {}
+_media_store_lock = threading.Lock()
 
 _MEDIA_STORE_MAX = 200  # Max entries before eviction; refs are session-scoped so clearing is safe
 
 
 def _media_store_put(ref: str, data: str) -> None:
     """Insert *data* into media_store, evicting all entries when the cap is reached."""
-    if len(media_store) >= _MEDIA_STORE_MAX:
-        logger.warning("[adk] media_store hit cap (%d); clearing stale entries", _MEDIA_STORE_MAX)
-        media_store.clear()
-    media_store[ref] = data
+    with _media_store_lock:
+        if len(media_store) >= _MEDIA_STORE_MAX:
+            logger.warning("[adk] media_store hit cap (%d); clearing stale entries", _MEDIA_STORE_MAX)
+            media_store.clear()
+        media_store[ref] = data
+
+
+def _media_store_pop(ref: str) -> str | None:
+    """Thread-safe pop from media_store."""
+    with _media_store_lock:
+        return media_store.pop(ref, None)
 
 
 def lookup_cultural_context(
