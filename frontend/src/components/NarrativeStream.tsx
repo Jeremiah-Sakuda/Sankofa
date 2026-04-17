@@ -704,7 +704,8 @@ export default function NarrativeStream({
         </motion.footer>
       )}
 
-      {error && (
+      {/* Only show error if narrative didn't complete successfully */}
+      {error && !isComplete && segments.length === 0 && (
         <div className="mt-8 p-4 text-center font-[family-name:var(--font-body)] text-sm">
           <p className="text-[var(--terracotta)]">{error}</p>
           {onRetry && (

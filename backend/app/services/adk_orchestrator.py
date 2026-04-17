@@ -212,6 +212,9 @@ async def run_adk_narrative(
                         yield _sse_status("planning_arc")
                     elif tool_name == "generate_act_segments":
                         yield _sse_status("generating_narrative")
+                        # Drain any ready TTS before long-running generation
+                        for audio_seg in await _drain_tts_queue(tts_queue):
+                            yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
                 # ----- Tool result: extract data and emit SSE events -----
                 if part.function_response:
@@ -273,9 +276,9 @@ async def run_adk_narrative(
                                 delay = _DELAY_IMAGE if seg.type == "image" else (_DELAY_FIRST_TEXT if i == 0 else _DELAY_TEXT)
                                 await asyncio.sleep(delay)
 
-                            # Drain any TTS that finished while we were emitting text/images
-                            for audio_seg in await _drain_tts_queue(tts_queue):
-                                yield {"event": "audio", "data": audio_seg.model_dump_json()}
+                                # Drain any TTS that finished - yield audio immediately when ready
+                                for audio_seg in await _drain_tts_queue(tts_queue):
+                                    yield {"event": "audio", "data": audio_seg.model_dump_json()}
                         else:
                             logger.warning(
                                 "[adk-orch] Could not parse segments from generate_act_segments"

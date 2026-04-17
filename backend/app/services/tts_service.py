@@ -44,7 +44,7 @@ def _get_tts_semaphore() -> asyncio.Semaphore:
 # Sentence-level splitting
 # ---------------------------------------------------------------------------
 
-_SENTENCE_RE = re.compile(r'(?<=[.!?])\s+(?=\[A-Z"\u201C])')
+_SENTENCE_RE = re.compile(r'(?<=[.!?])\s+(?=[A-Z"\u201C])')
 
 def split_for_tts(text: str, max_sentences: int = 3) -> list[str]:
     """Split *text* on sentence boundaries into chunks of up to *max_sentences*.
