@@ -44,6 +44,21 @@ export default function VolumePanel({ channels }: VolumePanelProps) {
 
   const allMuted = channels.every((ch) => ch.value === 0);
 
+  // Track previous values for unmuting
+  const prevValues = useRef<Map<string, number>>(new Map());
+
+  const toggleChannel = (ch: VolumeChannel) => {
+    if (ch.value > 0) {
+      // Mute: save current value and set to 0
+      prevValues.current.set(ch.id, ch.value);
+      ch.onChange(0);
+    } else {
+      // Unmute: restore previous value or default to 1
+      const prev = prevValues.current.get(ch.id) ?? 1;
+      ch.onChange(prev);
+    }
+  };
+
   return (
     <>
       {/* Toggle button */}
@@ -78,26 +93,44 @@ export default function VolumePanel({ channels }: VolumePanelProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-20 left-8 z-40 min-w-[200px] rounded-lg border border-[var(--gold)]/20 bg-[var(--night)]/90 backdrop-blur-xl shadow-lg p-3 flex flex-col gap-3"
+            className="fixed bottom-20 left-8 z-40 min-w-[180px] rounded-lg border border-[var(--gold)]/20 bg-[var(--night)]/90 backdrop-blur-xl shadow-lg p-3 flex flex-col gap-2"
           >
-            {channels.map((ch) => (
-              <div key={ch.id} className="flex items-center gap-2.5">
-                <span className="text-[var(--gold)] w-4 h-4 flex-shrink-0 flex items-center justify-center">
-                  {ch.icon}
-                </span>
-                <span className="text-[var(--ivory)]/70 text-xs font-medium w-16 flex-shrink-0">
-                  {ch.label}
-                </span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={Math.round(ch.value * 100)}
-                  onChange={(e) => ch.onChange(Number(e.target.value) / 100)}
-                  className="volume-slider flex-1 h-1 cursor-pointer"
-                />
-              </div>
-            ))}
+            {channels.map((ch) => {
+              const isOn = ch.value > 0;
+              return (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => toggleChannel(ch)}
+                  className={`flex items-center gap-3 px-2 py-2 rounded-md transition-all cursor-pointer ${
+                    isOn
+                      ? "bg-[var(--gold)]/10 text-[var(--gold)]"
+                      : "text-[var(--ivory)]/40 hover:text-[var(--ivory)]/60"
+                  }`}
+                >
+                  <span className="w-4 h-4 flex-shrink-0 flex items-center justify-center">
+                    {ch.icon}
+                  </span>
+                  <span className="text-xs font-medium flex-1 text-left">
+                    {ch.label}
+                  </span>
+                  {/* On/Off indicator */}
+                  <span
+                    className={`w-8 h-4 rounded-full flex items-center transition-colors ${
+                      isOn ? "bg-[var(--gold)]/30" : "bg-[var(--ivory)]/10"
+                    }`}
+                  >
+                    <span
+                      className={`w-3 h-3 rounded-full transition-all ${
+                        isOn
+                          ? "bg-[var(--gold)] translate-x-4"
+                          : "bg-[var(--ivory)]/30 translate-x-0.5"
+                      }`}
+                    />
+                  </span>
+                </button>
+              );
+            })}
           </motion.div>
         )}
       </AnimatePresence>
