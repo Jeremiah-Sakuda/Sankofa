@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
 
+# Restrict GITHUB_TOKEN to least privilege
+permissions:
+  contents: read
+  id-token: write  # Required for GCP Workload Identity Federation
+
 jobs:
   backend:
     name: Backend
