@@ -1,19 +1,16 @@
 """Share routes for public narrative sharing."""
 
 import logging
-import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
+from app.config import settings
 from app.models.user import User
 from app.rate_limiter import limiter
 from app.routes.auth import get_current_user
 from app.store import session_store
-
-# Use configured frontend URL for share links (prevents host header injection)
-FRONTEND_URL = os.getenv("FRONTEND_URL", "https://sankofa.app")
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["share"])
@@ -63,7 +60,7 @@ async def share_narrative(
     session_store.update_metadata(session)
 
     # Build share URL from configured frontend URL (prevents host header injection)
-    share_url = f"{FRONTEND_URL.rstrip('/')}/story/{session_id}"
+    share_url = f"{settings.FRONTEND_URL.rstrip('/')}/story/{session_id}"
 
     logger.info("Narrative %s shared by user %s", session_id, user.user_id if user else "anonymous")
 
