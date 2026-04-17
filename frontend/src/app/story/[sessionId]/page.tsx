@@ -159,7 +159,7 @@ export default function PublicStoryPage() {
     return (
       <div className="min-h-screen relative">
         <div className="fixed inset-0 bg-[var(--night)]" />
-        <GoldParticles count={15} />
+        <GoldParticles count={30} />
         <div className="flex min-h-screen flex-col items-center justify-center relative z-10 px-4">
           <SankofaBird className="w-16 h-16 text-[var(--gold)]/40 mb-6" />
           <h1 className="font-[family-name:var(--font-display)] text-2xl text-[var(--ivory)] mb-3 text-center">
@@ -202,7 +202,7 @@ export default function PublicStoryPage() {
       </div>
 
       {/* Subtle gold particles in gutters */}
-      <GoldParticles count={15} />
+      <GoldParticles count={30} />
 
       <motion.div
         className="relative z-10 mx-auto w-full max-w-[min(1400px,82vw)] min-h-screen px-3 sm:px-4"

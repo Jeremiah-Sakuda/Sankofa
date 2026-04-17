@@ -191,7 +191,7 @@ export default function NarrativePage() {
       </div>
 
       {/* Subtle gold particles in gutters */}
-      <GoldParticles count={15} />
+      <GoldParticles count={30} />
 
       {/* Cinematic griot intro overlay */}
       <AnimatePresence>

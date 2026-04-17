@@ -278,7 +278,7 @@ export default function SampleNarrativePage() {
       </div>
 
       {/* Subtle gold particles in gutters */}
-      <GoldParticles count={15} />
+      <GoldParticles count={30} />
 
       <motion.div
         className="relative z-10 mx-auto w-full max-w-[min(1400px,82vw)] min-h-screen px-3 sm:px-4"
