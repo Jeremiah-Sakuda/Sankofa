@@ -375,6 +375,18 @@ export default function NarrativeStream({
     }
   }, [ambientTargetVolume]);
 
+  // Pause/play ambient audio when narration is paused/playing
+  useEffect(() => {
+    const audio = ambientAudioRef.current;
+    if (!audio) return;
+
+    if (isAudioPlaying) {
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [isAudioPlaying]);
+
   // Auto-scroll only during active streaming when the user is near the bottom
   useEffect(() => {
     const isNewSegment = segments.length > prevSegmentCountRef.current;
