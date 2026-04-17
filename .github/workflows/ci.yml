@@ -12,6 +12,11 @@ permissions:
   contents: read
   id-token: write  # Required for GCP Workload Identity Federation
 
+# Prevent concurrent deploys to production from racing
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   backend:
     name: Backend
