@@ -74,8 +74,6 @@ export default function GriotIntro({
   const [funFactIndex, setFunFactIndex] = useState(() => Math.floor(Math.random() * HERITAGE_FACTS.length));
   const [showStuckMessage, setShowStuckMessage] = useState(false);
   const stuckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [connectionTest, setConnectionTest] = useState<"idle" | "checking" | "ok" | "fail">("idle");
-  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
   const [stepElapsed, setStepElapsed] = useState(0);
   const stepStartRef = useRef<number | null>(null);
   const readyAudioPlayed = useRef(false);
@@ -306,29 +304,8 @@ export default function GriotIntro({
   /** Retry: clear stuck message and local state before calling parent retry. */
   const handleRetry = useCallback(() => {
     setShowStuckMessage(false);
-    setConnectionTest("idle");
-    setConnectionMessage(null);
     onRetry();
   }, [onRetry]);
-
-  const handleTestConnection = useCallback(async () => {
-    setConnectionTest("checking");
-    setConnectionMessage(null);
-    try {
-      const { checkBackendHealth } = await import("../lib/api");
-      const result = await checkBackendHealth();
-      if (result.ok) {
-        setConnectionTest("ok");
-        setConnectionMessage("Backend connected.");
-      } else {
-        setConnectionTest("fail");
-        setConnectionMessage(result.message || "Could not reach backend.");
-      }
-    } catch {
-      setConnectionTest("fail");
-      setConnectionMessage("Could not reach backend.");
-    }
-  }, []);
 
   // Auto-play ambient fire and griot voiceover simultaneously on mount.
   useEffect(() => {
@@ -610,27 +587,6 @@ export default function GriotIntro({
                   </div>
                 )}
 
-                {/* Test API connection */}
-                <div className="mt-8 flex flex-col items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={handleTestConnection}
-                    disabled={connectionTest === "checking"}
-                    className="font-[family-name:var(--font-body)] text-xs text-[var(--muted)]/60 hover:text-[var(--muted)] transition-colors underline underline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {connectionTest === "checking" ? "Checking\u2026" : "Test API connection"}
-                  </button>
-                  {connectionTest === "ok" && (
-                    <p className="text-xs text-[var(--gold)]" role="status">
-                      {connectionMessage}
-                    </p>
-                  )}
-                  {connectionTest === "fail" && (
-                    <p className="text-xs text-[var(--terracotta)] max-w-xs text-center" role="alert">
-                      {connectionMessage}
-                    </p>
-                  )}
-                </div>
               </>
             )}
           </motion.div>
