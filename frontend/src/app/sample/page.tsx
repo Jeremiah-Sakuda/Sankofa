@@ -121,6 +121,11 @@ export default function SampleNarrativePage() {
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const isAudioPlayingRef = useRef(false);
 
+  // Ambient audio state
+  const ambientAudioRef = useRef<HTMLAudioElement>(null);
+  const ambientFadeRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [ambientStarted, setAmbientStarted] = useState(false);
+
   useEffect(() => {
     const ctrl = new AbortController();
 
@@ -202,6 +207,91 @@ export default function SampleNarrativePage() {
     return textSegs.length > 0 ? (textSegs[textSegs.length - 1].act ?? 1) : 1;
   }, [segments]);
 
+  // Get current ambient track from arc outline
+  const currentAmbientTrack = useMemo(() => {
+    if (!arcOutline) return "wind.mp3"; // default
+    const actData = arcOutline.acts?.find((a) => a.act_number === currentAct);
+    return actData?.ambient_track || "wind.mp3";
+  }, [arcOutline, currentAct]);
+
+  // Crossfade ambient audio when track changes
+  useEffect(() => {
+    const audio = ambientAudioRef.current;
+    if (!audio) return;
+
+    // Clear any running fade
+    if (ambientFadeRef.current) {
+      clearInterval(ambientFadeRef.current);
+      ambientFadeRef.current = null;
+    }
+
+    const targetVolume = 0.15;
+    const newSrc = `/audio/${currentAmbientTrack}`;
+    const needsSwitch = !audio.src.endsWith(newSrc);
+
+    if (needsSwitch && ambientStarted) {
+      // Fade out, switch, fade in
+      ambientFadeRef.current = setInterval(() => {
+        if (audio.volume > 0.01) {
+          audio.volume = Math.max(0, audio.volume - 0.015);
+        } else {
+          if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
+          ambientFadeRef.current = null;
+          audio.src = newSrc;
+          audio.volume = 0;
+          audio.load();
+          const fadeIn = () => {
+            audio.play().catch(() => {});
+            ambientFadeRef.current = setInterval(() => {
+              if (audio.volume < targetVolume - 0.01) {
+                audio.volume = Math.min(targetVolume, audio.volume + 0.01);
+              } else {
+                audio.volume = targetVolume;
+                if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
+                ambientFadeRef.current = null;
+              }
+            }, 50);
+          };
+          if (audio.readyState >= 4) {
+            fadeIn();
+          } else {
+            audio.addEventListener("canplaythrough", fadeIn, { once: true });
+          }
+        }
+      }, 50);
+    } else if (needsSwitch && !ambientStarted) {
+      // First load - fade in from 0
+      audio.src = newSrc;
+      audio.volume = 0;
+      audio.load();
+      const startFadeIn = () => {
+        setAmbientStarted(true);
+        audio.play().catch(() => {});
+        ambientFadeRef.current = setInterval(() => {
+          if (audio.volume < targetVolume - 0.01) {
+            audio.volume = Math.min(targetVolume, audio.volume + 0.01);
+          } else {
+            audio.volume = targetVolume;
+            if (ambientFadeRef.current) clearInterval(ambientFadeRef.current);
+            ambientFadeRef.current = null;
+          }
+        }, 50);
+      };
+      if (audio.readyState >= 4) {
+        startFadeIn();
+      } else {
+        audio.addEventListener("canplaythrough", startFadeIn, { once: true });
+      }
+    }
+
+    return () => {
+      if (ambientFadeRef.current) {
+        clearInterval(ambientFadeRef.current);
+        ambientFadeRef.current = null;
+      }
+    };
+  }, [currentAmbientTrack, ambientStarted]);
+
   const audioTracks = useMemo(() => buildAudioTracks(segments), [segments]);
 
   // Gate: don't expose tracks until the first text segment's audio has arrived.
@@ -279,6 +369,9 @@ export default function SampleNarrativePage() {
 
       {/* Subtle gold particles in gutters */}
       <GoldParticles count={30} />
+
+      {/* Ambient audio element */}
+      <audio ref={ambientAudioRef} loop preload="none" className="hidden" />
 
       <motion.div
         className="relative z-10 mx-auto w-full max-w-[min(1400px,82vw)] min-h-screen px-3 sm:px-4"
