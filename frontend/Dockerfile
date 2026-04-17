@@ -11,10 +11,14 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 
-# API URL passed via --set-build-env-vars in Cloud Run or docker build --build-arg
-# Falls back to localhost for local development
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# API URL is read from .env.production (committed) or can be overridden via:
+# - docker build --build-arg NEXT_PUBLIC_API_URL=...
+# - Cloud Run --set-build-env-vars (sets ENV before build)
+ARG NEXT_PUBLIC_API_URL
+# Only set ENV if ARG was provided (don't override .env.production with empty value)
+RUN if [ -n "$NEXT_PUBLIC_API_URL" ]; then \
+      echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" >> .env.production; \
+    fi
 
 RUN npm run build
 
