@@ -11,6 +11,7 @@ import VolumePanel from "./VolumePanel";
 
 /** Heritage fun facts shown during the waiting phase. */
 const HERITAGE_FACTS = [
+  // West Africa
   "The Akan word \"Sankofa\" literally means \"go back and get it\" \u2014 wisdom is never left behind.",
   "West African griots are living libraries \u2014 some can recite genealogies spanning 800 years.",
   "The Djembe drum was originally carved from a single piece of lenke wood and goatskin.",
@@ -19,18 +20,48 @@ const HERITAGE_FACTS = [
   "Kente cloth patterns each carry specific meanings \u2014 \"Sika Futuro\" (gold dust) represents wealth and royalty.",
   "The Yoruba people have one of the world's highest rates of twin births \u2014 twins are considered sacred.",
   "Ancient Benin City had walls four times longer than the Great Wall of China before the British invasion of 1897.",
-  "The Haitian Revolution (1791\u20131804) was the only successful large-scale slave revolt in history.",
-  "Caribbean Junkanoo festivals preserve West African masquerade traditions brought across the Atlantic.",
   "The Adinkra symbol \"Gye Nyame\" \u2014 meaning \"except for God\" \u2014 represents the omnipotence of the divine.",
   "Mansa Musa of Mali gave away so much gold during his 1324 pilgrimage that he crashed the Egyptian economy.",
-  "The Swahili coast traded with China, India, and Persia as early as the 1st century CE.",
-  "Oral storytelling traditions across Africa use call-and-response to keep listeners engaged across generations.",
-  "The baobab tree, called the \"Tree of Life,\" can store up to 32,000 gallons of water in its trunk.",
-  "The Great Zimbabwe ruins were built without mortar \u2014 the stones fit together with remarkable precision.",
-  "Anansi the spider, a West African trickster figure, traveled with enslaved people to become a Caribbean folk hero.",
   "Indigo dyeing in West Africa dates back over 1,000 years \u2014 the Tuareg are called \"Blue People\" for their dyed robes.",
   "The Ashanti Golden Stool is believed to house the spirit of the entire Ashanti nation.",
+  "Anansi the spider, a West African trickster figure, traveled with enslaved people to become a Caribbean folk hero.",
+  // East Africa
+  "The Swahili coast traded with China, India, and Persia as early as the 1st century CE.",
+  "Ethiopia's Ge'ez script is one of the oldest alphabets still in use, dating back over 2,000 years.",
+  "The Maasai people measure wealth not in currency but in cattle \u2014 a rich man may own thousands of cows.",
+  "Lalibela's rock-hewn churches in Ethiopia were carved from single blocks of stone in the 12th century.",
+  "The Kingdom of Aksum minted its own coins \u2014 it was one of only four ancient empires to do so.",
+  "Zanzibar's Stone Town blends African, Arab, Indian, and European architectural traditions.",
+  "The nyatiti, a traditional Kenyan lyre, has been played by the Luo people for centuries.",
+  // Southern Africa
+  "The Great Zimbabwe ruins were built without mortar \u2014 the stones fit together with remarkable precision.",
+  "The San people of Southern Africa created rock paintings dating back over 20,000 years.",
+  "Zulu warriors developed the iklwa short spear and the revolutionary \"horns of the buffalo\" battle formation.",
+  "The Sotho people built entire villages in the mountain fortresses of Lesotho for protection.",
+  "Ubuntu philosophy \u2014 \"I am because we are\" \u2014 emphasizes community over individualism.",
+  // Central Africa
+  "The Kingdom of Kongo was so powerful that it sent ambassadors to the Vatican in the 16th century.",
+  "Congolese sculptors created sophisticated ironwork and wood carvings that influenced Picasso and modern art.",
+  "The Mbuti people of the Congo rainforest are renowned for their complex polyphonic singing.",
+  // North Africa & Egypt
+  "Ancient Nubian queens, called kandakes, ruled as warrior monarchs \u2014 one famously resisted Roman invasion.",
+  "Morocco's University of al-Qarawiyyin, founded in 859 CE, is the world's oldest existing university.",
+  "The Library of Alexandria was the largest in the ancient world, said to contain 400,000 scrolls.",
+  // South Asia
+  "The Tamil Sangam literature, over 2,000 years old, preserves one of the world's oldest literary traditions.",
+  "The spice trade connected South Asia to Africa and Arabia for over 4,000 years before Europeans arrived.",
+  "Indus Valley cities had sophisticated drainage systems 4,500 years ago \u2014 more advanced than most European cities until the 1800s.",
+  "The Chola dynasty of South India sent naval expeditions across Southeast Asia in the 11th century.",
+  "South Asian diaspora communities in East Africa date back centuries, long before colonial rule.",
+  // Caribbean & Americas
+  "The Haitian Revolution (1791\u20131804) was the only successful large-scale slave revolt in history.",
+  "Caribbean Junkanoo festivals preserve West African masquerade traditions brought across the Atlantic.",
   "Trinidad's steelpan is the only acoustic musical instrument invented in the 20th century.",
+  "Gullah Geechee people on America's Sea Islands preserved West African languages and traditions for centuries.",
+  "Capoeira, the Brazilian martial art, was disguised as dance by enslaved Africans to hide combat training.",
+  // General
+  "The baobab tree, called the \"Tree of Life,\" can store up to 32,000 gallons of water in its trunk.",
+  "Oral storytelling traditions across Africa use call-and-response to keep listeners engaged across generations.",
 ];
 
 const STUCK_TIMEOUT_MS = 360_000;
