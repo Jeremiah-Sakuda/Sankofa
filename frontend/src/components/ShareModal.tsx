@@ -150,7 +150,9 @@ export default function ShareModal({
               </h2>
 
               <p className="font-[family-name:var(--font-body)] text-[var(--muted)] text-sm mb-6">
-                Let others discover the heritage of the {familyName || "your"} family.
+                {familyName
+                  ? `Let others discover the heritage of the ${familyName} family.`
+                  : "Let others discover your family's heritage."}
               </p>
 
               {isLoading && (
