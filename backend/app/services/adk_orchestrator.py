@@ -22,10 +22,10 @@ from app.models.schemas import NarrativeSegment
 from app.models.session import Session
 from app.services.adk_agent import (
     media_store,
+    review_cultural_authenticity,
+    review_narrative_quality,
     sankofa_agent,
     sankofa_critic_agent,
-    review_narrative_quality,
-    review_cultural_authenticity,
     suggest_narrative_improvements,
 )
 from app.services.tts_service import spawn_tts_task

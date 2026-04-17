@@ -668,7 +668,7 @@ async def review_narrative_quality(
     """
     try:
         segments = json.loads(narrative_segments_json)
-        arc = json.loads(arc_json.strip().strip("```json").strip("```"))
+        json.loads(arc_json.strip().strip("```json").strip("```"))  # Validate arc JSON
     except json.JSONDecodeError as e:
         return json.dumps({
             "quality_score": 0,
@@ -827,7 +827,7 @@ async def suggest_narrative_improvements(
     try:
         quality = json.loads(quality_review_json)
         authenticity = json.loads(authenticity_review_json)
-        arc = json.loads(arc_json.strip().strip("```json").strip("```"))
+        json.loads(arc_json.strip().strip("```json").strip("```"))  # Validate arc JSON
     except json.JSONDecodeError:
         return json.dumps({
             "action": "regenerate",
