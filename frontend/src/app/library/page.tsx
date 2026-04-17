@@ -15,6 +15,7 @@ export default function LibraryPage() {
   const { user, isLoading: authLoading, signOut } = useAuth();
   const [narratives, setNarratives] = useState<NarrativeSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -25,6 +26,7 @@ export default function LibraryPage() {
 
     // Fetch user's narratives
     const fetchNarratives = async () => {
+      setError(null);
       try {
         const token = await user.getIdToken();
         const res = await fetch(`${API_BASE}/api/narratives`, {
@@ -35,9 +37,12 @@ export default function LibraryPage() {
         if (res.ok) {
           const data = await res.json();
           setNarratives(data.narratives || []);
+        } else {
+          setError("Failed to load your narratives. Please try again.");
         }
       } catch (e) {
         console.error("Failed to fetch narratives:", e);
+        setError("Unable to connect. Please check your connection and try again.");
       } finally {
         setIsLoading(false);
       }
@@ -49,6 +54,7 @@ export default function LibraryPage() {
   const handleRefresh = async () => {
     if (!user) return;
     setIsLoading(true);
+    setError(null);
     try {
       const token = await user.getIdToken();
       const res = await fetch(`${API_BASE}/api/narratives`, {
@@ -59,9 +65,12 @@ export default function LibraryPage() {
       if (res.ok) {
         const data = await res.json();
         setNarratives(data.narratives || []);
+      } else {
+        setError("Failed to refresh your narratives. Please try again.");
       }
     } catch (e) {
       console.error("Failed to refresh narratives:", e);
+      setError("Unable to connect. Please check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +136,19 @@ export default function LibraryPage() {
             </div>
           </div>
         </header>
+
+        {/* Error message */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-[var(--terracotta)]/10 border border-[var(--terracotta)]/30 rounded-lg"
+          >
+            <p className="text-[var(--terracotta)] font-[family-name:var(--font-body)] text-sm text-center">
+              {error}
+            </p>
+          </motion.div>
+        )}
 
         {/* Library content */}
         <motion.div
