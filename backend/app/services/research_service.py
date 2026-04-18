@@ -5,20 +5,10 @@ Extracts facts from the knowledge base (instant) and supplements with
 Google Search grounding when coverage is sparse.
 """
 
-import asyncio
 import logging
-import re
 
-from app.knowledge.caribbean import REGIONS as CARIB_REGIONS
 from app.knowledge.east_africa import GENERAL_EAST_AFRICA
-from app.knowledge.east_africa import REGIONS as EA_REGIONS
-from app.knowledge.loader import (
-    CARIBBEAN_KEYWORDS,
-    EAST_AFRICA_KEYWORDS,
-    SOUTH_ASIA_KEYWORDS,
-    _find_region,
-)
-from app.knowledge.south_asia import REGIONS as SA_REGIONS
+from app.knowledge.loader import _find_region
 from app.knowledge.west_africa import GENERAL_WEST_AFRICA, get_decade_data
 from app.models.schemas import ResearchBundle, ResearchFact
 from app.services.gemini_service import generate_text
