@@ -100,6 +100,16 @@ Let the words breathe. This is oral storytelling, not news reading.
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.data:
                 return part.inline_data.data
+        # Got response parts but no audio data - log for debugging
+        # This can happen when Gemini returns text tokens instead of audio
+        part_types = [type(p).__name__ for p in response.candidates[0].content.parts]
+        logger.warning("[tts] Response had parts but no audio data. Part types: %s", part_types)
+    elif response.candidates:
+        # Response had candidates but no content/parts
+        logger.warning("[tts] Response candidates but no content. finish_reason=%s",
+                      getattr(response.candidates[0], 'finish_reason', 'unknown'))
+    else:
+        logger.warning("[tts] Empty response from Gemini TTS (no candidates)")
     return None
 
 

@@ -18,9 +18,18 @@ logger = logging.getLogger(__name__)
 
 
 def _is_transient(exc: Exception) -> bool:
-    """Return True for errors that are worth retrying (rate limits, service unavailable)."""
+    """Return True for errors that are worth retrying (rate limits, server errors, etc.).
+
+    Note: Gemini TTS occasionally returns 500 errors due to "text token returns instead
+    of audio tokens" - Google recommends retry logic for these random failures.
+    See: https://ai.google.dev/gemini-api/docs/speech-generation
+    """
     msg = str(exc).lower()
-    return any(kw in msg for kw in ("503", "429", "rate limit", "quota", "service unavailable", "timeout"))
+    return any(kw in msg for kw in (
+        "500", "503", "429",  # Server errors and rate limits
+        "rate limit", "quota", "service unavailable", "timeout",
+        "internal error", "server error",  # Generic server issues
+    ))
 
 # User-friendly messages when the API returns common errors
 API_KEY_ERROR_MSG = (
