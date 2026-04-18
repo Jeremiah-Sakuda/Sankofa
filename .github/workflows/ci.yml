@@ -76,6 +76,11 @@ jobs:
           cd frontend
           npm ci
 
+      - name: Type check
+        run: |
+          cd frontend
+          npm run typecheck
+
       - name: Build
         run: |
           cd frontend
