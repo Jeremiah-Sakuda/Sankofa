@@ -13,6 +13,20 @@ export interface ArcOutline {
   narrative_voice?: string;
 }
 
+export interface ResearchFact {
+  fact: string;
+  category: "geography" | "culture" | "history" | "diaspora" | "daily_life";
+  source?: string;
+  source_title?: string;
+  confidence: "knowledge_base" | "grounded_search";
+}
+
+export interface ResearchBundle {
+  region: string;
+  time_period: string;
+  facts: ResearchFact[];
+}
+
 interface UseSSEStreamReturn {
   segments: NarrativeSegment[];
   isStreaming: boolean;
@@ -21,6 +35,7 @@ interface UseSSEStreamReturn {
   progressStep: StreamProgressStep;
   thinkingMessage: string | null;
   arcOutline: ArcOutline | null;
+  researchBundle: ResearchBundle | null;
   startStream: (sessionId: string, enableAudio?: boolean) => void;
   reset: () => void;
   abort: () => void;
@@ -34,6 +49,7 @@ export function useSSEStream(): UseSSEStreamReturn {
   const [progressStep, setProgressStep] = useState<StreamProgressStep>(null);
   const [thinkingMessage, setThinkingMessage] = useState<string | null>(null);
   const [arcOutline, setArcOutline] = useState<ArcOutline | null>(null);
+  const [researchBundle, setResearchBundle] = useState<ResearchBundle | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -63,6 +79,7 @@ export function useSSEStream(): UseSSEStreamReturn {
     setProgressStep(null);
     setThinkingMessage(null);
     setArcOutline(null);
+    setResearchBundle(null);
   }, [clearInactivityTimeout]);
 
   const abort = useCallback(() => {
@@ -93,8 +110,12 @@ export function useSSEStream(): UseSSEStreamReturn {
         setArcOutline(state.arc_outline as ArcOutline);
       }
 
-      // If generation completed, load segments
-      if (!state.is_generating && state.segments && state.segments.length > 0) {
+      // If generation completed (or stale), load segments
+      const isComplete = !state.is_generating || state.is_generating_stale;
+      if (isComplete && state.segments && state.segments.length > 0) {
+        if (state.is_generating_stale) {
+          console.warn("[SSE] Detected stale generation, loading available segments");
+        }
         setSegments(state.segments);
         setIsStreaming(false);
         setIsComplete(true);
@@ -131,6 +152,7 @@ export function useSSEStream(): UseSSEStreamReturn {
     setProgressStep(null);
     setThinkingMessage(null);
     setArcOutline(null);
+    setResearchBundle(null);
 
     fetchEventSource(getStreamUrl(sessionId, enableAudio), {
       signal: ctrl.signal,
@@ -165,6 +187,11 @@ export function useSSEStream(): UseSSEStreamReturn {
           if (ev.event === "arc") {
             const data = JSON.parse(ev.data) as ArcOutline;
             setArcOutline(data);
+            return;
+          }
+          if (ev.event === "research") {
+            const data = JSON.parse(ev.data) as ResearchBundle;
+            setResearchBundle(data);
             return;
           }
           if (ev.event === "status") {
@@ -224,5 +251,5 @@ export function useSSEStream(): UseSSEStreamReturn {
     });
   }, [clearInactivityTimeout, resetInactivityTimeout, pollForExistingSegments]);
 
-  return { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, reset, abort };
+  return { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, researchBundle, startStream, reset, abort };
 }

@@ -46,6 +46,7 @@ async def get_session(request: Request, session_id: UUID, include_segments: bool
         "user_input": session.user_input.model_dump(),
         "segment_count": len(session.segments),
         "is_generating": session.is_generating,
+        "is_generating_stale": session.is_generating_stale,
         "arc_outline": session.arc_outline,
     }
     if include_segments:

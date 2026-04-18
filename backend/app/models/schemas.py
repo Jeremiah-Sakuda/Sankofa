@@ -46,3 +46,19 @@ class AudioGenerateRequest(BaseModel):
 
 class NarrativeRequest(BaseModel):
     session_id: str
+
+
+class ResearchFact(BaseModel):
+    """A single research fact about the user's region/time period."""
+    fact: str
+    category: Literal["geography", "culture", "history", "diaspora", "daily_life"]
+    source: Optional[str] = None  # URL if from Google Search
+    source_title: Optional[str] = None
+    confidence: Literal["knowledge_base", "grounded_search"]
+
+
+class ResearchBundle(BaseModel):
+    """Collection of research facts for display during waiting phase."""
+    region: str
+    time_period: str
+    facts: list[ResearchFact]

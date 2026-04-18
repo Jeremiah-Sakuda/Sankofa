@@ -4,10 +4,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import { GRIOT_BEATS } from "../lib/griotBeats";
-import type { ArcOutline, StreamProgressStep } from "../hooks/useSSEStream";
+import type { ArcOutline, ResearchBundle, StreamProgressStep } from "../hooks/useSSEStream";
 import SankofaBird from "./SankofaBird";
 import GoldParticles from "./GoldParticles";
 import VolumePanel from "./VolumePanel";
+import ResearchCard from "./ResearchCard";
 
 /** Heritage fun facts shown during the waiting phase. */
 const HERITAGE_FACTS = [
@@ -80,6 +81,7 @@ interface GriotIntroProps {
   onRetry: () => void;
   sessionInvalid: boolean;
   arcOutline: ArcOutline | null;
+  researchBundle: ResearchBundle | null;
   thinkingMessage: string | null;
   progressStep: StreamProgressStep;
 }
@@ -93,6 +95,7 @@ export default function GriotIntro({
   onRetry,
   sessionInvalid,
   arcOutline,
+  researchBundle,
   thinkingMessage,
   progressStep,
 }: GriotIntroProps) {
@@ -582,6 +585,11 @@ export default function GriotIntro({
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Research about the user's region */}
+                {researchBundle && researchBundle.facts.length > 0 && (
+                  <ResearchCard bundle={researchBundle} />
+                )}
 
                 {/* Heritage fun facts */}
                 <div className="mt-10 max-w-sm text-center">

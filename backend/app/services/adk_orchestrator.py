@@ -28,6 +28,7 @@ from app.services.adk_agent import (
     sankofa_critic_agent,
     suggest_narrative_improvements,
 )
+from app.services.research_service import fetch_research_bundle
 from app.services.tts_service import spawn_tts_task
 from app.store import session_store
 from app.utils.error_messages import translate_error_for_sse
@@ -38,6 +39,10 @@ logger = logging.getLogger(__name__)
 _DELAY_IMAGE = 1.2
 _DELAY_FIRST_TEXT = 0.6
 _DELAY_TEXT = 0.35
+
+# Maximum time to wait for TTS tasks to complete (seconds)
+# Prevents indefinite hangs if TTS API is slow or failing
+_TTS_TIMEOUT = 120
 
 # ---------------------------------------------------------------------------
 # ADK Runner setup (separate from the app's session store)
@@ -142,6 +147,11 @@ async def run_adk_narrative(
         user_id=session.session_id,
     )
 
+    # Start research fetch in parallel (non-blocking, zero added latency)
+    research_task = asyncio.create_task(
+        fetch_research_bundle(ui.region_of_origin, ui.time_period)
+    )
+
     # Build initial prompt — tell the agent to skip TTS (orchestrator handles it)
     prompt_lines = [
         f"Tell the heritage story of the {ui.family_name} family "
@@ -163,6 +173,23 @@ async def run_adk_narrative(
     )
 
     yield _sse_status("generating")
+
+    # Emit research bundle as soon as it's ready (parallel fetch)
+    research_emitted = False
+
+    async def _try_emit_research():
+        """Check if research is ready and emit it (non-blocking)."""
+        nonlocal research_emitted
+        if research_emitted or not research_task.done():
+            return None
+        try:
+            research = research_task.result()
+            if research and research.facts:
+                research_emitted = True
+                return {"event": "research", "data": research.model_dump_json()}
+        except Exception as e:
+            logger.warning("[adk-orch] Research fetch failed: %s", e)
+        return None
 
     # State tracking
     arc_emitted = False
@@ -207,11 +234,26 @@ async def run_adk_narrative(
                     if thinking:
                         yield _sse_status("thinking", message=thinking)
 
+                    # Try to emit research after early tool calls
+                    if tool_name in ("lookup_cultural_context", "assess_context_quality"):
+                        research_event = await _try_emit_research()
+                        if research_event:
+                            yield research_event
+
                     # Emit canonical progress steps the frontend recognizes
                     if tool_name == "plan_narrative_arc":
                         yield _sse_status("planning_arc")
+                        # Good time to emit research if ready
+                        research_event = await _try_emit_research()
+                        if research_event:
+                            yield research_event
                     elif tool_name == "generate_act_segments":
                         yield _sse_status("generating_narrative")
+                        # Last chance to emit research before segments start flowing
+                        if not research_emitted:
+                            research_event = await _try_emit_research()
+                            if research_event:
+                                yield research_event
                         # Drain any ready TTS before long-running generation
                         for audio_seg in await _drain_tts_queue(tts_queue):
                             yield {"event": "audio", "data": audio_seg.model_dump_json()}
@@ -285,17 +327,62 @@ async def run_adk_narrative(
                             )
 
         # --- Collect any remaining TTS results and yield in sequence order ---
+        # Track which text segments need audio
+        text_segs_needing_audio = [
+            seg for seg in total_segments
+            if seg.type == "text" and seg.content and not seg.media_data
+        ]
+        expected_sequences = {seg.sequence for seg in text_segs_needing_audio}
+        received_sequences: set[int] = set()
+
+        async def _wait_and_collect(tasks: list, timeout: float, attempt: int) -> list[NarrativeSegment]:
+            """Wait for TTS tasks with timeout, return collected audio segments."""
+            if not tasks:
+                return []
+            logger.info("[adk-orch] TTS attempt %d: waiting for %d tasks (timeout=%ds)",
+                       attempt, len(tasks), int(timeout))
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True),
+                    timeout=timeout
+                )
+            except asyncio.TimeoutError:
+                logger.warning("[adk-orch] TTS attempt %d timed out after %ds", attempt, int(timeout))
+            return await _drain_tts_queue(tts_queue)
+
         if tts_tasks:
-            logger.info("[adk-orch] Waiting for %d TTS tasks to complete", len(tts_tasks))
-            await asyncio.gather(*tts_tasks, return_exceptions=True)
-            audio_segs = await _drain_tts_queue(tts_queue)
-            if audio_segs:
-                logger.info("[adk-orch] Emitting %d final audio segments (seq: %s)",
-                           len(audio_segs), [s.sequence for s in audio_segs])
+            # First attempt
+            audio_segs = await _wait_and_collect(tts_tasks, _TTS_TIMEOUT, 1)
+            for seg in audio_segs:
+                received_sequences.add(seg.sequence)
+                yield {"event": "audio", "data": seg.model_dump_json()}
+
+            # Retry missing segments (up to 2 retries with shorter timeout)
+            for retry in range(2):
+                missing = expected_sequences - received_sequences
+                if not missing:
+                    break
+
+                # Find segments that still need audio
+                retry_segs = [s for s in text_segs_needing_audio if s.sequence in missing]
+                logger.info("[adk-orch] TTS retry %d: %d segments missing audio (seq: %s)",
+                           retry + 1, len(retry_segs), list(missing))
+
+                # Spawn new TTS tasks for missing segments
+                retry_tasks = [spawn_tts_task(seg, tts_queue) for seg in retry_segs]
+                retry_audio = await _wait_and_collect(retry_tasks, 60, retry + 2)  # Shorter timeout for retries
+
+                for seg in retry_audio:
+                    received_sequences.add(seg.sequence)
+                    yield {"event": "audio", "data": seg.model_dump_json()}
+
+            # Log final status
+            final_missing = expected_sequences - received_sequences
+            if final_missing:
+                logger.warning("[adk-orch] TTS incomplete: %d segments missing audio (seq: %s)",
+                              len(final_missing), list(final_missing))
             else:
-                logger.warning("[adk-orch] No audio segments from TTS (all failed?)")
-            for audio_seg in audio_segs:
-                yield {"event": "audio", "data": audio_seg.model_dump_json()}
+                logger.info("[adk-orch] TTS complete: all %d segments have audio", len(expected_sequences))
 
         # Persist session
         session_store.update(session)
@@ -397,7 +484,13 @@ async def run_adk_followup(
                                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         if tts_tasks:
-            await asyncio.gather(*tts_tasks, return_exceptions=True)
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tts_tasks, return_exceptions=True),
+                    timeout=_TTS_TIMEOUT
+                )
+            except asyncio.TimeoutError:
+                logger.warning("[adk-orch] Follow-up TTS timeout after %ds", _TTS_TIMEOUT)
             for audio_seg in await _drain_tts_queue(tts_queue):
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 

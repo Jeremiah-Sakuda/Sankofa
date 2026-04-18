@@ -74,6 +74,7 @@ export interface SessionStateResponse {
   user_input: SessionInfo;
   segment_count: number;
   is_generating: boolean;
+  is_generating_stale?: boolean;
   arc_outline?: Record<string, unknown>;
   segments?: NarrativeSegment[];
 }

@@ -17,7 +17,7 @@ export default function NarrativePage() {
   const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
   const contributed = searchParams.get("contributed") === "true";
-  const { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, abort, reset } = useSSEStream();
+  const { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, researchBundle, startStream, abort, reset } = useSSEStream();
   const [followUpSegments, setFollowUpSegments] = useState<NarrativeSegment[]>([]);
   const [isLoadingFollowUp, setIsLoadingFollowUp] = useState(false);
   const [followUpThinking, setFollowUpThinking] = useState<string | null>(null);
@@ -215,6 +215,7 @@ export default function NarrativePage() {
             }}
             sessionInvalid={sessionInvalid}
             arcOutline={arcOutline}
+            researchBundle={researchBundle}
             thinkingMessage={thinkingMessage}
             progressStep={progressStep}
           />
