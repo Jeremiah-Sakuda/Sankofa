@@ -41,7 +41,7 @@ class Settings:
         else "gemini-2.5-flash-native-audio-preview-12-2025",
     )
     GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image")  # Nano Banana: image+text
-    GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-pro-preview-tts")
+    GEMINI_TTS_MODEL: str = os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
 
     # Session store: in-memory (default) or Firestore
     USE_FIRESTORE: bool = os.getenv("USE_FIRESTORE", "false").lower() == "true"
