@@ -199,6 +199,7 @@ def spawn_tts_task(
             result = await generate_narration(seg.content)
             if result:
                 audio_data, mime = result
+                logger.info("[tts] Audio ready for seq=%d, %d bytes", seg.sequence, len(audio_data))
                 await tts_queue.put(
                     NarrativeSegment(
                         type="audio",
@@ -210,8 +211,11 @@ def spawn_tts_task(
                         act=seg.act,
                     )
                 )
+            else:
+                logger.warning("[tts] TTS returned None for seq=%d (text: '%s...')",
+                               seg.sequence, (seg.content or "")[:50])
         except Exception as exc:
-            logger.warning("[tts] TTS task failed: %s", exc)
+            logger.warning("[tts] TTS task failed for seq=%d: %s", seg.sequence, exc)
 
     return asyncio.create_task(_do_tts())
 

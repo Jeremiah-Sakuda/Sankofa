@@ -286,8 +286,15 @@ async def run_adk_narrative(
 
         # --- Collect any remaining TTS results and yield in sequence order ---
         if tts_tasks:
+            logger.info("[adk-orch] Waiting for %d TTS tasks to complete", len(tts_tasks))
             await asyncio.gather(*tts_tasks, return_exceptions=True)
-            for audio_seg in await _drain_tts_queue(tts_queue):
+            audio_segs = await _drain_tts_queue(tts_queue)
+            if audio_segs:
+                logger.info("[adk-orch] Emitting %d final audio segments (seq: %s)",
+                           len(audio_segs), [s.sequence for s in audio_segs])
+            else:
+                logger.warning("[adk-orch] No audio segments from TTS (all failed?)")
+            for audio_seg in audio_segs:
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
         # Persist session
