@@ -13,7 +13,7 @@ from starlette.requests import Request
 
 from app.config import settings
 from app.rate_limiter import limiter
-from app.routes import audio, auth, contribute, intake, narrative, share
+from app.routes import analytics, audio, auth, contribute, intake, narrative, share
 from app.services.analytics import get_aggregate_stats
 from app.services.gemini_service import check_gemini_health
 
@@ -184,6 +184,7 @@ app.include_router(audio.router)
 # app.include_router(live.router)  # Live Griot feature disabled for now
 app.include_router(share.router)
 app.include_router(contribute.router)
+app.include_router(analytics.router)
 
 
 @app.get("/api/health")

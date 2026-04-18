@@ -61,10 +61,17 @@ export default function NarrativePage() {
 
   // Ready once the first text segment's audio has arrived so narration starts
   // on the correct paragraph (not a later one whose TTS finished faster).
+  // Audio can be either: (1) a separate "audio" segment with matching sequence, or
+  // (2) embedded in the text segment itself as media_data (when loaded via polling).
   const hasTextSegment = segments.some((s) => s.type === "text");
-  const firstTextSeq = segments.find((s) => s.type === "text" && s.content)?.sequence ?? null;
-  const hasFirstAudio = firstTextSeq !== null &&
-    segments.some((s) => s.type === "audio" && s.sequence === firstTextSeq);
+  const firstTextSeg = segments.find((s) => s.type === "text" && s.content);
+  const firstTextSeq = firstTextSeg?.sequence ?? null;
+  const hasFirstAudio = firstTextSeq !== null && (
+    // Case 1: Separate audio segment with matching sequence (streaming)
+    segments.some((s) => s.type === "audio" && s.sequence === firstTextSeq) ||
+    // Case 2: Audio embedded in text segment (polling/reconnect)
+    !!(firstTextSeg?.media_data && firstTextSeg?.media_type?.startsWith("audio"))
+  );
   const isReadyToShow = hasTextSegment && hasFirstAudio;
 
   // Live Griot feature disabled for now
