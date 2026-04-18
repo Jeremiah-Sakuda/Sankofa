@@ -69,6 +69,15 @@ export interface SessionResponse {
   user_input: SessionInfo;
 }
 
+export interface SessionStateResponse {
+  session_id: string;
+  user_input: SessionInfo;
+  segment_count: number;
+  is_generating: boolean;
+  arc_outline?: Record<string, unknown>;
+  segments?: NarrativeSegment[];
+}
+
 /** Fetch session by ID. Returns null if session not found (404) or request fails. */
 export async function getSession(sessionId: string): Promise<SessionResponse | null> {
   try {
@@ -81,6 +90,19 @@ export async function getSession(sessionId: string): Promise<SessionResponse | n
     if (!res.ok) return null;
     const data = (await res.json().catch(() => null)) as SessionResponse | null;
     return data?.user_input ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch full session state including segments. Used for polling when reconnecting to in-progress generation. */
+export async function getSessionState(sessionId: string, includeSegments: boolean = false): Promise<SessionStateResponse | null> {
+  try {
+    const url = `${API_BASE}/api/session/${sessionId}${includeSegments ? "?include_segments=true" : ""}`;
+    const res = await fetchWithTimeout(url, { method: "GET" }, SESSION_FETCH_TIMEOUT_MS);
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    return (await res.json().catch(() => null)) as SessionStateResponse | null;
   } catch {
     return null;
   }

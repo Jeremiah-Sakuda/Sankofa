@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import { fetchEventSource, EventStreamContentType } from "@microsoft/fetch-event-source";
-import { NarrativeSegment, getStreamUrl } from "../lib/api";
+import { NarrativeSegment, getStreamUrl, getSessionState } from "../lib/api";
 
 /** Progress step from backend: planning_arc | generating_narrative | generating_audio */
 export type StreamProgressStep = "planning_arc" | "generating_narrative" | "generating_audio" | null;
@@ -71,6 +71,53 @@ export function useSSEStream(): UseSSEStreamReturn {
     clearInactivityTimeout();
   }, [clearInactivityTimeout]);
 
+  // Poll for existing segments when generation is already in progress
+  const pollForExistingSegments = useCallback(async (sessionId: string, signal: AbortSignal) => {
+    setThinkingMessage("Your story is being generated...");
+    setProgressStep("generating_narrative");
+
+    const POLL_INTERVAL = 3000; // 3 seconds
+    const MAX_POLLS = 120; // 6 minutes max
+
+    for (let i = 0; i < MAX_POLLS; i++) {
+      if (signal.aborted) return;
+
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      if (signal.aborted) return;
+
+      const state = await getSessionState(sessionId, true);
+      if (!state) continue;
+
+      // Update arc outline if available
+      if (state.arc_outline) {
+        setArcOutline(state.arc_outline as ArcOutline);
+      }
+
+      // If generation completed, load segments
+      if (!state.is_generating && state.segments && state.segments.length > 0) {
+        setSegments(state.segments);
+        setIsStreaming(false);
+        setIsComplete(true);
+        setProgressStep(null);
+        setThinkingMessage(null);
+        clearInactivityTimeout();
+        return;
+      }
+
+      // Update progress message with segment count
+      if (state.segment_count > 0) {
+        setThinkingMessage(`Your story is being generated... (${state.segment_count} parts ready)`);
+      }
+    }
+
+    // Timed out waiting
+    setError("Story generation is taking too long. Please refresh the page.");
+    setIsStreaming(false);
+    setProgressStep(null);
+    setThinkingMessage(null);
+    clearInactivityTimeout();
+  }, [clearInactivityTimeout]);
+
   const startStream = useCallback((sessionId: string, enableAudio: boolean = false) => {
     abortRef.current?.abort();
     clearInactivityTimeout();
@@ -100,6 +147,13 @@ export function useSSEStream(): UseSSEStreamReturn {
         } catch {
           // couldn't parse body
         }
+
+        // Handle 409 "already generating" by polling for existing segments
+        if (response.status === 409 && message.toLowerCase().includes("already generating")) {
+          pollForExistingSegments(sessionId, ctrl.signal);
+          throw new Error("__polling__"); // Stop fetchEventSource, polling handles the rest
+        }
+
         setError(message);
         setIsStreaming(false);
         clearInactivityTimeout();
@@ -153,6 +207,10 @@ export function useSSEStream(): UseSSEStreamReturn {
       },
       onerror(err) {
         if (ctrl.signal.aborted) return;
+        // Don't show error if we're polling for existing segments
+        if (err?.message === "__polling__") {
+          throw err;
+        }
         setError(err?.message || "Connection lost");
         setIsStreaming(false);
         setProgressStep(null);
@@ -164,7 +222,7 @@ export function useSSEStream(): UseSSEStreamReturn {
         clearInactivityTimeout();
       },
     });
-  }, [clearInactivityTimeout, resetInactivityTimeout]);
+  }, [clearInactivityTimeout, resetInactivityTimeout, pollForExistingSegments]);
 
   return { segments, isStreaming, isComplete, error, progressStep, thinkingMessage, arcOutline, startStream, reset, abort };
 }

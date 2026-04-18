@@ -35,14 +35,19 @@ async def create_session(request: Request, user_input: UserInput):
 
 
 @router.get("/session/{session_id}")
-@limiter.limit("20/minute")
-async def get_session(request: Request, session_id: UUID):
+@limiter.limit("30/minute")
+async def get_session(request: Request, session_id: UUID, include_segments: bool = False):
+    """Get session state. Use include_segments=true to get full narrative data for polling."""
     session = session_store.get(str(session_id))
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {
+    result = {
         "session_id": session.session_id,
         "user_input": session.user_input.model_dump(),
         "segment_count": len(session.segments),
         "is_generating": session.is_generating,
+        "arc_outline": session.arc_outline,
     }
+    if include_segments:
+        result["segments"] = [seg.model_dump() for seg in session.segments]
+    return result
