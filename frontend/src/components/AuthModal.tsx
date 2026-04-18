@@ -56,6 +56,7 @@ export default function AuthModal({ isOpen, onClose, onSignIn }: AuthModalProps)
             {/* Close button */}
             <button
               onClick={onClose}
+              aria-label="Close dialog"
               className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--ivory)] transition-colors cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

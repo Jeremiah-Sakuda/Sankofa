@@ -691,6 +691,7 @@ export default function NarrativeStream({
                         : "border-[var(--ochre)]/40 text-[var(--ochre)] hover:border-[var(--gold)] hover:text-[var(--gold)]"
                     }`}
                     title={isListening ? "Stop listening" : "Speak your question"}
+                    aria-label={isListening ? "Stop listening" : "Speak your question"}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />

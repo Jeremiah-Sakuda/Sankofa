@@ -68,6 +68,7 @@ export default function VolumePanel({ channels }: VolumePanelProps) {
         onClick={() => setOpen((o) => !o)}
         className="fixed bottom-8 left-8 z-40 w-9 h-9 flex items-center justify-center rounded-full border border-[var(--gold)]/30 bg-[var(--night)]/80 backdrop-blur text-[var(--gold)] hover:border-[var(--gold)] transition-all cursor-pointer"
         title="Volume controls"
+        aria-label="Volume controls"
       >
         {allMuted ? (
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
