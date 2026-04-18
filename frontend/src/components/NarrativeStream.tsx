@@ -235,9 +235,10 @@ export default function NarrativeStream({
 
   const currentAmbientTrack = useMemo(() => {
     if (!arcOutline) return "fire.mp3"; // default to fire until arc arrives
-    const actKey = currentAct === 1 ? "act1_setting" : currentAct === 2 ? "act2_people" : "act3_thread";
-    // @ts-ignore
-    return arcOutline[actKey]?.ambient_track || "fire.mp3";
+    const actData = currentAct === 1 ? arcOutline.act1_setting
+      : currentAct === 2 ? arcOutline.act2_people
+      : arcOutline.act3_thread;
+    return actData?.ambient_track || "fire.mp3";
   }, [arcOutline, currentAct]);
 
   const ambientAudioRef = useRef<HTMLAudioElement>(null);
