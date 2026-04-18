@@ -117,7 +117,7 @@ jobs:
             --min-instances 1 \
             --max-instances 5 \
             --memory 1Gi \
-            --timeout 300
+            --timeout 540
 
           echo "url=$(gcloud run services describe sankofa --region us-central1 --project ${{ secrets.GCP_PROJECT_ID }} --format 'value(status.url)')" >> $GITHUB_OUTPUT
 

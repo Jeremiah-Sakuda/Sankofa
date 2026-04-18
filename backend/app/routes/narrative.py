@@ -99,8 +99,8 @@ _DELAY_TEXT = 0.35
 
 # Overall timeout for narrative generation (seconds)
 # Prevents hung streams from consuming resources indefinitely
-# Set to 5 minutes to accommodate image generation + TTS
-_OVERALL_TIMEOUT = 300
+# Set to 7 minutes to accommodate image generation + TTS (Gemini can be slow)
+_OVERALL_TIMEOUT = 420
 
 
 @router.get("/narrative/{session_id}/stream")
