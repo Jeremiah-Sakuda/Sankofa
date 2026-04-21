@@ -8,12 +8,9 @@ from google.cloud import firestore
 
 from app.config import settings
 from app.models.user import User
+from app.store.firestore_client import get_client
 
 logger = logging.getLogger(__name__)
-
-
-def _get_client() -> firestore.Client:
-    return firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
 
 
 class UserStore:
@@ -25,7 +22,7 @@ class UserStore:
 
     def _client_or_init(self) -> firestore.Client:
         if self._client is None:
-            self._client = _get_client()
+            self._client = get_client()
         return self._client
 
     @property

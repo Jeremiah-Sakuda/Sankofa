@@ -9,15 +9,12 @@ from google.cloud import firestore
 from app.config import settings
 from app.models.schemas import NarrativeSegment, UserInput
 from app.models.session import Session
+from app.store.firestore_client import get_client
 
 logger = logging.getLogger(__name__)
 
 # Session TTL in seconds (24 hours)
 _SESSION_TTL_SECONDS = 24 * 60 * 60
-
-
-def _get_client() -> firestore.Client:
-    return firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
 
 
 def _session_to_doc(session: Session, include_ttl: bool = False) -> dict:
@@ -61,7 +58,7 @@ class FirestoreSessionStore:
 
     def _client_or_init(self) -> firestore.Client:
         if self._client is None:
-            self._client = _get_client()
+            self._client = get_client()
         return self._client
 
     def create(self, session_id: str, user_input: UserInput) -> Session:

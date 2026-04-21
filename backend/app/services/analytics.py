@@ -37,19 +37,13 @@ class EventType(str, Enum):
 # Firestore collection for analytics
 _ANALYTICS_COLLECTION = "analytics"
 
-# In-memory client (lazily initialized)
-_firestore_client = None
-
 
 def _get_client():
-    """Get or create Firestore client."""
-    global _firestore_client
-    if _firestore_client is None:
-        if not settings.USE_FIRESTORE:
-            return None
-        from google.cloud import firestore
-        _firestore_client = firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
-    return _firestore_client
+    """Get the shared Firestore client."""
+    if not settings.USE_FIRESTORE:
+        return None
+    from app.store.firestore_client import get_client
+    return get_client()
 
 
 def _hash_session_id(session_id: str) -> str:

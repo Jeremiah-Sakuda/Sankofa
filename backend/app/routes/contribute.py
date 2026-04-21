@@ -41,11 +41,11 @@ def _get_stripe():
 
 
 def _get_firestore():
-    """Get Firestore client for contribution records."""
+    """Get the shared Firestore client for contribution records."""
     if not settings.USE_FIRESTORE:
         return None
-    from google.cloud import firestore
-    return firestore.Client(project=settings.GOOGLE_CLOUD_PROJECT)
+    from app.store.firestore_client import get_client
+    return get_client()
 
 
 class CheckoutRequest(BaseModel):
