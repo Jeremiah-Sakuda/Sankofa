@@ -303,6 +303,8 @@ async def run_adk_narrative(
 
                                 total_segments.append(seg)
                                 session.segments.append(seg)
+                                # Persist segment incrementally to avoid full rewrite later
+                                session_store.append_segment(session.session_id, seg)
                                 yield {"event": seg.type, "data": seg.model_dump_json()}
 
                                 # Spawn TTS in background for text segments
@@ -384,8 +386,8 @@ async def run_adk_narrative(
             else:
                 logger.info("[adk-orch] TTS complete: all %d segments have audio", len(expected_sequences))
 
-        # Persist session
-        session_store.update(session)
+        # Persist session metadata (segments already saved incrementally)
+        session_store.update_metadata(session)
 
         yield _sse_status("complete")
 
@@ -472,6 +474,8 @@ async def run_adk_followup(
                                     act=seg_data.get("act"),
                                 )
                                 session.segments.append(seg)
+                                # Persist segment incrementally to avoid full rewrite later
+                                session_store.append_segment(session.session_id, seg)
                                 yield {"event": seg.type, "data": seg.model_dump_json()}
 
                                 if audio and seg.type == "text" and seg.content:
@@ -494,7 +498,8 @@ async def run_adk_followup(
             for audio_seg in await _drain_tts_queue(tts_queue):
                 yield {"event": "audio", "data": audio_seg.model_dump_json()}
 
-        session_store.update(session)
+        # Persist session metadata (segments already saved incrementally)
+        session_store.update_metadata(session)
         yield _sse_status("complete")
 
     except Exception as e:

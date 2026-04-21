@@ -122,7 +122,7 @@ async def stream_narrative(
     if session.is_generating_stale:
         logger.warning("[stream] Clearing stale is_generating flag for session %s", str(session_id))
         session.is_generating = False
-        session_store.update(session)
+        session_store.update_metadata(session)
 
     # Check concurrent generation limit per IP
     client_ip = get_remote_address(request)
@@ -142,7 +142,7 @@ async def stream_narrative(
 
             session.is_generating = True
             session.generating_started_at = time.time()
-            session_store.update(session)
+            session_store.update_metadata(session)
             start_time = time.time()
             timed_out = False
             completed = False
@@ -238,7 +238,7 @@ async def stream_narrative(
 
         session.is_generating = True
         session.generating_started_at = time.time()
-        session_store.update(session)
+        session_store.update_metadata(session)
         queue = asyncio.Queue()
 
         async def _emit(event_name: str, data: str):
