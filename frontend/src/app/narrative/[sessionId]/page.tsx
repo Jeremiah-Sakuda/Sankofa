@@ -59,26 +59,21 @@ export default function NarrativePage() {
 
   const allSegments = [...segments, ...followUpSegments];
 
-  // Ready to show only when Act 1 has both text AND audio
-  // TTS is essential - no fallback, must have audio
+  // Ready to show when we have the first text segment AND its audio
+  // This ensures seamless playback while not waiting for all of Act 1
   const isReadyToShow = useMemo(() => {
-    // Get Act 1 text segments
-    const act1TextSegments = segments.filter(
-      (s) => s.type === "text" && s.content && (s.act === 1 || s.act === undefined)
+    // Need at least one text segment
+    const firstTextSegment = segments.find(
+      (s) => s.type === "text" && s.content
     );
-    if (act1TextSegments.length === 0) return false;
+    if (!firstTextSegment) return false;
 
-    // Get audio segments and their sequences
-    const audioSequences = new Set(
-      segments.filter((s) => s.type === "audio").map((s) => s.sequence)
-    );
-
-    // Check if all Act 1 text segments have corresponding audio
-    const allAct1HasAudio = act1TextSegments.every((textSeg) =>
-      audioSequences.has(textSeg.sequence)
+    // Need audio for the first text segment
+    const hasFirstAudio = segments.some(
+      (s) => s.type === "audio" && s.sequence === firstTextSegment.sequence
     );
 
-    return allAct1HasAudio;
+    return hasFirstAudio;
   }, [segments]);
 
   // Live Griot feature disabled for now
