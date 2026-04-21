@@ -59,18 +59,8 @@ export default function NarrativePage() {
 
   const allSegments = [...segments, ...followUpSegments];
 
-  // Timeout fallback: if Act 1 audio takes too long, show narrative anyway
-  const [showFallbackTimeout, setShowFallbackTimeout] = useState(false);
-  useEffect(() => {
-    if (!isStreaming) {
-      setShowFallbackTimeout(false);
-      return;
-    }
-    const timer = setTimeout(() => setShowFallbackTimeout(true), 45000);
-    return () => clearTimeout(timer);
-  }, [isStreaming]);
-
-  // Ready to show when Act 1 has both text AND audio, or after timeout
+  // Ready to show only when Act 1 has both text AND audio
+  // TTS is essential - no fallback, must have audio
   const isReadyToShow = useMemo(() => {
     // Get Act 1 text segments
     const act1TextSegments = segments.filter(
@@ -88,15 +78,8 @@ export default function NarrativePage() {
       audioSequences.has(textSeg.sequence)
     );
 
-    if (allAct1HasAudio) return true;
-
-    // Fallback: show after timeout even if audio isn't ready (prevents infinite hang)
-    if (showFallbackTimeout && act1TextSegments.length > 0) {
-      return true;
-    }
-
-    return false;
-  }, [segments, showFallbackTimeout]);
+    return allAct1HasAudio;
+  }, [segments]);
 
   // Live Griot feature disabled for now
   // const latestImageSrc = useMemo(() => {
