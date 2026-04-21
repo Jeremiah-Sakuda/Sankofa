@@ -27,6 +27,9 @@ const firebaseConfig = {
 let firebaseApp: FirebaseApp | null = null;
 let firebaseAuth: Auth | null = null;
 
+// Track if we've synced with backend this session (avoids redundant login calls)
+const AUTH_SYNCED_KEY = "sankofa_auth_synced";
+
 function getFirebaseApp(): FirebaseApp | null {
   if (typeof window === "undefined") return null;
   if (!firebaseConfig.apiKey) {
@@ -80,19 +83,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Notify backend of login
-        try {
-          const token = await firebaseUser.getIdToken();
-          await fetch(`${API_BASE}/api/auth/login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id_token: token }),
-          });
-        } catch (e) {
-          console.error("Failed to sync auth with backend:", e);
+        // Only sync with backend if we haven't already this session
+        // This avoids redundant /api/auth/login calls on every page load
+        const alreadySynced = sessionStorage.getItem(AUTH_SYNCED_KEY) === firebaseUser.uid;
+        if (!alreadySynced) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            await fetch(`${API_BASE}/api/auth/login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id_token: token }),
+            });
+            sessionStorage.setItem(AUTH_SYNCED_KEY, firebaseUser.uid);
+          } catch (e) {
+            console.error("Failed to sync auth with backend:", e);
+          }
         }
         setUser(firebaseUser as AuthUser);
       } else {
+        sessionStorage.removeItem(AUTH_SYNCED_KEY);
         setUser(null);
       }
       setIsLoading(false);
