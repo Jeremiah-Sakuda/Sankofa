@@ -1,6 +1,8 @@
 """Authentication routes for Google OAuth via Firebase."""
 
+import asyncio
 import logging
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -15,6 +17,26 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # Firebase Admin SDK - initialized lazily
 _firebase_app = None
+
+# In-memory user cache to avoid Firestore lookup on every request
+# Format: {user_id: (User, expiry_timestamp)}
+_user_cache: dict[str, tuple[User, float]] = {}
+_USER_CACHE_TTL = 300  # 5 minutes
+
+
+def _get_cached_user(user_id: str) -> Optional[User]:
+    """Get user from cache if not expired."""
+    if user_id in _user_cache:
+        user, expiry = _user_cache[user_id]
+        if time.time() < expiry:
+            return user
+        del _user_cache[user_id]
+    return None
+
+
+def _cache_user(user: User) -> None:
+    """Cache user with TTL."""
+    _user_cache[user.user_id] = (user, time.time() + _USER_CACHE_TTL)
 
 
 def _get_firebase_app():
@@ -69,12 +91,18 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Optio
         decoded = auth.verify_id_token(token, app=app)
         user_id = decoded["uid"]
 
-        # Get or create user
-        user = user_store.get(user_id)
+        # Check cache first to avoid Firestore lookup
+        cached = _get_cached_user(user_id)
+        if cached:
+            return cached
+
+        # Get from Firestore (non-blocking)
+        user = await asyncio.to_thread(user_store.get, user_id)
         if user:
+            _cache_user(user)
             return user
 
-        # Create new user from Firebase token
+        # Create new user from Firebase token (not persisted yet)
         return User(
             user_id=user_id,
             email=decoded.get("email", ""),
@@ -137,12 +165,15 @@ async def login(request: Request, body: LoginRequest):
             avatar_url=decoded.get("picture"),
         )
 
-        # Check if user exists and preserve created_at
-        existing = user_store.get(user_id)
+        # Check if user exists and preserve created_at (non-blocking)
+        existing = await asyncio.to_thread(user_store.get, user_id)
         if existing:
             user.created_at = existing.created_at
 
-        user = user_store.create_or_update(user)
+        user = await asyncio.to_thread(user_store.create_or_update, user)
+
+        # Update cache
+        _cache_user(user)
 
         logger.info("User logged in: %s", user_id)
 
