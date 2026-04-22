@@ -288,7 +288,7 @@ html {
   border-radius: 2px;
   background: var(--gold);
   opacity: 0;
-  animation: narrate-glow 1.7s ease-in-out infinite;
+  animation: narrate-glow 2.8s ease-in-out infinite;
 }
 
 .narrating-segment::after {
@@ -312,8 +312,8 @@ html {
 }
 
 @keyframes narrate-glow {
-  0%, 100% { opacity: 0.4; box-shadow: 0 0 12px var(--gold); }
-  50% { opacity: 0.9; box-shadow: 0 0 24px var(--gold); }
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 8px var(--gold); }
+  50% { opacity: 0.8; box-shadow: 0 0 16px var(--gold); }
 }
 
 @keyframes reading-sweep {
@@ -348,13 +348,13 @@ html {
   0% {
     color: inherit;
   }
-  2% {
+  1.5% {
     color: var(--gold);
   }
-  8% {
+  5% {
     color: var(--gold);
   }
-  14% {
+  9% {
     color: inherit;
   }
   100% {
