@@ -322,7 +322,7 @@ class FirestoreSessionStore:
             Number of sessions deleted
         """
         # Firestore batch limit is 500 operations
-        _BATCH_LIMIT = 500
+        max_batch_size = 500
 
         try:
             now = time.time()
@@ -356,9 +356,9 @@ class FirestoreSessionStore:
 
             # Execute deletes in batches of 500
             deleted_sessions = 0
-            for i in range(0, len(delete_ops), _BATCH_LIMIT):
+            for i in range(0, len(delete_ops), max_batch_size):
                 batch = client.batch()
-                batch_ops = delete_ops[i:i + _BATCH_LIMIT]
+                batch_ops = delete_ops[i:i + max_batch_size]
 
                 for op_type, ref in batch_ops:
                     batch.delete(ref)
@@ -371,7 +371,7 @@ class FirestoreSessionStore:
 
             if deleted_sessions > 0:
                 logger.info("Firestore: cleaned up %d expired sessions in %d batch(es)",
-                           deleted_sessions, (len(delete_ops) + _BATCH_LIMIT - 1) // _BATCH_LIMIT)
+                           deleted_sessions, (len(delete_ops) + max_batch_size - 1) // max_batch_size)
 
             return deleted_sessions
 
