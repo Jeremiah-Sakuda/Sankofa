@@ -119,6 +119,45 @@ class InMemorySessionStore:
         owned.sort(key=lambda s: s.created_at, reverse=True)
         return owned[:limit]
 
+    def list_by_owner_summary(self, owner_id: str, limit: int = 50) -> list[dict]:
+        """List session summaries owned by a user, sorted by created_at descending.
+
+        Returns dict summaries matching FirestoreSessionStore.list_by_owner_summary()
+        for API consistency.
+
+        Returns list of dicts with keys:
+            session_id, family_name, region, era, created_at, segment_count,
+            first_image_data, first_image_type, arc_title
+        """
+        sessions = self.list_by_owner(owner_id, limit)
+        summaries = []
+
+        for session in sessions:
+            # Find first image for thumbnail
+            first_image = next(
+                (s for s in session.segments if s.type == "image" and s.media_data),
+                None
+            )
+
+            # Get arc title if available
+            arc_title = None
+            if session.arc_outline and isinstance(session.arc_outline, dict):
+                arc_title = session.arc_outline.get("title")
+
+            summaries.append({
+                "session_id": session.session_id,
+                "family_name": session.user_input.family_name,
+                "region": session.user_input.region_of_origin,
+                "era": session.user_input.time_period,
+                "created_at": session.created_at,
+                "segment_count": len(session.segments),
+                "first_image_data": first_image.media_data if first_image else None,
+                "first_image_type": first_image.media_type if first_image else None,
+                "arc_title": arc_title,
+            })
+
+        return summaries
+
     def set_owner(self, session_id: str, owner_id: str) -> bool:
         """Set the owner of a session. Returns True on success."""
         session = self._sessions.get(session_id)

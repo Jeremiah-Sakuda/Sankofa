@@ -1,9 +1,17 @@
-"""Contribution routes for voluntary tip jar functionality using Stripe."""
+"""Contribution routes for voluntary tip jar functionality using Stripe.
+
+Aggregation Strategy:
+- Each contribution updates daily and all-time aggregate documents
+- contribution_stats() reads 30 daily docs instead of scanning 10k contributions
+- Daily docs: contributions_aggregates/daily/{YYYY-MM-DD}
+- All-time totals: contributions_aggregates/totals/all_time
+"""
 
 import asyncio
 import hmac
 import logging
 import time
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -18,8 +26,9 @@ from app.store import session_store
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/contribute", tags=["contribute"])
 
-# Firestore collection for contributions
+# Firestore collections for contributions
 _CONTRIBUTIONS_COLLECTION = "contributions"
+_CONTRIBUTIONS_AGGREGATES_COLLECTION = "contributions_aggregates"
 
 # Stripe client (lazily initialized)
 _stripe_client = None
@@ -218,7 +227,10 @@ async def _record_contribution(
     email: Optional[str],
     region_of_origin: Optional[str],
 ) -> None:
-    """Record a completed contribution in Firestore."""
+    """Record a completed contribution in Firestore.
+
+    Also updates daily and all-time aggregate documents for efficient stats queries.
+    """
     client = _get_firestore()
     if not client:
         logger.info("Firestore disabled, skipping contribution record")
@@ -236,12 +248,63 @@ async def _record_contribution(
     }
 
     try:
-        await asyncio.to_thread(
-            lambda: client.collection(_CONTRIBUTIONS_COLLECTION).add(doc)
+        # Write contribution and update aggregates in parallel
+        await asyncio.gather(
+            asyncio.to_thread(lambda: client.collection(_CONTRIBUTIONS_COLLECTION).add(doc)),
+            _update_contribution_aggregates(client, amount_cents),
         )
         logger.debug("Contribution recorded: %s", stripe_session_id)
     except Exception as e:
         logger.error("Failed to record contribution: %s", e, exc_info=True)
+
+
+async def _update_contribution_aggregates(client, amount_cents: int) -> None:
+    """Update daily and all-time contribution aggregate documents.
+
+    Daily doc structure: contributions_aggregates/daily/{YYYY-MM-DD}
+    {
+        "date": "2024-01-15",
+        "total_contributions": 5,
+        "total_amount_cents": 2500,
+        "count_by_amount": {"500": 2, "1000": 3}
+    }
+
+    All-time doc structure: contributions_aggregates/totals/all_time
+    {
+        "total_contributions": 100,
+        "total_amount_cents": 50000
+    }
+    """
+    try:
+        from google.cloud import firestore as fs
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Update daily aggregate
+        daily_ref = client.collection(_CONTRIBUTIONS_AGGREGATES_COLLECTION).document(f"daily/{today}")
+        daily_updates = {
+            "date": today,
+            "total_contributions": fs.Increment(1),
+            "total_amount_cents": fs.Increment(amount_cents),
+            f"count_by_amount.{amount_cents}": fs.Increment(1),
+        }
+
+        # Update all-time totals
+        totals_ref = client.collection(_CONTRIBUTIONS_AGGREGATES_COLLECTION).document("totals/all_time")
+        totals_updates = {
+            "total_contributions": fs.Increment(1),
+            "total_amount_cents": fs.Increment(amount_cents),
+        }
+
+        # Execute both updates
+        await asyncio.gather(
+            asyncio.to_thread(lambda: daily_ref.set(daily_updates, merge=True)),
+            asyncio.to_thread(lambda: totals_ref.set(totals_updates, merge=True)),
+        )
+
+    except Exception as e:
+        # Don't let aggregate errors affect the main contribution record
+        logger.warning("[contributions] Aggregate update failed: %s", e)
 
 
 @router.get("/stats")
@@ -249,6 +312,9 @@ async def _record_contribution(
 async def contribution_stats(request: Request, authorization: str = Header(None)):
     """
     Get aggregate contribution statistics (key-protected via Authorization header).
+
+    Reads from pre-computed daily aggregate documents instead of scanning
+    all contributions. This reduces Firestore reads from ~10,000 to 30.
 
     Headers:
         Authorization: Bearer <ANALYTICS_KEY>
@@ -268,34 +334,44 @@ async def contribution_stats(request: Request, authorization: str = Header(None)
         return {"error": "Firestore client not available"}
 
     try:
-        # Get contributions from last 30 days
-        thirty_days_ago = time.time() - (30 * 24 * 60 * 60)
+        # Generate date strings for the last 30 days
+        today = datetime.now(timezone.utc)
+        date_strings = [
+            (today - __import__("datetime").timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(30)
+        ]
 
-        contributions = await asyncio.to_thread(
-            lambda: list(
-                client.collection(_CONTRIBUTIONS_COLLECTION)
-                .where("created_at", ">=", thirty_days_ago)
-                .where("status", "==", "completed")
-                .limit(10000)
-                .stream()
-            )
-        )
+        # Read all 30 daily aggregate docs
+        def fetch_daily_docs():
+            docs = []
+            for date_str in date_strings:
+                doc_ref = client.collection(_CONTRIBUTIONS_AGGREGATES_COLLECTION).document(f"daily/{date_str}")
+                doc = doc_ref.get()
+                if doc.exists:
+                    docs.append(doc.to_dict())
+            return docs
 
+        daily_docs = await asyncio.to_thread(fetch_daily_docs)
+
+        # Aggregate across days
+        total_contributions = 0
         total_amount = 0
         count_by_amount: dict[int, int] = {}
 
-        for doc in contributions:
-            data = doc.to_dict()
-            amount = data.get("amount_cents", 0)
-            total_amount += amount
-            count_by_amount[amount] = count_by_amount.get(amount, 0) + 1
+        for doc_data in daily_docs:
+            total_contributions += doc_data.get("total_contributions", 0)
+            total_amount += doc_data.get("total_amount_cents", 0)
 
-        total_count = len(contributions)
-        avg_amount = total_amount / total_count if total_count > 0 else 0
+            # Merge count_by_amount
+            for amount_str, count in doc_data.get("count_by_amount", {}).items():
+                amount = int(amount_str)
+                count_by_amount[amount] = count_by_amount.get(amount, 0) + count
+
+        avg_amount = total_amount / total_contributions if total_contributions > 0 else 0
 
         return {
             "period": "last_30_days",
-            "total_contributions": total_count,
+            "total_contributions": total_contributions,
             "total_amount_cents": total_amount,
             "average_amount_cents": round(avg_amount, 2),
             "contribution_count_by_amount": dict(sorted(count_by_amount.items())),

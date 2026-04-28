@@ -158,6 +158,67 @@ class TestInMemorySessionStore:
         sessions = session_store.list_by_owner("user-A", limit=3)
         assert len(sessions) == 3
 
+    def test_list_by_owner_summary(self, session_store, minimal_user_input):
+        """list_by_owner_summary should return dict summaries with expected keys."""
+        from app.models.schemas import NarrativeSegment
+
+        # Create sessions with segments and arc outlines
+        session = session_store.create("test-1", minimal_user_input)
+        session_store.set_owner("test-1", "user-A")
+        session.arc_outline = {"title": "Test Arc Title"}
+
+        # Add some segments including an image
+        text_seg = NarrativeSegment(type="text", content="Hello", trust_level="historical", sequence=0)
+        image_seg = NarrativeSegment(type="image", content="", trust_level="cultural", sequence=1,
+                                      media_data="base64imagedata", media_type="image/png")
+        session_store.append_segment("test-1", text_seg)
+        session_store.append_segment("test-1", image_seg)
+
+        summaries = session_store.list_by_owner_summary("user-A")
+
+        assert len(summaries) == 1
+        summary = summaries[0]
+
+        # Verify all expected keys are present
+        assert summary["session_id"] == "test-1"
+        assert summary["family_name"] == minimal_user_input.family_name
+        assert summary["region"] == minimal_user_input.region_of_origin
+        assert summary["era"] == minimal_user_input.time_period
+        assert summary["created_at"] > 0
+        assert summary["segment_count"] == 2
+        assert summary["first_image_data"] == "base64imagedata"
+        assert summary["first_image_type"] == "image/png"
+        assert summary["arc_title"] == "Test Arc Title"
+
+    def test_list_by_owner_summary_no_image(self, session_store, minimal_user_input):
+        """list_by_owner_summary should handle sessions without images."""
+        from app.models.schemas import NarrativeSegment
+
+        session_store.create("test-1", minimal_user_input)
+        session_store.set_owner("test-1", "user-A")
+
+        # Add only text segments
+        text_seg = NarrativeSegment(type="text", content="Hello", trust_level="historical", sequence=0)
+        session_store.append_segment("test-1", text_seg)
+
+        summaries = session_store.list_by_owner_summary("user-A")
+
+        assert len(summaries) == 1
+        summary = summaries[0]
+        assert summary["segment_count"] == 1
+        assert summary["first_image_data"] is None
+        assert summary["first_image_type"] is None
+        assert summary["arc_title"] is None
+
+    def test_list_by_owner_summary_respects_limit(self, session_store, minimal_user_input):
+        """list_by_owner_summary should respect the limit parameter."""
+        for i in range(5):
+            session_store.create(f"test-{i}", minimal_user_input)
+            session_store.set_owner(f"test-{i}", "user-A")
+
+        summaries = session_store.list_by_owner_summary("user-A", limit=3)
+        assert len(summaries) == 3
+
 
 class TestLRUEviction:
     """Tests for LRU eviction behavior."""

@@ -531,28 +531,6 @@ async def followup_stream(
 # Library endpoints (user's saved narratives)
 # ---------------------------------------------------------------------------
 
-class NarrativeSummary:
-    """Summary of a narrative for library listing."""
-    def __init__(
-        self,
-        session_id: str,
-        family_name: str,
-        region: str,
-        era: str,
-        created_at: float,
-        segment_count: int,
-        first_image_data: str | None = None,
-        arc_title: str | None = None,
-    ):
-        self.session_id = session_id
-        self.family_name = family_name
-        self.region = region
-        self.era = era
-        self.created_at = created_at
-        self.segment_count = segment_count
-        self.first_image_data = first_image_data
-        self.arc_title = arc_title
-
 
 @router.get("/narratives")
 async def list_narratives(
@@ -560,33 +538,14 @@ async def list_narratives(
     user: User = Depends(require_user),
     limit: int = Query(default=20, le=50),
 ):
-    """List user's saved narratives for the library."""
-    sessions = session_store.list_by_owner(user.user_id, limit=limit)
+    """List user's saved narratives for the library.
 
-    narratives = []
-    for session in sessions:
-        # Find first image for thumbnail
-        first_image = next(
-            (s for s in session.segments if s.type == "image" and s.media_data),
-            None
-        )
-
-        # Get arc title if available
-        arc_title = None
-        if session.arc_outline and isinstance(session.arc_outline, dict):
-            arc_title = session.arc_outline.get("title")
-
-        narratives.append({
-            "session_id": session.session_id,
-            "family_name": session.user_input.family_name,
-            "region": session.user_input.region_of_origin,
-            "era": session.user_input.time_period,
-            "created_at": session.created_at,
-            "segment_count": len(session.segments),
-            "first_image_data": first_image.media_data if first_image else None,
-            "first_image_type": first_image.media_type if first_image else None,
-            "arc_title": arc_title,
-        })
+    Uses list_by_owner_summary() which reads denormalized metadata from session docs,
+    avoiding N+1 subcollection queries. This reduces Firestore reads from 51 to 1
+    for a typical 50-session list.
+    """
+    # Use summary method - returns dicts with denormalized fields, no segment loads
+    narratives = session_store.list_by_owner_summary(user.user_id, limit=limit)
 
     return {"narratives": narratives}
 
